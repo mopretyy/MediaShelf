@@ -75,7 +75,7 @@
         display: flex;
         gap: 28px;
         justify-content: center;
-        filter: grayscale(1) brightness(0.32);
+        filter: grayscale(0.7) brightness(0.4);
         transform-origin: 1120px 800px;
         z-index: 0;
       }
@@ -189,6 +189,11 @@
         justify-content: center;
         gap: 56px;
         padding: 120px 160px;
+        background: radial-gradient(
+          ellipse 60% 42% at 50% 52%,
+          rgba(10, 10, 10, 0.75) 0%,
+          rgba(10, 10, 10, 0) 100%
+        );
       }
       #s2 .lockup {
         display: flex;
@@ -212,7 +217,10 @@
         font-size: 46px;
         font-weight: 500;
         letter-spacing: -0.015em;
-        color: #c9c9c9;
+        color: #ededed;
+        text-shadow:
+          0 2px 20px rgba(10, 10, 10, 0.95),
+          0 0 3px rgba(10, 10, 10, 0.9);
       }
 
       /* ---------- generic in-panel scene layout ---------- */
@@ -565,7 +573,7 @@
       data-width="1920"
       data-height="1080"
     >
-      <!-- Music: "Evaporate (Abstract Future Garage)" by NverAvetyanMusic, Pixabay Content License (see CREDITS.md). Cut 117.53s → 147.53s, drop lands on 4.27s. -->
+      <!-- Music: "Gravity Pulse" by cinematicflowfocus, Pixabay Content License (see CREDITS.md). Cut 2:22.86 → 2:52.86, drop lands on 4.27s. -->
       <audio
         id="music"
         src="assets/music.mp3"
@@ -760,58 +768,58 @@
       }
       var rnd = mulberry32(20261011)
 
-      // Poster palettes: hues sampled from the poster art in MediaShelf's docs/screenshots
-      // (Dune, Planet Earth II, Inception, Attack on Titan, Frieren, Witcher 3, Hades, Hollow Knight, Stardew Valley).
-      var PAL = [
-        ['#f2a541', '#b9662c', '#5a2a12'],
-        ['#9cc3dd', '#5d8a4f', '#24402a'],
-        ['#5f8aa3', '#223744', '#0f1a22'],
-        ['#f07a32', '#8d3a1f', '#2a0f0a'],
-        ['#dfeef5', '#8fb6cf', '#4c6e8c'],
-        ['#b2bfbc', '#635142', '#2a221c'],
-        ['#e2445c', '#7a1530', '#22060e'],
-        ['#6f8cf0', '#2b3a8f', '#0d1233'],
-        ['#9ad66f', '#3f8a46', '#163a20'],
-        ['#e9c46a', '#c26b3a', '#3b1d24'],
+      // Real covers, fetched from the same sources the MediaShelf app uses for posters:
+      // Cinemeta / metahub (films, series), Shikimori (anime), Steam library art (games). See CREDITS.md.
+      var MOVIES = [
+        'potc',
+        'inception',
+        'interstellar',
+        'dune2',
+        'matrix',
+        'lotr',
+        'oppenheimer',
+        'spiderverse',
+        'darkknight',
+        'br2049',
       ]
-      function posterHTML(i, w, h) {
-        var p = PAL[i % PAL.length]
-        var ang = 150 + Math.floor(rnd() * 40)
-        var sx = Math.floor(rnd() * 60) + 20,
-          sy = Math.floor(rnd() * 35) + 12,
-          sr = Math.floor(rnd() * 30) + 26
-        var hzH = Math.floor(rnd() * 25) + 22
-        var s = Math.round((sr / 100) * w)
+      var SERIES = ['witcher', 'got', 'bb', 'st', 'severance', 'arcane', 'tlou', 'sherlock', 'hotd']
+      var ANIME = ['aot', 'frieren', 'deathnote', 'fmab', 'jjk', 'kny', 'onepiece', 'bebop']
+      var GAMES = [
+        'gta5',
+        'witcher3',
+        'cp2077',
+        'eldenring',
+        'bg3',
+        'rdr2',
+        'hades',
+        'hk',
+        'stardew',
+        'gow',
+        'portal2',
+      ]
+      // interleave categories so neighbours on the shelf are always a different kind of title
+      var MIX = []
+      for (var mi = 0; mi < 11; mi++) {
+        ;[MOVIES, SERIES, ANIME, GAMES].forEach(function (arr, j) {
+          var v = arr[(mi + j * 3) % arr.length]
+          if (MIX.indexOf(v) < 0) MIX.push(v)
+        })
+      }
+      ;[MOVIES, SERIES, ANIME, GAMES].forEach(function (arr) {
+        arr.forEach(function (v) {
+          if (MIX.indexOf(v) < 0) MIX.push(v)
+        })
+      })
+      function posterHTML(id, w, h) {
         return (
           '<div class="poster" style="width:' +
           w +
           'px;height:' +
           h +
-          'px;background:linear-gradient(' +
-          ang +
-          'deg,' +
-          p[0] +
-          ' 0%,' +
-          p[1] +
-          ' 55%,' +
-          p[2] +
-          ' 100%)">' +
-          '<div class="sun" style="left:' +
-          Math.round((sx / 100) * w - s / 2) +
-          'px;top:' +
-          Math.round((sy / 100) * h) +
-          'px;width:' +
-          s +
-          'px;height:' +
-          s +
-          'px;background:radial-gradient(circle,' +
-          p[0] +
-          ' 0%, rgba(255,255,255,0) 70%)"></div>' +
-          '<div class="hz" style="height:' +
-          hzH +
-          '%;background:linear-gradient(rgba(0,0,0,0),' +
-          p[2] +
-          ')"></div>' +
+          'px">' +
+          '<img src="assets/covers/' +
+          id +
+          '.jpg" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />' +
           '</div>'
         )
       }
@@ -819,14 +827,36 @@
       // ---------- build poster wall ----------
       var wall = document.getElementById('wall')
       var COLS = 9,
-        PER = 6,
-        k = 0
+        PER = 6
+      // hand-placed covers in the most visible slots (col,row)
+      var FEATURED = {
+        '3,1': 'witcher',
+        '5,1': 'gta5',
+        '2,2': 'potc',
+        '6,2': 'witcher3',
+        '1,1': 'aot',
+        '7,1': 'interstellar',
+        '3,2': 'eldenring',
+        '5,2': 'frieren',
+        '4,1': 'got',
+        '4,2': 'cp2077',
+      }
+      var featuredIds = Object.keys(FEATURED).map(function (key) {
+        return FEATURED[key]
+      })
+      var FILL = MIX.filter(function (v) {
+        return featuredIds.indexOf(v) < 0
+      })
+      var fk = 0
       for (var c = 0; c < COLS; c++) {
         var col = document.createElement('div')
         col.className = 'wcol'
         col.id = 'wc' + c
         var html = ''
-        for (var r = 0; r < PER; r++) html += posterHTML(k++ * 3 + c, 220, 330)
+        for (var r = 0; r < PER; r++) {
+          var fid = FEATURED[c + ',' + r]
+          html += posterHTML(fid || FILL[(r * COLS + c) % FILL.length], 220, 330)
+        }
         col.innerHTML = html
         wall.appendChild(col)
       }
@@ -899,12 +929,19 @@
       // ---------- reels (S5) ----------
       var REEL_N = 16
       var LAND = [12, 13, 12],
-        LANDPAL = [0, 6, 7]
+        LANDID = ['potc', 'gta5', 'witcher']
+      var REELPOOL = MIX.filter(function (v) {
+        return LANDID.indexOf(v) < 0
+      })
       for (var q = 0; q < 3; q++) {
         var st = document.getElementById('strip' + q),
           hh = ''
         for (var n = 0; n < REEL_N; n++)
-          hh += posterHTML(n === LAND[q] ? LANDPAL[q] : n * 7 + q * 3 + 1, 240, 360)
+          hh += posterHTML(
+            n === LAND[q] ? LANDID[q] : REELPOOL[(n * 3 + q * 5 + 2) % REELPOOL.length],
+            240,
+            360,
+          )
         st.innerHTML = hh
       }
 
@@ -920,16 +957,16 @@
       })
 
       // =====================================================================
-      // TIMELINE — music grid: 112.25 BPM, beat = 0.534 s, drop at D = 4.27 s,
-      // phrase (8 bars) = 17.09 s → scene boundaries on bars.
+      // TIMELINE — music grid: 123.9 BPM, beat = 0.4843 s, drop at D = 4.27 s.
+      // Scene changes land on downbeats: every 2 bars, the shuffle scene gets 3 bars.
       // =====================================================================
-      var B = 0.534,
+      var B = 0.4843,
         D = 4.27
-      var T3 = D + 8 * B, // 8.54
-        T4 = D + 16 * B, // 12.81
-        T5 = D + 24 * B, // 17.09
-        T6 = D + 32 * B, // 21.36
-        T7 = D + 40 * B // 25.63
+      var T3 = D + 8 * B, // 8.14
+        T4 = D + 16 * B, // 12.02
+        T5 = D + 24 * B, // 15.89
+        T6 = D + 36 * B, // 21.70
+        T7 = D + 44 * B // 25.58
 
       window.__timelines = window.__timelines || {}
       var tl = gsap.timeline({ paused: true })
@@ -965,8 +1002,8 @@
         if (i < words.length - 1)
           tl.to(
             w,
-            { opacity: 0, y: -90, filter: 'blur(14px)', duration: 0.32, ease: 'power2.in' },
-            wt[i + 1] - 0.1,
+            { opacity: 0, y: -90, filter: 'blur(14px)', duration: 0.2, ease: 'power2.in' },
+            wt[i + 1] - 0.2,
           )
       })
       tl.from('#kick', { opacity: 0, y: 24, duration: 0.6, ease: 'sine.out' }, 0.5)
@@ -974,7 +1011,7 @@
       tl.to('#s1 .stack', { scale: 1.08, duration: D - 6 * B, ease: 'power2.in' }, 6 * B)
       tl.to(
         '#wall',
-        { filter: 'grayscale(1) brightness(0.42)', duration: 0.6, ease: 'power2.in' },
+        { filter: 'grayscale(0.7) brightness(0.5)', duration: 0.6, ease: 'power2.in' },
         D - 0.6,
       )
 
@@ -1201,15 +1238,15 @@
         { opacity: 0, x: -40, filter: 'blur(10px)', duration: 0.6, ease: 'power4.out' },
         T7 + 0.3,
       )
-      tl.from('#line7', { opacity: 0, y: 30, duration: 0.6, ease: 'sine.out' }, T7 + 2 * B)
+      tl.from('#line7', { opacity: 0, y: 30, duration: 0.6, ease: 'sine.out' }, T7 + 1.5 * B)
       tl.from(
         '#chips7 .chip',
         { opacity: 0, y: 24, duration: 0.45, ease: 'back.out(1.6)', stagger: B / 2 },
-        T7 + 3 * B,
+        T7 + 2 * B,
       )
-      tl.from('#cta7', { opacity: 0, scale: 0.9, duration: 0.55, ease: 'expo.out' }, T7 + 5 * B)
+      tl.from('#cta7', { opacity: 0, scale: 0.9, duration: 0.55, ease: 'expo.out' }, T7 + 3.5 * B)
       // final scene only: fade to black with the music tail
-      tl.to('#s7 .content', { opacity: 0, duration: 0.9, ease: 'power1.in' }, 29.0)
+      tl.to('#s7 .content', { opacity: 0, duration: 0.7, ease: 'power1.in' }, 29.3)
 
       window.__timelines['main'] = tl
     </script>
