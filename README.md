@@ -151,4 +151,4 @@ MediaShell is a self-hosted library for games, movies, series and anime. It has 
 
 ## Credits
 
-Avatars are original vector characters drawn as SVG components (`src/components/avatar-art.tsx`).
+Avatars are generated in the browser from a seed (`src/components/avatar-gen.ts`). The blob faces follow Boring Avatars “Beam” (MIT, © 2021 boringdesigners), the rounded figures use eyes and mouths from DiceBear “Thumbs” (CC0 1.0). The hats, glasses, ties and the duck are drawn for MediaShell.

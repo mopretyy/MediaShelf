@@ -269,18 +269,6 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-  /* Avatar line art: SVG alpha mask over a solid fill (the outline colour). */
-  .avatar-art {
-    display: block;
-    -webkit-mask-image: var(--art);
-    mask-image: var(--art);
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    -webkit-mask-size: contain;
-    mask-size: contain;
-  }
   /* While the shell scroller moves, the page ignores the pointer. The scroller itself still
      receives wheel input; only hover states (lifting cards, zooming covers) pause. */
   [data-scrolling] > * {

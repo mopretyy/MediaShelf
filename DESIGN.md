@@ -35,6 +35,7 @@ Strict black and white, in the spirit of Apple and ChatGPT. The layout follows H
   - Glass (`.liquid-float`) only on layers that float above content: menus, popovers, selects, dialogs, the command palette, the mobile tab bar and the sticky title bar after scrolling.
   - No coloured glows. The profile avatar sits in a page-coloured gap with a hairline ring, and an empty profile banner is a quiet `bg-raised` surface in the current theme, not a dark slab.
   - Colour in the profile banner only comes from the user's posters, a favourite's backdrop or a gradient preset the user picked.
+  - Avatars are generated cartoon faces (`src/components/avatar-gen.ts`) and count as artwork, like posters: each brings its own colour, the chrome around it stays neutral. Always a circle with a hairline ring drawn over the picture.
 - **Status glyphs**, distinguished by shape rather than colour:
   - dashed ring — planned
   - half-filled — in progress
