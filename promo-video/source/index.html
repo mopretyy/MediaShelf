@@ -1,0 +1,1254 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>MediaShelf — промо 30 с</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* Visual identity is taken from the MediaShelf repo: DESIGN.md + src/styles/index.css.
+         Monochrome UI (Geist grey scale), colour only comes from "posters". */
+      @font-face {
+        font-family: 'Inter Variable';
+        font-weight: 100 900;
+        font-display: block;
+        src: url('fonts/inter-latin-opsz-normal.woff2') format('woff2-variations');
+        unicode-range: U+0000-00FF, U+2000-206F, U+2212;
+      }
+      @font-face {
+        font-family: 'Inter Variable';
+        font-weight: 100 900;
+        font-display: block;
+        src: url('fonts/inter-cyrillic-opsz-normal.woff2') format('woff2-variations');
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      :root {
+        --bg: #0a0a0a;
+        --panel: #141414;
+        --raised: #1c1c1c;
+        --fg: #ededed;
+        --fg-2: #a1a1a1;
+        --fg-3: #8f8f8f;
+        --line: rgba(255, 255, 255, 0.09);
+        --line-strong: rgba(255, 255, 255, 0.2);
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      body {
+        font-family: 'Inter Variable', 'Inter', sans-serif;
+        color: var(--fg);
+        font-feature-settings: 'cv11', 'ss03';
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .display {
+        font-weight: 650;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .muted {
+        color: var(--fg-2);
+      }
+
+      /* ---------- shared layers ---------- */
+      #wall {
+        position: absolute;
+        left: -160px;
+        top: -260px;
+        width: 2240px;
+        height: 1600px;
+        display: flex;
+        gap: 28px;
+        justify-content: center;
+        filter: grayscale(0.7) brightness(0.4);
+        transform-origin: 1120px 800px;
+        z-index: 0;
+      }
+      .wcol {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        width: 220px;
+        flex: 0 0 220px;
+      }
+      .poster {
+        position: relative;
+        width: 220px;
+        height: 330px;
+        border-radius: 14px;
+        overflow: hidden;
+        flex: 0 0 auto;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+      }
+      .poster .sun {
+        position: absolute;
+        border-radius: 50%;
+        opacity: 0.85;
+      }
+      .poster .hz {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+      #vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse 70% 65% at 50% 50%,
+          rgba(10, 10, 10, 0) 0%,
+          rgba(10, 10, 10, 0.55) 60%,
+          #0a0a0a 100%
+        );
+        z-index: 1;
+      }
+      #flash {
+        position: absolute;
+        inset: 0;
+        background: #ededed;
+        opacity: 0;
+        z-index: 50;
+      }
+      #panel {
+        position: absolute;
+        inset: 36px;
+        border-radius: 32px;
+        background: var(--panel);
+        box-shadow: inset 0 0 0 1px var(--line);
+        opacity: 0;
+        z-index: 2;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        z-index: 5;
+      }
+      .scene + .scene {
+        opacity: 0;
+      }
+
+      /* ---------- S1 hook ---------- */
+      #s1 .stack {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      #s1 .word {
+        grid-area: 1 / 1;
+        font-size: 232px;
+        text-shadow: 0 8px 60px rgba(0, 0, 0, 0.6);
+      }
+      #s1 .kicker {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 150px;
+        text-align: center;
+        font-size: 36px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: var(--fg-2);
+      }
+
+      /* ---------- logo ---------- */
+      .logo {
+        position: relative;
+        flex: 0 0 auto;
+      }
+      .logo .bar {
+        position: absolute;
+        top: 0;
+        background: #fafafa;
+      }
+      #s2 .content {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 56px;
+        padding: 120px 160px;
+        background: radial-gradient(
+          ellipse 60% 42% at 50% 52%,
+          rgba(10, 10, 10, 0.75) 0%,
+          rgba(10, 10, 10, 0) 100%
+        );
+      }
+      #s2 .lockup {
+        display: flex;
+        align-items: center;
+        gap: 64px;
+      }
+      #s2 .logo {
+        width: 288px;
+        height: 288px;
+      }
+      #s2 .wordmark {
+        font-size: 196px;
+        overflow: hidden;
+        padding: 0 8px 18px;
+        display: flex;
+      }
+      #s2 .wordmark span {
+        display: inline-block;
+      }
+      #s2 .tagline {
+        font-size: 46px;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+        color: #ededed;
+        text-shadow:
+          0 2px 20px rgba(10, 10, 10, 0.95),
+          0 0 3px rgba(10, 10, 10, 0.9);
+      }
+
+      /* ---------- generic in-panel scene layout ---------- */
+      .pcontent {
+        position: absolute;
+        inset: 36px;
+        padding: 96px 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 72px;
+      }
+      .h {
+        font-size: 104px;
+      }
+      .sub {
+        font-size: 40px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: var(--fg-2);
+        margin-top: 24px;
+      }
+
+      /* ---------- S3 statuses ---------- */
+      #s3 .row {
+        position: relative;
+        display: flex;
+        gap: 36px;
+      }
+      #s3 .card {
+        width: 300px;
+        height: 340px;
+        border-radius: 24px;
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--line);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 40px;
+      }
+      #s3 .card svg {
+        width: 132px;
+        height: 132px;
+        display: block;
+      }
+      #s3 .card .lbl {
+        font-size: 34px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+        color: var(--fg-2);
+      }
+      #s3 .hl {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 300px;
+        height: 340px;
+        border-radius: 24px;
+        box-shadow:
+          inset 0 0 0 3px #ededed,
+          0 0 0 8px rgba(237, 237, 237, 0.08);
+        opacity: 0;
+      }
+
+      /* ---------- S4 progress ---------- */
+      #s4 .grid {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      #s4 .srow {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      #s4 .slabel {
+        width: 150px;
+        font-size: 32px;
+        font-weight: 550;
+        color: var(--fg-2);
+        font-variant-numeric: tabular-nums;
+      }
+      #s4 .ep {
+        width: 76px;
+        height: 76px;
+        border-radius: 16px;
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--line);
+        position: relative;
+      }
+      #s4 .ep .fill {
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        background: #ededed;
+        transform: scale(0);
+      }
+      #s4 .ep .fill svg {
+        position: absolute;
+        left: 22px;
+        top: 22px;
+        width: 32px;
+        height: 32px;
+      }
+      #s4 .bottom {
+        display: flex;
+        align-items: center;
+        gap: 48px;
+      }
+      #s4 .btn {
+        height: 96px;
+        padding: 0 44px;
+        border-radius: 18px;
+        background: #ededed;
+        color: #0a0a0a;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 40px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        flex: 0 0 auto;
+      }
+      #s4 .btn .plus {
+        font-size: 52px;
+        font-weight: 500;
+        line-height: 1;
+        margin-top: -6px;
+      }
+      #s4 .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        flex: 1;
+      }
+      #s4 .next {
+        position: relative;
+        height: 44px;
+        font-size: 36px;
+        font-weight: 550;
+        font-variant-numeric: tabular-nums;
+      }
+      #s4 .next span {
+        position: absolute;
+        left: 0;
+        top: 0;
+        white-space: nowrap;
+      }
+      #s4 .track {
+        height: 12px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        width: 100%;
+      }
+      #s4 .track .val {
+        display: block;
+        height: 12px;
+        width: 100%;
+        border-radius: 6px;
+        background: #ededed;
+        transform-origin: 0 50%;
+        transform: scaleX(0.1);
+      }
+
+      /* ---------- S5 shuffle ---------- */
+      #s5 .split {
+        position: absolute;
+        inset: 36px;
+        display: flex;
+        align-items: center;
+        padding: 0 120px;
+        gap: 80px;
+      }
+      #s5 .copy {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+      }
+      #s5 .copy .h {
+        font-size: 100px;
+      }
+      #s5 .reels {
+        position: relative;
+        display: flex;
+        gap: 28px;
+        height: 1008px;
+        flex: 0 0 auto;
+      }
+      #s5 .reel {
+        width: 240px;
+        height: 1008px;
+        overflow: hidden;
+        position: relative;
+      }
+      #s5 .strip {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      #s5 .strip .poster {
+        width: 240px;
+        height: 360px;
+      }
+      #s5 .frame {
+        position: absolute;
+        left: -14px;
+        right: -14px;
+        top: 310px;
+        height: 388px;
+        border-radius: 26px;
+        box-shadow: inset 0 0 0 3px #ededed;
+        opacity: 0;
+      }
+      #s5 .fadeT,
+      #s5 .fadeB {
+        position: absolute;
+        left: -20px;
+        right: -20px;
+        height: 300px;
+        z-index: 3;
+      }
+      #s5 .fadeT {
+        top: 0;
+        background: linear-gradient(#141414, rgba(20, 20, 20, 0));
+      }
+      #s5 .fadeB {
+        bottom: 0;
+        background: linear-gradient(rgba(20, 20, 20, 0), #141414);
+      }
+
+      /* ---------- S6 stats ---------- */
+      #s6 .stats {
+        display: flex;
+        gap: 36px;
+      }
+      #s6 .stat {
+        flex: 1;
+        height: 300px;
+        border-radius: 24px;
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--line);
+        padding: 40px 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      #s6 .stat .k {
+        font-size: 32px;
+        font-weight: 550;
+        color: var(--fg-2);
+      }
+      #s6 .stat .v {
+        font-size: 150px;
+        font-weight: 650;
+        letter-spacing: -0.035em;
+        line-height: 0.9;
+        font-variant-numeric: tabular-nums;
+      }
+      #s6 .stat .v small {
+        font-size: 56px;
+        letter-spacing: -0.01em;
+        color: var(--fg-2);
+        font-weight: 550;
+        margin-left: 10px;
+      }
+      #s6 .chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 22px;
+        height: 200px;
+      }
+      #s6 .chart i {
+        display: block;
+        flex: 1;
+        border-radius: 10px 10px 4px 4px;
+        background: #3a3a3a;
+        transform-origin: 50% 100%;
+      }
+
+      /* ---------- S7 end ---------- */
+      #s7 .content {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 48px;
+        padding: 120px 160px;
+      }
+      #s7 .lockup {
+        display: flex;
+        align-items: center;
+        gap: 44px;
+      }
+      #s7 .logo {
+        width: 176px;
+        height: 176px;
+      }
+      #s7 .wordmark {
+        font-size: 150px;
+        padding-bottom: 12px;
+      }
+      #s7 .line {
+        font-size: 48px;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+        color: #c9c9c9;
+      }
+      #s7 .cta {
+        margin-top: 24px;
+        height: 104px;
+        padding: 0 52px;
+        border-radius: 20px;
+        background: #ededed;
+        color: #0a0a0a;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        font-size: 42px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      #s7 .chips {
+        display: flex;
+        gap: 18px;
+      }
+      #s7 .chip {
+        height: 72px;
+        padding: 0 32px;
+        border-radius: 14px;
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+        display: flex;
+        align-items: center;
+        font-size: 34px;
+        font-weight: 550;
+        color: #b5b5b5;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Music: "Gravity Pulse" by cinematicflowfocus, Pixabay Content License (see CREDITS.md). Cut 2:22.86 → 2:52.86, drop lands on 4.27s. -->
+      <audio
+        id="music"
+        src="assets/music.mp3"
+        data-start="0"
+        data-duration="30"
+        data-track-index="2"
+        data-volume="1"
+      ></audio>
+
+      <div id="wall" data-layout-ignore></div>
+      <div id="vignette" data-layout-ignore></div>
+      <div id="panel" data-layout-ignore></div>
+
+      <!-- S1: hook -->
+      <section id="s1" class="scene">
+        <div class="stack">
+          <div class="word display" id="w1">Игры.</div>
+          <div class="word display" id="w2">Фильмы.</div>
+          <div class="word display" id="w3">Сериалы.</div>
+          <div class="word display" id="w4">Аниме.</div>
+        </div>
+        <div class="kicker" id="kick">Всё, что ты смотришь и во что играешь</div>
+      </section>
+
+      <!-- S2: logo -->
+      <section id="s2" class="scene">
+        <div class="content">
+          <div class="lockup">
+            <div class="logo" id="logo2"></div>
+            <div class="wordmark display" id="wm2"></div>
+          </div>
+          <div class="tagline" id="tag2">Игры, фильмы, сериалы и аниме — в одной библиотеке</div>
+        </div>
+      </section>
+
+      <!-- S3: statuses -->
+      <section id="s3" class="scene">
+        <div class="pcontent">
+          <div>
+            <div class="h display" id="h3">Пять статусов. Ноль хаоса.</div>
+          </div>
+          <div class="row" id="row3">
+            <div class="card">
+              <svg viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#ededed"
+                  stroke-width="8"
+                  stroke-dasharray="13 9.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <div class="lbl">В планах</div>
+            </div>
+            <div class="card">
+              <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#ededed" stroke-width="8" />
+                <path d="M50 18 A32 32 0 0 0 50 82 Z" fill="#ededed" />
+              </svg>
+              <div class="lbl">В процессе</div>
+            </div>
+            <div class="card">
+              <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#ededed" stroke-width="8" />
+                <rect x="36" y="32" width="9" height="36" rx="3" fill="#ededed" />
+                <rect x="55" y="32" width="9" height="36" rx="3" fill="#ededed" />
+              </svg>
+              <div class="lbl">Отложено</div>
+            </div>
+            <div class="card">
+              <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="44" fill="#ededed" />
+                <path
+                  d="M31 51 L44 64 L70 37"
+                  fill="none"
+                  stroke="#141414"
+                  stroke-width="9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <div class="lbl">Завершено</div>
+            </div>
+            <div class="card">
+              <svg viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#ededed" stroke-width="8" />
+                <rect x="30" y="45.5" width="40" height="9" rx="4.5" fill="#ededed" />
+              </svg>
+              <div class="lbl">Брошено</div>
+            </div>
+            <div class="hl" id="hl3"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- S4: episodes / progress -->
+      <section id="s4" class="scene">
+        <div class="pcontent" style="gap: 64px">
+          <div>
+            <div class="h display" id="h4">+1 серия. Одним нажатием.</div>
+            <div class="sub" id="sub4">Серии сериалов и аниме, прохождения и часы в играх</div>
+          </div>
+          <div class="grid" id="grid4"></div>
+          <div class="bottom">
+            <div class="btn" id="btn4"><span class="plus">+</span><span>1 серия</span></div>
+            <div class="meta">
+              <div class="next" id="next4">
+                <span id="n5">Следующая · S3 · E5</span>
+                <span id="n6" style="opacity: 0">Следующая · S3 · E6</span>
+                <span id="n7" style="opacity: 0">Следующая · S3 · E7</span>
+                <span id="n8" style="opacity: 0">Следующая · S3 · E8</span>
+              </div>
+              <div class="track"><span class="val" id="val4"></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- S5: shuffle -->
+      <section id="s5" class="scene">
+        <div class="split">
+          <div class="copy">
+            <div class="h display" id="h5a">Не знаешь, что включить?</div>
+            <div class="h display" id="h5b" style="color: #ededed">Жребий решит.</div>
+          </div>
+          <div class="reels" id="reels5">
+            <div class="reel"><div class="strip" id="strip0"></div></div>
+            <div class="reel"><div class="strip" id="strip1"></div></div>
+            <div class="reel"><div class="strip" id="strip2"></div></div>
+            <div class="fadeT"></div>
+            <div class="fadeB"></div>
+            <div class="frame" id="frame5"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- S6: stats -->
+      <section id="s6" class="scene">
+        <div class="pcontent" style="gap: 56px">
+          <div class="h display" id="h6">Твой год — в цифрах.</div>
+          <div class="stats">
+            <div class="stat">
+              <div class="k">Часов потрачено</div>
+              <div class="v"><span id="c1">0</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Серий просмотрено</div>
+              <div class="v"><span id="c2">0</span></div>
+            </div>
+            <div class="stat">
+              <div class="k">Средняя оценка</div>
+              <div class="v"><span id="c3">0,0</span><small>/10</small></div>
+            </div>
+          </div>
+          <div class="chart" id="chart6"></div>
+        </div>
+      </section>
+
+      <!-- S7: end card -->
+      <section id="s7" class="scene">
+        <div class="content">
+          <div class="lockup">
+            <div class="logo" id="logo7"></div>
+            <div class="wordmark display" id="wm7">MediaShelf</div>
+          </div>
+          <div class="line" id="line7">Твоя личная библиотека. На твоём компьютере.</div>
+          <div class="chips" id="chips7">
+            <div class="chip">Бесплатно</div>
+            <div class="chip">Без ключей API</div>
+            <div class="chip">Русский и English</div>
+          </div>
+          <div class="cta" id="cta7">github.com/mopretyy/MediaShelf</div>
+        </div>
+      </section>
+
+      <div id="flash" data-layout-ignore></div>
+    </div>
+
+    <script>
+      // ---------- deterministic helpers ----------
+      function mulberry32(a) {
+        return function () {
+          a |= 0
+          a = (a + 0x6d2b79f5) | 0
+          var t = Math.imul(a ^ (a >>> 15), 1 | a)
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+        }
+      }
+      var rnd = mulberry32(20261011)
+
+      // Real covers, fetched from the same sources the MediaShelf app uses for posters:
+      // Cinemeta / metahub (films, series), Shikimori (anime), Steam library art (games). See CREDITS.md.
+      var MOVIES = [
+        'potc',
+        'inception',
+        'interstellar',
+        'dune2',
+        'matrix',
+        'lotr',
+        'oppenheimer',
+        'spiderverse',
+        'darkknight',
+        'br2049',
+      ]
+      var SERIES = ['witcher', 'got', 'bb', 'st', 'severance', 'arcane', 'tlou', 'sherlock', 'hotd']
+      var ANIME = ['aot', 'frieren', 'deathnote', 'fmab', 'jjk', 'kny', 'onepiece', 'bebop']
+      var GAMES = [
+        'gta5',
+        'witcher3',
+        'cp2077',
+        'eldenring',
+        'bg3',
+        'rdr2',
+        'hades',
+        'hk',
+        'stardew',
+        'gow',
+        'portal2',
+      ]
+      // interleave categories so neighbours on the shelf are always a different kind of title
+      var MIX = []
+      for (var mi = 0; mi < 11; mi++) {
+        ;[MOVIES, SERIES, ANIME, GAMES].forEach(function (arr, j) {
+          var v = arr[(mi + j * 3) % arr.length]
+          if (MIX.indexOf(v) < 0) MIX.push(v)
+        })
+      }
+      ;[MOVIES, SERIES, ANIME, GAMES].forEach(function (arr) {
+        arr.forEach(function (v) {
+          if (MIX.indexOf(v) < 0) MIX.push(v)
+        })
+      })
+      function posterHTML(id, w, h) {
+        return (
+          '<div class="poster" style="width:' +
+          w +
+          'px;height:' +
+          h +
+          'px">' +
+          '<img src="assets/covers/' +
+          id +
+          '.jpg" alt="" style="width:100%;height:100%;object-fit:cover;display:block" />' +
+          '</div>'
+        )
+      }
+
+      // ---------- build poster wall ----------
+      var wall = document.getElementById('wall')
+      var COLS = 9,
+        PER = 6
+      // hand-placed covers in the most visible slots (col,row)
+      var FEATURED = {
+        '3,1': 'witcher',
+        '5,1': 'gta5',
+        '2,2': 'potc',
+        '6,2': 'witcher3',
+        '1,1': 'aot',
+        '7,1': 'interstellar',
+        '3,2': 'eldenring',
+        '5,2': 'frieren',
+        '4,1': 'got',
+        '4,2': 'cp2077',
+      }
+      var featuredIds = Object.keys(FEATURED).map(function (key) {
+        return FEATURED[key]
+      })
+      var FILL = MIX.filter(function (v) {
+        return featuredIds.indexOf(v) < 0
+      })
+      var fk = 0
+      for (var c = 0; c < COLS; c++) {
+        var col = document.createElement('div')
+        col.className = 'wcol'
+        col.id = 'wc' + c
+        var html = ''
+        for (var r = 0; r < PER; r++) {
+          var fid = FEATURED[c + ',' + r]
+          html += posterHTML(fid || FILL[(r * COLS + c) % FILL.length], 220, 330)
+        }
+        col.innerHTML = html
+        wall.appendChild(col)
+      }
+
+      // ---------- logos (MediaShelf favicon geometry, 64-unit grid) ----------
+      function buildLogo(el, size, prefix) {
+        var u = size / 64
+        var bars = [
+          { x: 15, y: 16, w: 8, h: 32, o: 1, r: 0 },
+          { x: 27, y: 16, w: 8, h: 32, o: 0.72, r: 0 },
+          { x: 38.2, y: 17.4, w: 8, h: 31, o: 0.44, r: -14 },
+        ]
+        var h = ''
+        bars.forEach(function (b, i) {
+          h +=
+            '<div class="bar" id="' +
+            prefix +
+            i +
+            '" style="left:' +
+            b.x * u +
+            'px;top:' +
+            b.y * u +
+            'px;width:' +
+            b.w * u +
+            'px;height:' +
+            b.h * u +
+            'px;border-radius:' +
+            2.5 * u +
+            'px;opacity:' +
+            b.o +
+            ';transform:rotate(' +
+            b.r +
+            'deg);transform-origin:50% 50%"></div>'
+        })
+        el.innerHTML = h
+      }
+      // the icon sits on a #0a0a0a rounded tile in the favicon; on a #0a0a0a frame the tile is invisible, so bars only.
+      buildLogo(document.getElementById('logo2'), 288, 'l2b')
+      buildLogo(document.getElementById('logo7'), 176, 'l7b')
+
+      // wordmark letters (S2)
+      var wm2 = document.getElementById('wm2')
+      'MediaShelf'.split('').forEach(function (ch) {
+        var s = document.createElement('span')
+        s.textContent = ch
+        wm2.appendChild(s)
+      })
+
+      // ---------- episode grid (S4) ----------
+      var grid = document.getElementById('grid4')
+      var CHECK =
+        '<svg viewBox="0 0 32 32"><path d="M7 16.5 L13.5 23 L25 10" fill="none" stroke="#0a0a0a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      for (var sN = 1; sN <= 3; sN++) {
+        var row = document.createElement('div')
+        row.className = 'srow'
+        var rh = '<div class="slabel">Сезон ' + sN + '</div>'
+        for (var e = 1; e <= 13; e++)
+          rh +=
+            '<div class="ep" id="ep' +
+            sN +
+            '_' +
+            e +
+            '"><div class="fill">' +
+            CHECK +
+            '</div></div>'
+        row.innerHTML = rh
+        grid.appendChild(row)
+      }
+
+      // ---------- reels (S5) ----------
+      var REEL_N = 16
+      var LAND = [12, 13, 12],
+        LANDID = ['potc', 'gta5', 'witcher']
+      var REELPOOL = MIX.filter(function (v) {
+        return LANDID.indexOf(v) < 0
+      })
+      for (var q = 0; q < 3; q++) {
+        var st = document.getElementById('strip' + q),
+          hh = ''
+        for (var n = 0; n < REEL_N; n++)
+          hh += posterHTML(
+            n === LAND[q] ? LANDID[q] : REELPOOL[(n * 3 + q * 5 + 2) % REELPOOL.length],
+            240,
+            360,
+          )
+        st.innerHTML = hh
+      }
+
+      // ---------- chart (S6) ----------
+      var chart = document.getElementById('chart6')
+      var HEIGHTS = [28, 40, 34, 52, 46, 60, 38, 72, 64, 80, 70, 100]
+      HEIGHTS.forEach(function (v, i) {
+        var b = document.createElement('i')
+        b.style.height = v * 2 + 'px'
+        if (i === HEIGHTS.length - 1) b.style.background = '#ededed'
+        else if (v >= 60) b.style.background = '#6b6b6b'
+        chart.appendChild(b)
+      })
+
+      // =====================================================================
+      // TIMELINE — music grid: 123.9 BPM, beat = 0.4843 s, drop at D = 4.27 s.
+      // Scene changes land on downbeats: every 2 bars, the shuffle scene gets 3 bars.
+      // =====================================================================
+      var B = 0.4843,
+        D = 4.27
+      var T3 = D + 8 * B, // 8.14
+        T4 = D + 16 * B, // 12.02
+        T5 = D + 24 * B, // 15.89
+        T6 = D + 36 * B, // 21.70
+        T7 = D + 44 * B // 25.58
+
+      window.__timelines = window.__timelines || {}
+      var tl = gsap.timeline({ paused: true })
+
+      // ---------- shared wall drift (whole intro) ----------
+      for (var c2 = 0; c2 < COLS; c2++) {
+        var dir = c2 % 2 === 0 ? -1 : 1
+        tl.fromTo(
+          '#wc' + c2,
+          { y: dir * -60 },
+          { y: dir * 120 + (c2 - 4) * 6, duration: T3 + 1, ease: 'none' },
+          0,
+        )
+      }
+      tl.fromTo(
+        '#wall',
+        { scale: 1.12, rotation: -4 },
+        { scale: 0.98, rotation: -2, duration: D, ease: 'power1.in' },
+        0,
+      )
+
+      // ---------- S1 hook (0 → D) ----------
+      var words = ['#w1', '#w2', '#w3', '#w4']
+      var wt = [0.18, 2 * B, 4 * B, 6 * B]
+      var eases = ['expo.out', 'power4.out', 'back.out(1.6)', 'power3.out']
+      words.forEach(function (w, i) {
+        tl.fromTo(
+          w,
+          { opacity: 0, y: 90, filter: 'blur(18px)', scale: 0.96 },
+          { opacity: 1, y: 0, filter: 'blur(0px)', scale: 1, duration: 0.5, ease: eases[i] },
+          wt[i],
+        )
+        if (i < words.length - 1)
+          tl.to(
+            w,
+            { opacity: 0, y: -90, filter: 'blur(14px)', duration: 0.2, ease: 'power2.in' },
+            wt[i + 1] - 0.2,
+          )
+      })
+      tl.from('#kick', { opacity: 0, y: 24, duration: 0.6, ease: 'sine.out' }, 0.5)
+      // pre-drop tension: everything gets pulled in
+      tl.to('#s1 .stack', { scale: 1.08, duration: D - 6 * B, ease: 'power2.in' }, 6 * B)
+      tl.to(
+        '#wall',
+        { filter: 'grayscale(0.7) brightness(0.5)', duration: 0.6, ease: 'power2.in' },
+        D - 0.6,
+      )
+
+      // ---------- DROP → S2 (overexposure burn) ----------
+      tl.to('#flash', { opacity: 0.9, duration: 0.07, ease: 'power2.in' }, D - 0.07)
+      tl.set('#s1', { opacity: 0 }, D)
+      tl.set('#s2', { opacity: 1 }, D)
+      tl.to('#flash', { opacity: 0, duration: 0.55, ease: 'power2.out' }, D)
+      tl.to(
+        '#wall',
+        { filter: 'grayscale(0) brightness(0.5)', duration: 0.5, ease: 'power2.out' },
+        D,
+      )
+      tl.fromTo(
+        '#wall',
+        { scale: 0.98 },
+        { scale: 1.16, rotation: 2, duration: T3 - D, ease: 'power3.out' },
+        D,
+      )
+
+      // ---------- S2 logo ----------
+      ;[0, 1, 2].forEach(function (i) {
+        tl.from(
+          '#l2b' + i,
+          { y: -520, opacity: 0, duration: 0.42, ease: i === 2 ? 'back.out(2)' : 'expo.out' },
+          D + i * B,
+        )
+      })
+      tl.from('#logo2', { scale: 1.12, duration: 3 * B, ease: 'power2.out' }, D)
+      tl.from(
+        '#wm2 span',
+        { yPercent: 110, opacity: 0, duration: 0.55, ease: 'power4.out', stagger: 0.035 },
+        D + 3 * B,
+      )
+      tl.from(
+        '#tag2',
+        { opacity: 0, y: 30, filter: 'blur(8px)', duration: 0.7, ease: 'sine.out' },
+        D + 5 * B,
+      )
+      tl.to('#s2 .content', { scale: 1.04, duration: T3 - D - 3 * B, ease: 'none' }, D + 3 * B)
+
+      // ---------- transition S2 → S3 (zoom through into the app panel) ----------
+      tl.to(
+        '#s2',
+        { scale: 1.25, opacity: 0, filter: 'blur(16px)', duration: 0.4, ease: 'power3.in' },
+        T3 - 0.3,
+      )
+      tl.to('#wall', { opacity: 0, duration: 0.45, ease: 'power2.in' }, T3 - 0.3)
+      tl.fromTo(
+        '#panel',
+        { opacity: 0, scale: 0.9 },
+        { opacity: 1, scale: 1, duration: 0.55, ease: 'expo.out' },
+        T3 - 0.1,
+      )
+      tl.set('#s3', { opacity: 1 }, T3 - 0.1)
+      tl.from(
+        '#s3 .pcontent',
+        { scale: 0.92, filter: 'blur(10px)', duration: 0.55, ease: 'expo.out' },
+        T3 - 0.1,
+      )
+
+      // ---------- S3 statuses ----------
+      tl.from('#h3', { opacity: 0, x: -60, duration: 0.6, ease: 'power4.out' }, T3 + 0.05)
+      tl.from(
+        '#row3 .card',
+        { opacity: 0, y: 120, rotation: 3, duration: 0.55, ease: 'back.out(1.5)', stagger: B / 2 },
+        T3 + B,
+      )
+      tl.from(
+        '#row3 .card svg',
+        { scale: 0.4, rotation: -90, duration: 0.6, ease: 'expo.out', stagger: B / 2 },
+        T3 + B + 0.08,
+      )
+      // highlight travels: В планах → В процессе → Завершено
+      var CW = 336 // card + gap
+      tl.fromTo(
+        '#hl3',
+        { opacity: 0, x: 0, scale: 1.08 },
+        { opacity: 1, scale: 1, duration: 0.3, ease: 'power2.out' },
+        T3 + 5 * B,
+      )
+      tl.to('#hl3', { x: CW, duration: 0.32, ease: 'expo.out' }, T3 + 6 * B)
+      tl.to('#hl3', { x: 3 * CW, duration: 0.4, ease: 'expo.out' }, T3 + 7 * B)
+      tl.to('#row3 .card:nth-child(1) .lbl', { color: '#ededed', duration: 0.2 }, T3 + 5 * B)
+      tl.to('#row3 .card:nth-child(1) .lbl', { color: '#a1a1a1', duration: 0.2 }, T3 + 6 * B)
+      tl.to('#row3 .card:nth-child(2) .lbl', { color: '#ededed', duration: 0.2 }, T3 + 6 * B)
+      tl.to('#row3 .card:nth-child(2) .lbl', { color: '#a1a1a1', duration: 0.2 }, T3 + 7 * B)
+      tl.to('#row3 .card:nth-child(4) .lbl', { color: '#ededed', duration: 0.2 }, T3 + 7 * B)
+
+      // ---------- transition S3 → S4 (push left) ----------
+      tl.to('#s3', { x: -1920, duration: 0.5, ease: 'power3.inOut' }, T4 - 0.25)
+      tl.set('#s4', { opacity: 1 }, T4 - 0.25)
+      tl.fromTo('#s4', { x: 1920 }, { x: 0, duration: 0.5, ease: 'power3.inOut' }, T4 - 0.25)
+
+      // ---------- S4 progress ----------
+      tl.from('#h4', { opacity: 0, y: 50, duration: 0.55, ease: 'expo.out' }, T4 + 0.2)
+      tl.from('#sub4', { opacity: 0, y: 24, duration: 0.5, ease: 'sine.out' }, T4 + 0.45)
+      tl.from(
+        '#grid4 .srow',
+        { opacity: 0, x: 80, duration: 0.5, ease: 'power3.out', stagger: 0.08 },
+        T4 + 0.3,
+      )
+      tl.from('#s4 .bottom', { opacity: 0, y: 40, duration: 0.5, ease: 'power2.out' }, T4 + 0.6)
+      // seasons 1 & 2 fill as a wave, season 3 up to E4
+      var fills = []
+      for (var e1 = 1; e1 <= 13; e1++) fills.push('#ep1_' + e1 + ' .fill')
+      for (var e2 = 1; e2 <= 13; e2++) fills.push('#ep2_' + e2 + ' .fill')
+      for (var e3 = 1; e3 <= 4; e3++) fills.push('#ep3_' + e3 + ' .fill')
+      tl.to(fills, { scale: 1, duration: 0.28, ease: 'back.out(2)', stagger: 0.028 }, T4 + 2 * B)
+      tl.to('#val4', { scaleX: 30 / 39, duration: 1.0, ease: 'power2.out' }, T4 + 2 * B)
+      // three presses of "+1 серия" on the beat
+      ;[5, 6, 7].forEach(function (ep, i) {
+        var t = T4 + (5 + i) * B
+        tl.to('#btn4', { scale: 0.93, duration: 0.07, ease: 'power2.in' }, t - 0.07)
+        tl.to('#btn4', { scale: 1, duration: 0.3, ease: 'back.out(3)' }, t)
+        tl.to('#ep3_' + ep + ' .fill', { scale: 1, duration: 0.3, ease: 'back.out(2.4)' }, t)
+        tl.to('#val4', { scaleX: (31 + i) / 39, duration: 0.3, ease: 'expo.out' }, t)
+        tl.set('#n' + ep, { opacity: 0 }, t)
+        tl.fromTo(
+          '#n' + (ep + 1),
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.25, ease: 'power3.out' },
+          t,
+        )
+      })
+
+      // ---------- transition S4 → S5 (vertical push, reel direction) ----------
+      tl.to('#s4', { y: -1080, duration: 0.5, ease: 'power3.inOut' }, T5 - 0.25)
+      tl.set('#s5', { opacity: 1 }, T5 - 0.25)
+      tl.fromTo('#s5', { y: 1080 }, { y: 0, duration: 0.5, ease: 'power3.inOut' }, T5 - 0.25)
+
+      // ---------- S5 shuffle (reel decelerates over 2.6 s like the app) ----------
+      var STEP = 384 // poster + gap
+      var landing = LAND // index of poster that lands in the frame
+      for (var r5 = 0; r5 < 3; r5++) {
+        var finalY = -(landing[r5] * STEP) + 324
+        tl.fromTo(
+          '#strip' + r5,
+          { y: 324 - 1 * STEP },
+          { y: finalY, duration: 2.6 + r5 * 0.25, ease: 'power4.out' },
+          T5 + 0.1,
+        )
+      }
+      tl.from('#h5a', { opacity: 0, x: -60, duration: 0.6, ease: 'expo.out' }, T5 + 0.25)
+      tl.from(
+        '#h5b',
+        { opacity: 0, y: 50, scale: 0.94, duration: 0.55, ease: 'back.out(1.8)' },
+        T5 + 0.1 + 2.6 + 0.5,
+      )
+      tl.fromTo(
+        '#frame5',
+        { opacity: 0, scale: 1.08 },
+        { opacity: 1, scale: 1, duration: 0.35, ease: 'power3.out' },
+        T5 + 0.1 + 2.6 + 0.5,
+      )
+      tl.to('#strip0, #strip2', { opacity: 0.45, duration: 0.4, ease: 'sine.inOut' }, T5 + 3.3)
+
+      // ---------- transition S5 → S6 (blur through) ----------
+      tl.to(
+        '#s5',
+        { filter: 'blur(18px)', scale: 1.06, opacity: 0, duration: 0.4, ease: 'power2.in' },
+        T6 - 0.3,
+      )
+      tl.set('#s6', { opacity: 1 }, T6 - 0.1)
+      tl.fromTo(
+        '#s6',
+        { filter: 'blur(18px)', scale: 0.95 },
+        { filter: 'blur(0px)', scale: 1, duration: 0.45, ease: 'power2.out' },
+        T6 - 0.1,
+      )
+
+      // ---------- S6 stats ----------
+      tl.from('#h6', { opacity: 0, y: 50, duration: 0.55, ease: 'expo.out' }, T6 + 0.1)
+      tl.from(
+        '#s6 .stat',
+        { opacity: 0, y: 70, duration: 0.5, ease: 'power3.out', stagger: B / 2 },
+        T6 + 0.3,
+      )
+      var ctr = { a: 0, b: 0, c: 0 }
+      var c1 = document.getElementById('c1'),
+        c2el = document.getElementById('c2'),
+        c3 = document.getElementById('c3')
+      tl.to(
+        ctr,
+        {
+          a: 357,
+          b: 213,
+          c: 9,
+          duration: 2.0,
+          ease: 'power3.out',
+          onUpdate: function () {
+            c1.textContent = Math.round(ctr.a)
+            c2el.textContent = Math.round(ctr.b)
+            c3.textContent = ctr.c.toFixed(1).replace('.', ',')
+          },
+        },
+        T6 + 0.4,
+      )
+      tl.from(
+        '#chart6 i',
+        { scaleY: 0, duration: 0.5, ease: 'expo.out', stagger: B / 4 },
+        T6 + 2 * B,
+      )
+
+      // ---------- transition S6 → S7 (panel recedes, end card) ----------
+      tl.to(
+        '#s6',
+        { scale: 0.9, opacity: 0, filter: 'blur(12px)', duration: 0.45, ease: 'power3.in' },
+        T7 - 0.35,
+      )
+      tl.to('#panel', { scale: 0.86, opacity: 0, duration: 0.5, ease: 'power3.in' }, T7 - 0.35)
+      tl.set('#s7', { opacity: 1 }, T7 - 0.05)
+
+      // ---------- S7 end card ----------
+      ;[0, 1, 2].forEach(function (i) {
+        tl.from(
+          '#l7b' + i,
+          { y: 260, opacity: 0, duration: 0.5, ease: i === 2 ? 'back.out(2)' : 'expo.out' },
+          T7 + i * (B / 2),
+        )
+      })
+      tl.from(
+        '#wm7',
+        { opacity: 0, x: -40, filter: 'blur(10px)', duration: 0.6, ease: 'power4.out' },
+        T7 + 0.3,
+      )
+      tl.from('#line7', { opacity: 0, y: 30, duration: 0.6, ease: 'sine.out' }, T7 + 1.5 * B)
+      tl.from(
+        '#chips7 .chip',
+        { opacity: 0, y: 24, duration: 0.45, ease: 'back.out(1.6)', stagger: B / 2 },
+        T7 + 2 * B,
+      )
+      tl.from('#cta7', { opacity: 0, scale: 0.9, duration: 0.55, ease: 'expo.out' }, T7 + 3.5 * B)
+      // final scene only: fade to black with the music tail
+      tl.to('#s7 .content', { opacity: 0, duration: 0.7, ease: 'power1.in' }, 29.3)
+
+      window.__timelines['main'] = tl
+    </script>
+  </body>
+</html>
