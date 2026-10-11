@@ -3,8 +3,8 @@ import { useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
 
 /**
- * PIN pad: dots spring in as you type, shake on error,
- * burst into green on success.
+ * PIN pad: dots spring in as you type, shake on error, and on success the cells
+ * quietly invert one after another (monochrome, like the rest of the UI).
  */
 export function PinPad({
   onComplete,
@@ -55,32 +55,34 @@ export function PinPad({
                 initial={false}
                 animate={
                   status === 'success'
-                    ? { scale: [1, 1.5, 1], backgroundColor: ['var(--fg)', '#22c55e', '#22c55e'] }
+                    ? { scale: [1, 1.06, 1] }
                     : filled
                       ? { scale: [0.4, 1.15, 1] }
                       : { scale: 1 }
                 }
                 transition={
                   status === 'success'
-                    ? { duration: 0.5, delay: index * 0.07 }
+                    ? { duration: 0.32, delay: index * 0.04 }
                     : { type: 'spring', stiffness: 600, damping: 22 }
                 }
                 className={cn(
-                  'grid size-14 place-items-center rounded-2xl ring-1 ring-inset',
+                  'grid size-14 place-items-center rounded-2xl ring-1 ring-inset transition-colors duration-300',
                   status === 'error'
                     ? 'bg-danger/10 ring-danger'
-                    : filled || status === 'success'
-                      ? 'bg-active ring-line-strong'
-                      : armed
-                        ? 'bg-active/60 ring-line-strong'
-                        : 'bg-raised ring-line',
+                    : status === 'success'
+                      ? 'bg-fg ring-fg'
+                      : filled
+                        ? 'bg-active ring-line-strong'
+                        : armed
+                          ? 'bg-active/60 ring-line-strong'
+                          : 'bg-raised ring-line',
                 )}
               >
                 <span
                   className={cn(
                     'size-3.5 rounded-full transition-colors',
                     status === 'success'
-                      ? 'bg-[#22c55e]'
+                      ? 'bg-panel'
                       : filled
                         ? 'bg-fg'
                         : armed

@@ -182,6 +182,8 @@ export interface UserPreferences {
   banner?: BannerId
   /** Library title whose backdrop is the cover when banner is 'title'. */
   bannerTitleId?: string
+  /** Vertical focus of a picture cover, 0 = top edge, 100 = bottom edge; unset = 50. */
+  bannerPosition?: number
 }
 
 /** Background colours an avatar can sit on; 'auto' keeps each character's own. */
@@ -233,6 +235,7 @@ export interface PublicUser {
   avatarBg?: string
   avatarVariant?: number
   banner: BannerId
+  bannerPosition?: number
   /** A Steam account is linked; the SteamID itself stays private. */
   steamLinked: boolean
 }

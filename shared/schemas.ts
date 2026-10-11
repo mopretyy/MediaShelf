@@ -88,6 +88,7 @@ export const preferencesPatchSchema = z
     avatarBg: z.enum([...AVATAR_BG_IDS, 'auto']),
     avatarVariant: z.number().int().min(0).max(7),
     banner: z.enum(BANNERS),
+    bannerPosition: z.number().int().min(0).max(100),
     bannerTitleId: z
       .string()
       .regex(/^[a-z]+-[A-Za-z0-9_-]+$/, 'invalid')

@@ -221,6 +221,22 @@ export async function sendVerificationCode(
   const attachments = existsSync(logoPath)
     ? [{ filename: 'logo.png', path: logoPath, cid: 'mediashelf-logo' }]
     : []
-  await transport.sendMail({ from: config.smtp.from, to: email, subject, text, html, attachments })
+  await transport.sendMail({
+    from: brandedSender(config.smtp.from),
+    to: email,
+    subject,
+    text,
+    html,
+    attachments,
+  })
   return { delivered: true }
+}
+
+/**
+ * Codes always arrive from "MediaShell", whatever display name SMTP_FROM still carries
+ * (older installs were set up as "MediaDeck"). Only the address is taken from the config.
+ */
+export function brandedSender(from: string): { name: string; address: string } {
+  const address = (/<([^>]+)>/.exec(from)?.[1] ?? from).trim()
+  return { name: 'MediaShell', address }
 }

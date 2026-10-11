@@ -71,6 +71,7 @@ export function usersRoutes(deps: AppDeps) {
       avatarBg: prefs.avatarBg,
       avatarVariant: prefs.avatarVariant,
       banner,
+      bannerPosition: prefs.bannerPosition,
       steamLinked: Boolean(prefs.steamId),
     }
 

@@ -3,7 +3,7 @@
 
 export const profileLookRu = {
   title: 'Внешний вид профиля',
-  pickerHint: '20 персонажей: у каждого свой фон и цвета. Или загрузите свою картинку.',
+  pickerHint: '20 портретов: у каждого свой фон и цвета. Или загрузите свою картинку.',
   characters: 'Персонаж',
   background: 'Фон',
   backgroundAuto: 'Как задумано',
@@ -34,6 +34,9 @@ export const profileLookRu = {
   coverImage: 'Своя картинка',
   coverImageEmpty: 'JPG, PNG или WebP',
   coverColors: 'Или просто цвет',
+  coverPosition: 'Положение картинки',
+  coverCenter: 'По центру',
+  coverDragHint: 'Потяните вверх или вниз',
   coverPickTitle: 'Тайтл для обложки',
   coverPickText: 'Возьмём его широкую картинку. Подойдёт любой тайтл из вашей библиотеки.',
   coverSearch: 'Найти в библиотеке',
@@ -54,8 +57,7 @@ export const profileLookRu = {
 
 export const profileLookEn: typeof profileLookRu = {
   title: 'Profile look',
-  pickerHint:
-    '20 characters, each with its own background and colours. Or upload your own picture.',
+  pickerHint: '20 portraits, each with its own background and colours. Or upload your own picture.',
   characters: 'Character',
   background: 'Background',
   backgroundAuto: 'As designed',
@@ -86,6 +88,9 @@ export const profileLookEn: typeof profileLookRu = {
   coverImage: 'Own picture',
   coverImageEmpty: 'JPG, PNG or WebP',
   coverColors: 'Or just a colour',
+  coverPosition: 'Picture position',
+  coverCenter: 'Centre',
+  coverDragHint: 'Drag up or down',
   coverPickTitle: 'Title for the cover',
   coverPickText: 'We take its wide picture. Any title from your library works.',
   coverSearch: 'Search your library',

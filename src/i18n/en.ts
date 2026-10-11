@@ -683,6 +683,7 @@ export const en: Messages = {
     closed: 'Registration is closed on this server.',
     welcome: 'Welcome, {name}!',
     codeTitle: 'Check your email',
+    codeAccepted: 'Email confirmed, signing you in…',
     codeText: 'We sent a 6-digit code to {email}. Enter it below.',
     changeEmail: 'Typo in the email? Change it',
     devCodeHint: 'Mail isn’t set up yet — here is your code:',
