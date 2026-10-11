@@ -180,7 +180,7 @@ export function AvatarPicker({ user }: { user: User }) {
                       look.variant === index && selected,
                     )}
                     style={{
-                      background: `linear-gradient(135deg, ${palette.main} 55%, ${palette.light} 55%)`,
+                      background: `linear-gradient(135deg, ${palette.main} 55%, ${palette.pale} 55%)`,
                     }}
                   />
                 )

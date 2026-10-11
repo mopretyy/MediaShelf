@@ -77,7 +77,11 @@ function Banner({ profile }: { profile: UserProfile }) {
       style={preset ? { background: bannerBackground(user.banner) } : undefined}
     >
       {bannerImage ? (
-        <Backdrop src={bannerImage} className="absolute inset-0 size-full" />
+        <Backdrop
+          src={bannerImage}
+          className="absolute inset-0 size-full"
+          style={{ objectPosition: `50% ${user.bannerPosition ?? 50}%` }}
+        />
       ) : collage.length ? (
         <div className="absolute -inset-10 grid grid-cols-6 gap-0 blur-2xl saturate-200">
           {Array.from({ length: 6 }, (_, index) => {

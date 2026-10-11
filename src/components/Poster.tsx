@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { Kind } from '@shared/types.ts'
 import { cn } from '@/lib/cn'
 import { KindIcon } from './StatusIcon'
@@ -78,9 +78,11 @@ export function Poster({
 export function Backdrop({
   src,
   className,
+  style,
 }: {
   src: string | null | undefined
   className?: string
+  style?: CSSProperties
 }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -94,6 +96,7 @@ export function Backdrop({
       referrerPolicy="no-referrer"
       onLoad={() => setLoaded(true)}
       onError={() => setFailed(true)}
+      style={style}
       className={cn(
         'object-cover transition-opacity duration-700 ease-out',
         loaded ? 'opacity-100' : 'opacity-0',

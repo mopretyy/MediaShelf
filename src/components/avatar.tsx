@@ -19,21 +19,26 @@ export const CUSTOM_AVATAR_ID = 'custom'
 
 /** Ids from the earlier line-art set map to the nearest illustrated character. */
 const LEGACY: Record<string, AvatarId> = {
-  chicken: 'chick',
-  duck: 'chick',
-  swan: 'chick',
-  bee: 'chick',
-  popcorn: 'chick',
+  // Characters retired in the geometric redraw.
+  unicorn: 'horse',
+  chick: 'eagle',
+  alien: 'robot',
+  ghost: 'owl',
+  // Ids from the original line-art set.
+  chicken: 'eagle',
+  duck: 'eagle',
+  swan: 'eagle',
+  parrot: 'eagle',
+  bee: 'eagle',
+  popcorn: 'fox',
   hamster: 'bear',
   mouse: 'rabbit',
   cow: 'pig',
-  horse: 'unicorn',
-  zebra: 'unicorn',
-  butterfly: 'unicorn',
+  zebra: 'horse',
+  butterfly: 'deer',
   sheep: 'koala',
-  goat: 'koala',
+  goat: 'deer',
   elephant: 'koala',
-  parrot: 'owl',
   turtle: 'frog',
   snail: 'frog',
   ladybug: 'frog',
@@ -42,7 +47,7 @@ const LEGACY: Record<string, AvatarId> = {
   blowfish: 'penguin',
   whale: 'penguin',
   dolphin: 'penguin',
-  octopus: 'alien',
+  octopus: 'robot',
   crab: 'raccoon',
   gorilla: 'monkey',
   computer: 'robot',
@@ -51,7 +56,7 @@ const LEGACY: Record<string, AvatarId> = {
   joystick: 'robot',
   tv: 'robot',
   rocket: 'robot',
-  film: 'ghost',
+  film: 'owl',
 }
 
 function hashSeed(value: string) {

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, Heart, ImagePlus, Library, Search, Trash2 } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import type { User } from '@shared/types.ts'
 import { useErrorMessage } from '@/components/library-actions'
@@ -125,6 +125,43 @@ export function CoverPicker({ user }: { user: User }) {
   const coverUrl = `/api/users/${user.id}/cover?v=${stamp}`
 
   const refresh = () => client.invalidateQueries({ queryKey: keys.profile(user.id) })
+
+  // Vertical focus of a picture cover: dragged on the preview or set with the slider.
+  const savedPosition = user.preferences.bannerPosition ?? 50
+  const [position, setPosition] = useState(savedPosition)
+  const frame = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ y: number; start: number } | null>(null)
+  useEffect(() => {
+    if (position === savedPosition) return
+    const timer = setTimeout(
+      () =>
+        update.mutate(
+          { preferences: { bannerPosition: position } },
+          { onSuccess: () => void refresh(), onError: (error) => toast.error(message(error)) },
+        ),
+      450,
+    )
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position])
+  const positionImage =
+    current === 'favorite'
+      ? favourite?.backdrop
+      : current === 'title'
+        ? (picked?.title.backdrop ?? picked?.title.poster)
+        : current === 'image' && hasCover
+          ? coverUrl
+          : null
+  const onDragStart = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    drag.current = { y: event.clientY, start: position }
+  }
+  const onDragMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current || !frame.current) return
+    // Dragging the picture down shows more of its top, like moving a photo in a frame.
+    const delta = ((event.clientY - drag.current.y) / frame.current.clientHeight) * 60
+    setPosition(Math.round(Math.min(100, Math.max(0, drag.current.start - delta))))
+  }
   const choose = (preferences: {
     banner: (typeof user.preferences)['banner']
     bannerTitleId?: string
@@ -292,6 +329,52 @@ export function CoverPicker({ user }: { user: User }) {
           event.target.value = ''
         }}
       />
+
+      {positionImage ? (
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">{t('profileLook.coverPosition')}</p>
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={position === 50}
+              onClick={() => setPosition(50)}
+            >
+              {t('profileLook.coverCenter')}
+            </Button>
+          </div>
+          <div
+            ref={frame}
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={() => (drag.current = null)}
+            onPointerCancel={() => (drag.current = null)}
+            className="relative aspect-[4/1] cursor-grab touch-none overflow-hidden rounded-lg bg-raised ring-1 ring-line select-none active:cursor-grabbing"
+          >
+            <img
+              src={positionImage}
+              alt=""
+              draggable={false}
+              referrerPolicy="no-referrer"
+              className="pointer-events-none absolute inset-0 size-full object-cover"
+              style={{ objectPosition: `50% ${position}%` }}
+            />
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
+            <span className="pointer-events-none absolute bottom-2 left-2.5 rounded-full bg-black/55 px-2 py-0.5 text-2xs text-white backdrop-blur-sm">
+              {t('profileLook.coverDragHint')}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={position}
+            onChange={(event) => setPosition(Number(event.target.value))}
+            aria-label={t('profileLook.coverPosition')}
+            className="w-full accent-[var(--fg)]"
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-2">
         <p className="text-sm font-medium">{t('profileLook.coverColors')}</p>

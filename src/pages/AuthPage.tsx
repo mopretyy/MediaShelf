@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Check } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -127,7 +127,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             // Navigate first, then sign in: the route change wins over the guest-only guard.
             navigate(fresh, { replace: true })
             verify.signIn(user)
-          }, 750)
+          }, 550)
         },
         onError: (error) => {
           setCodeStatus('error')
@@ -210,6 +210,15 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 onComplete={submitCode}
               />
             </div>
+            {codeStatus === 'success' ? (
+              <p
+                role="status"
+                className="mt-4 flex animate-fade-in items-center justify-center gap-1.5 text-sm text-fg-2"
+              >
+                <Check className="size-4" />
+                {t('auth.codeAccepted')}
+              </p>
+            ) : null}
             {codeError ? (
               <p role="alert" className="mt-4 text-sm text-danger">
                 {codeError}
