@@ -170,11 +170,11 @@ export interface UserPreferences {
   region: string
   platforms: PlatformId[]
   stores: StoreId[]
-  /** Illustrated avatar character id; unset = derived from the user id. */
+  /** Seed of the generated avatar (a lowercase word) or 'custom'; unset = from the user id. */
   avatar?: string
-  /** Avatar background colour id ('auto' or unset = the character's own). */
+  /** Legacy: background colour of the low-poly avatars. Generated faces ignore it. */
   avatarBg?: string
-  /** Index of the character's colour variant; unset = 0. */
+  /** Legacy: colour variant of the low-poly avatars. Generated faces ignore it. */
   avatarVariant?: number
   /** Linked SteamID64; set only by the server after Steam OpenID login. */
   steamId?: string
@@ -186,7 +186,7 @@ export interface UserPreferences {
   bannerPosition?: number
 }
 
-/** Background colours an avatar can sit on; 'auto' keeps each character's own. */
+/** Legacy avatar backgrounds, still accepted so older clients and stored profiles validate. */
 export const AVATAR_BG_IDS = [
   'mint',
   'sky',

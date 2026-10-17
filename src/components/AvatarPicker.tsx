@@ -1,60 +1,57 @@
-import { Dices, Upload } from 'lucide-react'
-import { useRef } from 'react'
+import { Dices, RefreshCw, Upload } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { AVATAR_BG_IDS, type AvatarBgId, type User } from '@shared/types.ts'
-import { AVATARS, AvatarArt, CUSTOM_AVATAR_ID, avatarLookFor } from '@/components/avatar'
-import {
-  AVATAR_BACKGROUNDS,
-  AvatarFigure,
-  characterPalette,
-  defaultBackground,
-  isAvatarId,
-  variantCount,
-} from '@/components/avatar-art'
+import type { User } from '@shared/types.ts'
+import { AvatarArt, CUSTOM_AVATAR_ID, avatarFor } from '@/components/avatar'
+import { GeneratedAvatar } from '@/components/avatar-art'
+import { isAvatarSeed, randomSeed } from '@/components/avatar-gen'
 import { Button } from '@/components/ui/button'
-import { Chip } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { customAvatar, fileToAvatar, saveCustomAvatar } from '@/lib/device'
 import { useUpdateProfile } from '@/lib/queries'
 
-const pickRandom = <T,>(items: readonly T[]) => items[Math.floor(Math.random() * items.length)]
+/** Three rows of seven on wider screens; phones show four rows of five. */
+const OPTIONS = 21
 
+const tile =
+  'relative aspect-square overflow-hidden rounded-full ring-1 ring-line transition-transform duration-200 ease-[cubic-bezier(.23,1,.32,1)] hover:scale-105 motion-reduce:transition-none motion-reduce:hover:scale-100'
 const selected = 'ring-2 ring-fg ring-offset-2 ring-offset-panel'
 
+/** The face in use (when it is a stored one) first, then new faces. */
+function freshOptions(current: string) {
+  const seeds = Array.from({ length: OPTIONS }, () => randomSeed())
+  if (isAvatarSeed(current)) seeds[0] = current
+  return seeds
+}
+
 /**
- * Avatar studio: big preview, a grid of characters, a background colour and the character's
- * own colour variants (the way Google's illustrated avatars work).
+ * Avatar studio: a large preview and a grid of generated faces. Every face is one of a kind;
+ * "More options" deals a new grid, "Random" picks one straight away.
  */
 export function AvatarPicker({ user }: { user: User }) {
   const { t } = useI18n()
   const update = useUpdateProfile()
   const file = useRef<HTMLInputElement>(null)
-  const look = avatarLookFor(user)
-  const custom = look.id === CUSTOM_AVATAR_ID
+  const current = avatarFor(user)
   const hasUpload = Boolean(customAvatar(user.id))
-  const character = isAvatarId(look.id) ? look.id : null
+  const [options, setOptions] = useState(() => freshOptions(current))
+  const shown = options.slice(0, hasUpload ? OPTIONS - 1 : OPTIONS)
 
-  const apply = (preferences: {
-    avatar?: string
-    avatarBg?: AvatarBgId | 'auto'
-    avatarVariant?: number
-  }) => update.mutate({ preferences }, { onError: () => toast.error(t('errors.generic')) })
+  const choose = (avatar: string) =>
+    update.mutate({ preferences: { avatar } }, { onError: () => toast.error(t('errors.generic')) })
 
   const randomize = () => {
-    const avatar = pickRandom(AVATARS)
-    apply({
-      avatar,
-      avatarBg: pickRandom(AVATAR_BG_IDS),
-      avatarVariant: Math.floor(Math.random() * variantCount(avatar)),
-    })
+    const seed = randomSeed()
+    setOptions((list) => [seed, ...list.slice(1)])
+    choose(seed)
   }
 
   const upload = async (chosen: File | undefined) => {
     if (!chosen) return
     try {
       saveCustomAvatar(user.id, await fileToAvatar(chosen))
-      apply({ avatar: CUSTOM_AVATAR_ID })
+      choose(CUSTOM_AVATAR_ID)
     } catch {
       toast.error(t('errors.generic'))
     }
@@ -62,11 +59,15 @@ export function AvatarPicker({ user }: { user: User }) {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4 sm:gap-5">
         <span className="size-24 shrink-0 overflow-hidden rounded-full ring-1 ring-line sm:size-28">
-          <AvatarArt {...look} userId={user.id} />
+          <AvatarArt id={current} userId={user.id} />
         </span>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setOptions(freshOptions(current))}>
+            <RefreshCw />
+            {t('profileLook.more')}
+          </Button>
           <Button variant="secondary" size="sm" onClick={randomize}>
             <Dices />
             {t('profileLook.random')}
@@ -98,98 +99,36 @@ export function AvatarPicker({ user }: { user: User }) {
             <button
               type="button"
               role="radio"
-              aria-checked={custom}
+              aria-checked={current === CUSTOM_AVATAR_ID}
               aria-label={t('profileLook.upload')}
-              onClick={() => apply({ avatar: CUSTOM_AVATAR_ID })}
-              className={cn(
-                'aspect-square overflow-hidden rounded-full ring-1 ring-line transition-transform hover:scale-105',
-                custom && selected,
-              )}
+              title={t('profileLook.upload')}
+              onClick={() => choose(CUSTOM_AVATAR_ID)}
+              className={cn(tile, current === CUSTOM_AVATAR_ID && selected)}
             >
               <AvatarArt id={CUSTOM_AVATAR_ID} userId={user.id} />
             </button>
           ) : null}
-          {AVATARS.map((id) => (
+          {shown.map((seed, index) => (
             <button
-              key={id}
+              key={seed}
               type="button"
               role="radio"
-              aria-checked={look.id === id}
-              aria-label={id}
-              onClick={() => apply({ avatar: id, avatarVariant: 0 })}
+              aria-checked={current === seed}
+              aria-label={t('profileLook.option', { n: index + 1 })}
+              onClick={() => choose(seed)}
               className={cn(
-                'aspect-square overflow-hidden rounded-full ring-1 ring-line transition-transform hover:scale-105',
-                look.id === id && selected,
+                tile,
+                current === seed && selected,
+                index === shown.length - 1 &&
+                  (shown.length + Number(hasUpload)) % 5 === 1 &&
+                  'max-sm:hidden',
               )}
             >
-              <AvatarFigure id={id} bg={look.bg} className="block size-full" />
+              <GeneratedAvatar seed={seed} />
             </button>
           ))}
         </div>
       </section>
-
-      {character ? (
-        <>
-          <section className="grid gap-2.5">
-            <h4 className="text-sm font-medium">{t('profileLook.background')}</h4>
-            <div
-              role="radiogroup"
-              aria-label={t('profileLook.background')}
-              className="flex flex-wrap items-center gap-2.5"
-            >
-              <Chip active={!look.bg} onClick={() => apply({ avatarBg: 'auto' })}>
-                {t('profileLook.backgroundAuto')}
-              </Chip>
-              {AVATAR_BG_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={look.bg === id}
-                  aria-label={t(`profileLook.bgNames.${id}`)}
-                  title={t(`profileLook.bgNames.${id}`)}
-                  onClick={() => apply({ avatarBg: id })}
-                  className={cn(
-                    'size-8 rounded-full ring-1 ring-line transition-transform hover:scale-110',
-                    look.bg === id && selected,
-                  )}
-                  style={{ backgroundColor: AVATAR_BACKGROUNDS[id] }}
-                />
-              ))}
-            </div>
-          </section>
-          <section className="grid gap-2.5">
-            <h4 className="text-sm font-medium">{t('profileLook.tint')}</h4>
-            <div
-              role="radiogroup"
-              aria-label={t('profileLook.tint')}
-              className="flex flex-wrap items-center gap-2.5"
-            >
-              {Array.from({ length: variantCount(character) }, (_, index) => {
-                const palette = characterPalette(character, index)
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    role="radio"
-                    aria-checked={look.variant === index}
-                    aria-label={`${t('profileLook.tint')} ${index + 1}`}
-                    onClick={() => apply({ avatarVariant: index })}
-                    className={cn(
-                      'size-8 rounded-full ring-1 ring-line transition-transform hover:scale-110',
-                      look.variant === index && selected,
-                    )}
-                    style={{
-                      background: `linear-gradient(135deg, ${palette.main} 55%, ${palette.pale} 55%)`,
-                    }}
-                  />
-                )
-              })}
-            </div>
-            <p className="sr-only">{defaultBackground(character)}</p>
-          </section>
-        </>
-      ) : null}
     </div>
   )
 }
