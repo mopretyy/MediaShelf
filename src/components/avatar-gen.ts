@@ -6,7 +6,8 @@
  *  - "beam": an abstract blob with a tiny face, after Boring Avatars "Beam";
  *  - "thumbs": a rounded figure with expressive eyes and mouths, after DiceBear "Thumbs"
  *    (CC0 1.0; the eye and mouth paths below are taken from it).
- * Some faces wear something: a hat, glasses, a tie, a duck on the head and so on.
+ * Some faces wear something, drawn as a sticker with a white edge: a hat, glasses, a tie,
+ * a duck on the head, cat ears, a propeller cap and so on.
  *
  * Plain data and string building with no imports, so the UI, the lab and the tests share it.
  *
@@ -91,8 +92,14 @@ export const HEADWEAR = [
   'duck',
   'sprout',
   'headphones',
+  'headset',
+  'propeller',
+  'wizard',
+  'catears',
+  'horns',
+  'halo',
 ] as const
-export const EYEWEAR = ['glasses', 'shades', 'monocle'] as const
+export const EYEWEAR = ['glasses', 'shades', 'monocle', 'glasses3d', 'eyepatch'] as const
 export const NECKWEAR = ['tie', 'bowtie'] as const
 export type Headwear = (typeof HEADWEAR)[number]
 export type Eyewear = (typeof EYEWEAR)[number]
@@ -104,16 +111,20 @@ interface Outfit {
   eyes?: Eyewear
   neck?: Neckwear
   mustache: boolean
+  /** Pink cheeks: a mood rather than an accessory. */
+  blush: boolean
 }
 
-/** Roughly half the faces wear something, never more than two things at once. */
+/** A bit more than half the faces wear something, never more than two things at once. */
 function pickOutfit(rng: Rng): Outfit {
-  const outfit: Outfit = { mustache: false }
-  if (rng() < 0.3) outfit.head = pick(rng, HEADWEAR)
-  if (rng() < 0.22)
-    outfit.eyes = rng() < 0.12 ? 'monocle' : pick(rng, ['glasses', 'shades'] as const)
+  const outfit: Outfit = { mustache: false, blush: false }
+  if (rng() < 0.32) outfit.head = pick(rng, HEADWEAR)
+  if (rng() < 0.24)
+    outfit.eyes =
+      rng() < 0.1 ? 'monocle' : pick(rng, ['glasses', 'shades', 'glasses3d', 'eyepatch'] as const)
   if (rng() < 0.15) outfit.neck = pick(rng, NECKWEAR)
-  outfit.mustache = rng() < 0.07
+  outfit.mustache = rng() < 0.08
+  outfit.blush = rng() < 0.3
   const count = () =>
     [outfit.head, outfit.eyes, outfit.neck].filter(Boolean).length + (outfit.mustache ? 1 : 0)
   if (count() > 2) outfit.mustache = false
@@ -135,160 +146,635 @@ interface Face {
   mouthTop: number
   mouthBottom: number
   k: number
-  /** Colour of the eyes and mouth, reused for frames and moustaches. */
+  /** Colour of the eyes and mouth. */
   ink: string
   accent: string
 }
 
-function headwear(kind: Headwear, f: Face) {
+/**
+ * One piece of an accessory. Geometry and paint are kept apart, so the same piece can be drawn
+ * again as the white edge and the shadow of a sticker.
+ */
+interface Shape {
+  el: 'rect' | 'circle' | 'ellipse' | 'path'
+  geo: string
+  fill?: string
+  /** Fill opacity, for glass. */
+  opacity?: number
+  stroke?: string
+  width?: number
+  /** A detail inside the silhouette (a stripe, a glint): it gets no edge of its own. */
+  inner?: boolean
+}
+
+function shape(
+  el: Shape['el'],
+  geo: Record<string, number | string>,
+  paint: Omit<Shape, 'el' | 'geo'>,
+): Shape {
+  const attributes = Object.entries(geo)
+    .map(([name, value]) => `${name}="${typeof value === 'number' ? n(value) : value}"`)
+    .join(' ')
+  return { el, geo: attributes, ...paint }
+}
+
+function element(piece: Shape, fill?: string, stroke?: string, width = 0, opacity = 1) {
+  let out = `<${piece.el} ${piece.geo} fill="${fill ?? 'none'}"`
+  if (fill && opacity < 1) out += ` fill-opacity="${opacity}"`
+  if (stroke && width > 0)
+    out += ` stroke="${stroke}" stroke-width="${n(width)}" stroke-linecap="round" stroke-linejoin="round"`
+  return `${out}/>`
+}
+
+/**
+ * Accessories are drawn as stickers: a soft shadow, a white edge around the silhouette, then the
+ * piece itself. They stay as small as they were, but read on every colour.
+ */
+function sticker(pieces: Shape[], k: number) {
+  const edge = 2.4 * k
+  const outline = (color: string) =>
+    pieces
+      .filter((piece) => !piece.inner)
+      .map((piece) => {
+        const solid = piece.fill !== undefined && (piece.opacity ?? 1) === 1
+        const width = (piece.stroke ? (piece.width ?? 0) : 0) + edge
+        return element(piece, solid ? color : undefined, color, width)
+      })
+      .join('')
+  return (
+    `<g transform="translate(${n(0.5 * k)} ${n(1 * k)})" opacity="0.28">${outline(INK)}</g>` +
+    outline(WHITE) +
+    pieces
+      .map((piece) => element(piece, piece.fill, piece.stroke, piece.width, piece.opacity))
+      .join('')
+  )
+}
+
+/** Design units around a point of the face: horizontal and vertical offsets, and sizes. */
+function grid(f: Face, y: number) {
+  return {
+    x: (dx: number) => n(f.cx + dx * f.k),
+    at: (dy: number) => n(y + dy * f.k),
+    s: (value: number) => n(value * f.k),
+  }
+}
+
+/** A five-pointed star as path data. */
+function star(cx: number, cy: number, r: number) {
+  const points = Array.from({ length: 10 }, (_, index) => {
+    const angle = (Math.PI / 5) * index - Math.PI / 2
+    const radius = index % 2 ? r * 0.45 : r
+    return `${n(cx + Math.cos(angle) * radius)} ${n(cy + Math.sin(angle) * radius)}`
+  })
+  return `M${points.join('L')}Z`
+}
+
+const PINK = '#ff9ab0'
+
+function headwear(kind: Headwear, f: Face): Shape[] {
   const { cx, k, accent } = f
   const dark = darken(accent, 0.25)
-  const y = f.eyeY - f.eyeH / 2 - 5.5 * k
-  const x = (dx: number) => n(cx + dx * k)
-  const at = (dy: number) => n(y + dy * k)
-  const s = (value: number) => n(value * k)
+  const { x, at, s } = grid(f, f.eyeY - f.eyeH / 2 - 5.5 * k)
   switch (kind) {
     case 'tophat':
-      return (
-        `<rect x="${x(-11)}" y="${at(-24)}" width="${s(22)}" height="${s(21.5)}" rx="${s(2)}" fill="${INK}"/>` +
-        `<rect x="${x(-11)}" y="${at(-8.5)}" width="${s(22)}" height="${s(4)}" fill="${accent}"/>` +
-        `<rect x="${x(-17)}" y="${at(-3.5)}" width="${s(34)}" height="${s(3.5)}" rx="${s(1.75)}" fill="${INK}"/>`
-      )
+      return [
+        shape(
+          'rect',
+          { x: x(-11), y: at(-24), width: s(22), height: s(21.5), rx: s(2) },
+          { fill: INK },
+        ),
+        shape('rect', { x: x(-11), y: at(-8.5), width: s(22), height: s(4) }, { fill: accent }),
+        shape(
+          'rect',
+          { x: x(-17), y: at(-3.5), width: s(34), height: s(3.5), rx: s(1.75) },
+          { fill: INK },
+        ),
+        shape(
+          'rect',
+          { x: x(-8), y: at(-21.5), width: s(2.2), height: s(10), rx: s(1.1) },
+          { fill: WHITE, opacity: 0.25, inner: true },
+        ),
+      ]
     case 'cap':
-      return (
-        `<path d="M${x(-16)} ${at(0)}A${s(16)} ${s(14)} 0 0 1 ${x(16)} ${at(0)}Z" fill="${accent}"/>` +
-        `<path d="M${x(4)} ${at(-1)}Q${x(22)} ${at(-2.5)} ${x(23)} ${at(1.5)}Q${x(14)} ${at(3.5)} ${x(2)} ${at(1.5)}Z" fill="${dark}"/>` +
-        `<circle cx="${x(0)}" cy="${at(-14)}" r="${s(1.8)}" fill="${dark}"/>`
-      )
+      return [
+        shape(
+          'path',
+          { d: `M${x(-16)} ${at(0)}A${s(16)} ${s(14)} 0 0 1 ${x(16)} ${at(0)}Z` },
+          { fill: accent },
+        ),
+        shape(
+          'path',
+          { d: `M${x(0)} ${at(-13)}V${at(-0.5)}` },
+          { stroke: dark, width: s(1.1), inner: true },
+        ),
+        shape(
+          'path',
+          {
+            d: `M${x(4)} ${at(-1)}Q${x(22)} ${at(-2.5)} ${x(23)} ${at(1.5)}Q${x(14)} ${at(3.5)} ${x(2)} ${at(1.5)}Z`,
+          },
+          { fill: dark },
+        ),
+        shape('circle', { cx: x(0), cy: at(-14), r: s(1.8) }, { fill: dark }),
+      ]
     case 'beanie':
-      return (
-        `<path d="M${x(-17)} ${at(-2)}A${s(17)} ${s(16)} 0 0 1 ${x(17)} ${at(-2)}Z" fill="${accent}"/>` +
-        `<rect x="${x(-18.5)}" y="${at(-6)}" width="${s(37)}" height="${s(7)}" rx="${s(3.5)}" fill="${dark}"/>` +
-        `<circle cx="${x(0)}" cy="${at(-19)}" r="${s(4.5)}" fill="${WHITE}"/>`
-      )
+      return [
+        shape(
+          'path',
+          { d: `M${x(-17)} ${at(-2)}A${s(17)} ${s(16)} 0 0 1 ${x(17)} ${at(-2)}Z` },
+          { fill: accent },
+        ),
+        ...[-7, 0, 7].map((dx) =>
+          shape(
+            'path',
+            { d: `M${x(dx)} ${at(-5)}Q${x(dx * 1.1)} ${at(-11)} ${x(dx * 0.6)} ${at(-15.5)}` },
+            { stroke: dark, width: s(1.1), inner: true },
+          ),
+        ),
+        shape(
+          'rect',
+          { x: x(-18.5), y: at(-6), width: s(37), height: s(7), rx: s(3.5) },
+          { fill: dark },
+        ),
+        shape('circle', { cx: x(0), cy: at(-19), r: s(4.5) }, { fill: WHITE }),
+      ]
     case 'party':
-      return (
-        `<path d="M${x(-12)} ${at(0)}L${x(12)} ${at(0)}L${x(1)} ${at(-24)}Z" fill="${accent}" stroke="${accent}" stroke-width="${s(1.5)}" stroke-linejoin="round"/>` +
-        `<circle cx="${x(-4)}" cy="${at(-5)}" r="${s(1.6)}" fill="${WHITE}"/>` +
-        `<circle cx="${x(4)}" cy="${at(-10)}" r="${s(1.6)}" fill="${WHITE}"/>` +
-        `<circle cx="${x(-0.5)}" cy="${at(-16)}" r="${s(1.6)}" fill="${WHITE}"/>` +
-        `<circle cx="${x(1)}" cy="${at(-24)}" r="${s(3.2)}" fill="${GOLD}"/>`
-      )
+      return [
+        shape(
+          'path',
+          { d: `M${x(-12)} ${at(0)}L${x(12)} ${at(0)}L${x(1)} ${at(-24)}Z` },
+          { fill: accent, stroke: accent, width: s(1.5) },
+        ),
+        ...(
+          [
+            [-4, -5],
+            [4, -10],
+            [-0.5, -16],
+          ] as const
+        ).map(([dx, dy]) =>
+          shape('circle', { cx: x(dx), cy: at(dy), r: s(1.6) }, { fill: WHITE, inner: true }),
+        ),
+        shape('circle', { cx: x(1), cy: at(-24), r: s(3.2) }, { fill: GOLD }),
+      ]
     case 'crown':
-      return (
-        `<path d="M${x(-14)} ${at(0)}L${x(-15)} ${at(-13)}L${x(-7.5)} ${at(-6)}L${x(0)} ${at(-16)}L${x(7.5)} ${at(-6)}L${x(15)} ${at(-13)}L${x(14)} ${at(0)}Z" fill="${GOLD}" stroke="${GOLD}" stroke-width="${s(1.5)}" stroke-linejoin="round"/>` +
-        `<circle cx="${x(0)}" cy="${at(-4)}" r="${s(2)}" fill="#ff5b6b"/>` +
-        [-15, 0, 15]
-          .map(
-            (dx) =>
-              `<circle cx="${x(dx)}" cy="${at(dx ? -13 : -16)}" r="${s(1.7)}" fill="${GOLD}"/>`,
-          )
-          .join('')
-      )
+      return [
+        shape(
+          'path',
+          {
+            d: `M${x(-14)} ${at(0)}L${x(-15)} ${at(-13)}L${x(-7.5)} ${at(-6)}L${x(0)} ${at(-16)}L${x(7.5)} ${at(-6)}L${x(15)} ${at(-13)}L${x(14)} ${at(0)}Z`,
+          },
+          { fill: GOLD, stroke: GOLD, width: s(1.5) },
+        ),
+        ...[-15, 0, 15].map((dx) =>
+          shape('circle', { cx: x(dx), cy: at(dx ? -13 : -16), r: s(1.7) }, { fill: GOLD }),
+        ),
+        shape('circle', { cx: x(0), cy: at(-4), r: s(2) }, { fill: '#ff5b6b', inner: true }),
+        shape('circle', { cx: x(-8), cy: at(-3.2), r: s(1.3) }, { fill: '#3ba9ff', inner: true }),
+        shape('circle', { cx: x(8), cy: at(-3.2), r: s(1.3) }, { fill: '#3ecf8e', inner: true }),
+      ]
     case 'duck':
-      return (
-        `<path d="M${x(11)} ${at(-9)}L${x(16)} ${at(-15)}L${x(13.5)} ${at(-6)}Z" fill="#ffd23f"/>` +
-        `<ellipse cx="${x(2)}" cy="${at(-6.5)}" rx="${s(11.5)}" ry="${s(7)}" fill="#ffd23f"/>` +
-        `<path d="M${x(-1)} ${at(-7)}Q${x(5)} ${at(-12)} ${x(9)} ${at(-7.5)}Q${x(4)} ${at(-3.5)} ${x(-1)} ${at(-7)}Z" fill="#f4b400"/>` +
-        `<circle cx="${x(-5)}" cy="${at(-16)}" r="${s(6.5)}" fill="#ffd23f"/>` +
-        `<path d="M${x(-10.5)} ${at(-17.5)}Q${x(-16.5)} ${at(-16.5)} ${x(-15.5)} ${at(-14)}Q${x(-13)} ${at(-12.5)} ${x(-9.5)} ${at(-14)}Z" fill="#ff8a3d"/>` +
-        `<circle cx="${x(-6)}" cy="${at(-17.5)}" r="${s(1.3)}" fill="${INK}"/>`
-      )
+      return [
+        shape(
+          'path',
+          { d: `M${x(11)} ${at(-9)}L${x(16)} ${at(-15)}L${x(13.5)} ${at(-6)}Z` },
+          { fill: '#ffd23f' },
+        ),
+        shape('ellipse', { cx: x(2), cy: at(-6.5), rx: s(11.5), ry: s(7) }, { fill: '#ffd23f' }),
+        shape(
+          'path',
+          {
+            d: `M${x(-1)} ${at(-7)}Q${x(5)} ${at(-12)} ${x(9)} ${at(-7.5)}Q${x(4)} ${at(-3.5)} ${x(-1)} ${at(-7)}Z`,
+          },
+          { fill: '#f4b400', inner: true },
+        ),
+        shape('circle', { cx: x(-5), cy: at(-16), r: s(6.5) }, { fill: '#ffd23f' }),
+        shape(
+          'path',
+          {
+            d: `M${x(-10.5)} ${at(-17.5)}Q${x(-16.5)} ${at(-16.5)} ${x(-15.5)} ${at(-14)}Q${x(-13)} ${at(-12.5)} ${x(-9.5)} ${at(-14)}Z`,
+          },
+          { fill: '#ff8a3d' },
+        ),
+        shape('circle', { cx: x(-2.6), cy: at(-14.2), r: s(1.4) }, { fill: PINK, inner: true }),
+        shape('circle', { cx: x(-6), cy: at(-17.5), r: s(1.4) }, { fill: INK, inner: true }),
+        shape('circle', { cx: x(-5.5), cy: at(-18), r: s(0.5) }, { fill: WHITE, inner: true }),
+      ]
     case 'sprout':
-      return (
-        `<path d="M${x(0)} ${at(0)}Q${x(1)} ${at(-7)} ${x(0)} ${at(-12)}" stroke="#2fa866" stroke-width="${s(2.2)}" stroke-linecap="round"/>` +
-        `<path d="M${x(0)} ${at(-11)}Q${x(-10)} ${at(-20)} ${x(-13)} ${at(-12)}Q${x(-6)} ${at(-8)} ${x(0)} ${at(-11)}Z" fill="#3ecf8e"/>` +
-        `<path d="M${x(0)} ${at(-12)}Q${x(8)} ${at(-23)} ${x(12.5)} ${at(-16)}Q${x(6)} ${at(-10)} ${x(0)} ${at(-12)}Z" fill="#34b87a"/>`
-      )
-    case 'headphones': {
+      return [
+        shape(
+          'path',
+          { d: `M${x(0)} ${at(0)}Q${x(1)} ${at(-7)} ${x(0)} ${at(-12)}` },
+          { stroke: '#2fa866', width: s(2.4) },
+        ),
+        shape(
+          'path',
+          {
+            d: `M${x(0)} ${at(-11)}Q${x(-10)} ${at(-20)} ${x(-13)} ${at(-12)}Q${x(-6)} ${at(-8)} ${x(0)} ${at(-11)}Z`,
+          },
+          { fill: '#3ecf8e' },
+        ),
+        shape(
+          'path',
+          {
+            d: `M${x(0)} ${at(-12)}Q${x(8)} ${at(-23)} ${x(12.5)} ${at(-16)}Q${x(6)} ${at(-10)} ${x(0)} ${at(-12)}Z`,
+          },
+          { fill: '#34b87a' },
+        ),
+        shape(
+          'path',
+          { d: `M${x(-1.5)} ${at(-11.2)}Q${x(-6)} ${at(-13)} ${x(-10)} ${at(-12.6)}` },
+          { stroke: '#238a55', width: s(0.8), inner: true },
+        ),
+        shape(
+          'path',
+          { d: `M${x(1.5)} ${at(-12.3)}Q${x(6)} ${at(-15)} ${x(10)} ${at(-15.8)}` },
+          { stroke: '#238a55', width: s(0.8), inner: true },
+        ),
+      ]
+    case 'headphones':
+    case 'headset': {
       const ear = f.eyeDx + 10 * k
       const top = n(f.eyeY - 1 * k)
-      return (
-        `<path d="M${n(cx - ear)} ${top}A${n(ear)} ${n(ear * 0.95)} 0 0 1 ${n(cx + ear)} ${top}" stroke="${INK}" stroke-width="${s(3)}" stroke-linecap="round"/>` +
-        [-1, 1]
-          .map(
-            (side) =>
-              `<rect x="${n(cx + side * ear - 4 * k)}" y="${n(f.eyeY - 5 * k)}" width="${s(8)}" height="${s(13)}" rx="${s(4)}" fill="${accent}"/>`,
-          )
-          .join('')
+      const cups = [-1, 1].flatMap((side) => [
+        shape(
+          'rect',
+          { x: cx + side * ear - 4 * k, y: f.eyeY - 5 * k, width: s(8), height: s(13), rx: s(4) },
+          { fill: accent },
+        ),
+        shape(
+          'rect',
+          {
+            x: cx + side * ear - 1.6 * k,
+            y: f.eyeY - 2.6 * k,
+            width: s(3.2),
+            height: s(8.2),
+            rx: s(1.6),
+          },
+          { fill: dark, inner: true },
+        ),
+      ])
+      const band = shape(
+        'path',
+        { d: `M${n(cx - ear)} ${top}A${n(ear)} ${n(ear * 0.95)} 0 0 1 ${n(cx + ear)} ${top}` },
+        { stroke: INK, width: s(3) },
       )
+      if (kind === 'headphones') return [band, ...cups]
+      // A gaming headset: the same cups, plus a microphone on a boom.
+      const fromX = cx - ear + 1 * k
+      const fromY = f.eyeY + 7 * k
+      const toX = cx - Math.max(f.eyeDx * 0.5, 4.5 * k)
+      const toY = (f.mouthTop + f.mouthBottom) / 2 + 1 * k
+      return [
+        band,
+        shape(
+          'path',
+          {
+            d: `M${n(fromX)} ${n(fromY)}Q${n(fromX + 1 * k)} ${n(toY + 2 * k)} ${n(toX)} ${n(toY)}`,
+          },
+          { stroke: INK, width: s(1.6) },
+        ),
+        ...cups,
+        shape(
+          'rect',
+          { x: toX - 2 * k, y: toY - 1.6 * k, width: s(4), height: s(3.2), rx: s(1.6) },
+          { fill: INK },
+        ),
+      ]
     }
+    case 'propeller': {
+      const rx = 15
+      const ry = 13
+      const point = (degrees: number) => {
+        const angle = (degrees * Math.PI) / 180
+        return `${x(Math.cos(angle) * rx)} ${at(-1 - Math.sin(angle) * ry)}`
+      }
+      const wedge = (from: number, to: number) =>
+        shape(
+          'path',
+          { d: `M${x(0)} ${at(-1)}L${point(from)}A${s(rx)} ${s(ry)} 0 0 0 ${point(to)}Z` },
+          { fill: GOLD, inner: true },
+        )
+      return [
+        shape(
+          'path',
+          { d: `M${x(-rx)} ${at(-1)}A${s(rx)} ${s(ry)} 0 0 1 ${x(rx)} ${at(-1)}Z` },
+          { fill: accent },
+        ),
+        wedge(36, 72),
+        wedge(108, 144),
+        shape(
+          'rect',
+          { x: x(-16), y: at(-3.2), width: s(32), height: s(3.4), rx: s(1.7) },
+          { fill: dark },
+        ),
+        shape(
+          'rect',
+          { x: x(-0.9), y: at(-18), width: s(1.8), height: s(5), rx: s(0.9) },
+          { fill: INK },
+        ),
+        shape(
+          'ellipse',
+          { cx: x(-5.5), cy: at(-18.5), rx: s(5.5), ry: s(1.8) },
+          { fill: '#ff5b6b' },
+        ),
+        shape(
+          'ellipse',
+          { cx: x(5.5), cy: at(-18.5), rx: s(5.5), ry: s(1.8) },
+          { fill: '#3ba9ff' },
+        ),
+        shape('circle', { cx: x(0), cy: at(-18.5), r: s(1.6) }, { fill: GOLD }),
+      ]
+    }
+    case 'wizard':
+      return [
+        shape(
+          'path',
+          {
+            d: `M${x(-11)} ${at(-1)}C${x(-6)} ${at(-9)} ${x(-1)} ${at(-19)} ${x(5)} ${at(-25)}C${x(5)} ${at(-17)} ${x(7)} ${at(-9)} ${x(11)} ${at(-1)}Z`,
+          },
+          { fill: '#4255d4', stroke: '#4255d4', width: s(1) },
+        ),
+        shape('ellipse', { cx: x(0), cy: at(-1), rx: s(17), ry: s(3.2) }, { fill: '#2f3fae' }),
+        shape('path', { d: star(x(-2), at(-8.5), s(2.8)) }, { fill: GOLD, inner: true }),
+        shape('path', { d: star(x(3), at(-16.5), s(1.9)) }, { fill: GOLD, inner: true }),
+      ]
+    case 'catears':
+      return [
+        shape(
+          'path',
+          { d: `M${x(-15)} ${at(2)}Q${x(0)} ${at(-10)} ${x(15)} ${at(2)}` },
+          { stroke: INK, width: s(2.2) },
+        ),
+        ...[-1, 1].flatMap((side) => [
+          shape(
+            'path',
+            {
+              d: `M${x(side * 14)} ${at(1.2)}L${x(side * 12.5)} ${at(-14)}L${x(side * 5)} ${at(-3.3)}Z`,
+            },
+            { fill: accent, stroke: accent, width: s(1.4) },
+          ),
+          shape(
+            'path',
+            {
+              d: `M${x(side * 12.6)} ${at(-0.6)}L${x(side * 11.9)} ${at(-9.8)}L${x(side * 7.4)} ${at(-3)}Z`,
+            },
+            { fill: PINK, inner: true },
+          ),
+        ]),
+      ]
+    case 'horns':
+      return [-1, 1].flatMap((side) => [
+        shape(
+          'path',
+          {
+            d: `M${x(side * 12.5)} ${at(1)}Q${x(side * 16.5)} ${at(-7)} ${x(side * 12)} ${at(-13.5)}Q${x(side * 10.5)} ${at(-6.5)} ${x(side * 5.5)} ${at(-1.5)}Z`,
+          },
+          { fill: '#ff4d5e', stroke: '#ff4d5e', width: s(1) },
+        ),
+        shape(
+          'path',
+          {
+            d: `M${x(side * 12.6)} ${at(-1.5)}Q${x(side * 13.8)} ${at(-6)} ${x(side * 12.5)} ${at(-10)}`,
+          },
+          { stroke: '#ff9aa4', width: s(1), inner: true },
+        ),
+      ])
+    case 'halo':
+      return [
+        shape(
+          'ellipse',
+          { cx: x(0), cy: at(-10), rx: s(11), ry: s(3.4) },
+          { stroke: GOLD, width: s(2.4) },
+        ),
+      ]
   }
 }
 
-function eyewear(kind: Eyewear, f: Face) {
+function eyewear(kind: Eyewear, f: Face): Shape[] {
   const { cx, k } = f
   const s = (value: number) => n(value * k)
-  const eyes = [cx - f.eyeDx, cx + f.eyeDx]
-  if (kind === 'shades') {
-    const w = Math.min(Math.max(f.eyeW + 5 * k, 12 * k), 2 * (f.eyeDx - 0.6 * k))
-    const h = Math.max(f.eyeH + 3 * k, 8 * k)
-    return (
-      `<path d="M${n(eyes[0])} ${n(f.eyeY)}H${n(eyes[1])}" stroke="${INK}" stroke-width="${s(1.6)}"/>` +
-      eyes
-        .map(
-          (x) =>
-            `<rect x="${n(x - w / 2)}" y="${n(f.eyeY - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${s(3.5)}" fill="${INK}"/>` +
-            `<path d="M${n(x - w / 2 + 2.5 * k)} ${n(f.eyeY - h / 2 + 2.2 * k)}h${s(3.5)}" stroke="${WHITE}" stroke-opacity="0.75" stroke-width="${s(1.3)}" stroke-linecap="round"/>`,
-        )
-        .join('')
-    )
-  }
+  const y = f.eyeY
+  const eyes = [cx - f.eyeDx, cx + f.eyeDx] as const
   // Big enough to frame the eye, small enough to leave a bridge between the lenses.
   const r = Math.min(Math.max(Math.max(f.eyeW, f.eyeH) / 2 + 2.6 * k, 5.5 * k), f.eyeDx - 1 * k)
-  const frame = `stroke="${f.ink}" stroke-width="${s(1.8)}"`
-  if (kind === 'monocle')
-    return (
-      `<circle cx="${n(eyes[1])}" cy="${n(f.eyeY)}" r="${n(r + 0.5 * k)}" fill="${WHITE}" fill-opacity="0.18" stroke="${GOLD}" stroke-width="${s(1.6)}"/>` +
-      `<path d="M${n(eyes[1] + (r + 0.5 * k) * 0.7)} ${n(f.eyeY + (r + 0.5 * k) * 0.7)}q${s(4)} ${s(6)} ${s(1)} ${s(13)}" stroke="${GOLD}" stroke-width="${s(1)}" stroke-linecap="round"/>`
+  const glint = (ex: number, radius: number) =>
+    shape(
+      'path',
+      {
+        d: `M${n(ex - radius * 0.62)} ${n(y - radius * 0.12)}A${n(radius * 0.62)} ${n(radius * 0.62)} 0 0 1 ${n(ex - radius * 0.12)} ${n(y - radius * 0.62)}`,
+      },
+      { stroke: WHITE, width: s(1.1), inner: true },
     )
-  return (
-    eyes
-      .map(
-        (x) =>
-          `<circle cx="${n(x)}" cy="${n(f.eyeY)}" r="${n(r)}" fill="${WHITE}" fill-opacity="0.16" ${frame}/>`,
-      )
-      .join('') + `<path d="M${n(eyes[0] + r)} ${n(f.eyeY - 0.5 * k)}H${n(eyes[1] - r)}" ${frame}/>`
-  )
+  switch (kind) {
+    case 'shades': {
+      const w = Math.min(Math.max(f.eyeW + 5 * k, 12 * k), 2 * (f.eyeDx - 0.6 * k))
+      const h = Math.max(f.eyeH + 3 * k, 8 * k)
+      return [
+        shape(
+          'path',
+          { d: `M${n(eyes[0])} ${n(y)}H${n(eyes[1])}` },
+          { stroke: INK, width: s(1.6) },
+        ),
+        ...eyes.flatMap((ex) => [
+          shape(
+            'rect',
+            { x: ex - w / 2, y: y - h / 2, width: w, height: h, rx: s(3.5) },
+            { fill: INK },
+          ),
+          shape(
+            'path',
+            { d: `M${n(ex - w / 2 + 2.5 * k)} ${n(y - h / 2 + 2.2 * k)}h${s(3.5)}` },
+            { stroke: '#dfe5f2', width: s(1.3), inner: true },
+          ),
+        ]),
+      ]
+    }
+    case 'glasses3d': {
+      const w = Math.min(Math.max(f.eyeW + 4 * k, 10 * k), 2 * (f.eyeDx - 0.9 * k))
+      const h = Math.max(f.eyeH + 2.6 * k, 7.5 * k)
+      const pad = 1.4 * k
+      return [
+        shape(
+          'rect',
+          {
+            x: eyes[0] - w / 2 - pad,
+            y: y - h / 2 - pad,
+            width: eyes[1] - eyes[0] + w + pad * 2,
+            height: h + pad * 2,
+            rx: s(2.4),
+          },
+          { fill: WHITE },
+        ),
+        shape(
+          'rect',
+          { x: eyes[0] - w / 2, y: y - h / 2, width: w, height: h, rx: s(1.6) },
+          { fill: '#ff3b5c', inner: true },
+        ),
+        shape(
+          'rect',
+          { x: eyes[1] - w / 2, y: y - h / 2, width: w, height: h, rx: s(1.6) },
+          { fill: '#22c3f0', inner: true },
+        ),
+      ]
+    }
+    case 'eyepatch': {
+      const rx = Math.max(f.eyeW / 2 + 2 * k, 4.6 * k)
+      const ry = Math.max(f.eyeH / 2 + 1.8 * k, 4 * k)
+      const ex = eyes[1]
+      // The band hugs the forehead and stops before the edge of the face.
+      return [
+        shape(
+          'path',
+          {
+            d: `M${n(ex - rx * 0.6)} ${n(y - ry * 0.75)}Q${n(cx - f.eyeDx * 0.2)} ${n(y - 6.5 * k)} ${n(eyes[0] - 3.5 * k)} ${n(y - 7.5 * k)}`,
+          },
+          { stroke: INK, width: s(1.3) },
+        ),
+        shape(
+          'path',
+          {
+            d: `M${n(ex + rx * 0.85)} ${n(y - ry * 0.45)}L${n(ex + rx + 2.5 * k)} ${n(y - 2.2 * k)}`,
+          },
+          { stroke: INK, width: s(1.3) },
+        ),
+        shape('ellipse', { cx: ex, cy: y, rx, ry }, { fill: INK }),
+        glint(ex, Math.min(rx, ry)),
+      ]
+    }
+    case 'monocle': {
+      const radius = r + 0.5 * k
+      return [
+        shape(
+          'path',
+          {
+            d: `M${n(eyes[1] + radius * 0.7)} ${n(y + radius * 0.7)}q${s(4)} ${s(6)} ${s(1)} ${s(13)}`,
+          },
+          { stroke: GOLD, width: s(1.3) },
+        ),
+        shape(
+          'circle',
+          { cx: eyes[1], cy: y, r: radius },
+          { fill: WHITE, opacity: 0.18, stroke: GOLD, width: s(2) },
+        ),
+        glint(eyes[1], radius),
+      ]
+    }
+    case 'glasses':
+      return [
+        ...eyes.map((ex) =>
+          shape(
+            'circle',
+            { cx: ex, cy: y, r },
+            { fill: WHITE, opacity: 0.16, stroke: INK, width: s(2) },
+          ),
+        ),
+        shape(
+          'path',
+          { d: `M${n(eyes[0] + r)} ${n(y - 0.5 * k)}H${n(eyes[1] - r)}` },
+          { stroke: INK, width: s(2) },
+        ),
+        ...eyes.map((ex) => glint(ex, r)),
+      ]
+  }
 }
 
-function neckwear(kind: Neckwear, f: Face) {
-  const { cx, k, accent } = f
+function neckwear(kind: Neckwear, f: Face): Shape[] {
+  const { k, accent } = f
   const dark = darken(accent, 0.25)
-  const y = f.mouthBottom + 3 * k
-  const x = (dx: number) => n(cx + dx * k)
-  const at = (dy: number) => n(y + dy * k)
-  if (kind === 'tie')
-    return (
-      `<path d="M${x(-2.5)} ${at(5)}L${x(2.5)} ${at(5)}L${x(5.5)} ${at(23)}L${x(0)} ${at(28)}L${x(-5.5)} ${at(23)}Z" fill="${accent}"/>` +
-      `<path d="M${x(-3.5)} ${at(0)}L${x(3.5)} ${at(0)}L${x(2.5)} ${at(5)}L${x(-2.5)} ${at(5)}Z" fill="${dark}"/>`
-    )
-  const wing = (side: number) =>
-    `<path d="M${x(side * 2)} ${at(3.5)}L${x(side * 12)} ${at(-2)}L${x(side * 12)} ${at(9)}Z" fill="${accent}" stroke="${accent}" stroke-width="${n(2 * k)}" stroke-linejoin="round"/>`
-  return (
-    wing(-1) +
-    wing(1) +
-    `<rect x="${x(-3)}" y="${at(0)}" width="${n(6 * k)}" height="${n(7 * k)}" rx="${n(2 * k)}" fill="${dark}"/>`
-  )
+  const { x, at, s } = grid(f, f.mouthBottom + 3 * k)
+  if (kind === 'tie') {
+    // Half the width of the blade at a given height, a hair inside its edge.
+    const half = (dy: number) => 2.3 + ((dy - 5) * 2.5) / 14.5
+    const stripe = (dy: number) =>
+      shape(
+        'path',
+        {
+          d: `M${x(-half(dy + 0.2))} ${at(dy + 0.2)}L${x(half(dy - 1.4))} ${at(dy - 1.4)}L${x(half(dy + 0.2))} ${at(dy + 0.2)}L${x(-half(dy + 1.8))} ${at(dy + 1.8)}Z`,
+        },
+        { fill: dark, inner: true },
+      )
+    return [
+      shape(
+        'path',
+        {
+          d: `M${x(-2.5)} ${at(5)}L${x(2.5)} ${at(5)}L${x(5)} ${at(19.5)}L${x(0)} ${at(24)}L${x(-5)} ${at(19.5)}Z`,
+        },
+        { fill: accent },
+      ),
+      stripe(9),
+      stripe(14),
+      shape(
+        'path',
+        { d: `M${x(-3.5)} ${at(0)}L${x(3.5)} ${at(0)}L${x(2.5)} ${at(5)}L${x(-2.5)} ${at(5)}Z` },
+        { fill: dark },
+      ),
+    ]
+  }
+  return [
+    ...[-1, 1].map((side) =>
+      shape(
+        'path',
+        { d: `M${x(side * 2)} ${at(3.5)}L${x(side * 12)} ${at(-2)}L${x(side * 12)} ${at(9)}Z` },
+        { fill: accent, stroke: accent, width: s(2) },
+      ),
+    ),
+    ...(
+      [
+        [8, 2.5],
+        [10.2, 5.8],
+      ] as const
+    ).flatMap(([dx, dy]) =>
+      [-1, 1].map((side) =>
+        shape(
+          'circle',
+          { cx: x(side * dx), cy: at(dy), r: s(1) },
+          { fill: WHITE, opacity: 0.85, inner: true },
+        ),
+      ),
+    ),
+    shape('rect', { x: x(-3), y: at(0), width: s(6), height: s(7), rx: s(2) }, { fill: dark }),
+  ]
 }
 
-function mustache(f: Face) {
+/** A curled handlebar, the same width as a plain one. */
+function mustache(f: Face): Shape[] {
   // Halfway between the eyes and the mouth, nudged towards the mouth.
-  const y = n((f.eyeY + f.eyeH / 2 + f.mouthTop) / 2 + 0.5 * f.k)
+  const { x, at } = grid(f, (f.eyeY + f.eyeH / 2 + f.mouthTop) / 2 + 0.5 * f.k)
+  const curve = [
+    [0, -0.8],
+    [2, -2.7, 6, -2.5, 8, -0.4],
+    [9, 0.7, 9.9, 0.2, 10.1, -1.1],
+    [10.3, 0.9, 9.3, 2.2, 7.7, 1.8],
+    [5.2, 1.5, 2, 1.1, 0, 0.8],
+  ] as const
+  const half = (side: number) =>
+    curve
+      .map((points, index) => {
+        const pairs: string[] = []
+        for (let i = 0; i < points.length; i += 2)
+          pairs.push(`${x(side * points[i])} ${at(points[i + 1])}`)
+        return (index ? 'C' : 'M') + pairs.join(' ')
+      })
+      .join('') + 'Z'
+  return [shape('path', { d: half(-1) + half(1) }, { fill: INK })]
+}
+
+function blush(f: Face) {
   return [-1, 1]
     .map(
       (side) =>
-        `<ellipse cx="${n(f.cx + side * 4.5 * f.k)}" cy="${y}" rx="${n(5 * f.k)}" ry="${n(2.1 * f.k)}" transform="rotate(${side * 14} ${n(f.cx + side * 4.5 * f.k)} ${y})" fill="${f.ink}"/>`,
+        `<ellipse cx="${n(f.cx + side * (f.eyeDx + 1.2 * f.k))}" cy="${n(f.eyeY + f.eyeH / 2 + 2.6 * f.k)}" rx="${n(3.2 * f.k)}" ry="${n(1.8 * f.k)}" fill="#ff6f91" fill-opacity="0.5"/>`,
     )
     .join('')
 }
 
 function dress(outfit: Outfit, face: Face) {
+  const wear = (pieces: Shape[]) => sticker(pieces, face.k)
   return [
-    outfit.neck ? neckwear(outfit.neck, face) : '',
-    outfit.mustache ? mustache(face) : '',
-    outfit.eyes ? eyewear(outfit.eyes, face) : '',
-    outfit.head ? headwear(outfit.head, face) : '',
+    outfit.blush ? blush(face) : '',
+    outfit.neck ? wear(neckwear(outfit.neck, face)) : '',
+    outfit.mustache ? wear(mustache(face)) : '',
+    outfit.eyes ? wear(eyewear(outfit.eyes, face)) : '',
+    outfit.head ? wear(headwear(outfit.head, face)) : '',
   ].join('')
 }
 
@@ -296,7 +782,7 @@ function dress(outfit: Outfit, face: Face) {
 
 /** Adapted from Boring Avatars "Beam", on its 36-unit grid. */
 /** Gold and yellow things vanish on the yellow of the beam set. */
-const YELLOW_HATS: readonly (Headwear | undefined)[] = ['crown', 'duck']
+const YELLOW_HATS: readonly (Headwear | undefined)[] = ['crown', 'duck', 'halo']
 
 function beam(rng: Rng, outfit: Outfit) {
   const palette = YELLOW_HATS.includes(outfit.head)
@@ -323,7 +809,7 @@ function beam(rng: Rng, outfit: Outfit) {
     outfit.neck = undefined
     fx = clamp(fx, -3, 3)
     fy = int(rng, 5, 8)
-  } else if (outfit.neck) fy = clamp(fy, -6, 1)
+  } else if (outfit.neck) fy = clamp(fy, -6, -1)
   const ink = contrast(body, 128)
   const mouthY = 19 + mouthSpread
   const face: Face = {
@@ -629,7 +1115,8 @@ function thumbs(rng: Rng, outfit: Outfit) {
   const [eyesY, mouthY] = pick(rng, THUMBS_LAYOUTS)
   const faceX = outfit.head ? int(rng, -7, 7) : int(rng, -15, 15)
   // With a hat the face moves up the head, and the whole figure shrinks to make room.
-  const faceY = outfit.head ? int(rng, -15, -6) : int(rng, -15, 15)
+  // A tie needs room below the chin.
+  const faceY = outfit.head ? int(rng, -15, -6) : outfit.neck ? int(rng, -15, 4) : int(rng, -15, 15)
   const faceRotate = outfit.head ? int(rng, -10, 10) : int(rng, -20, 20)
   const plainEyes = outfit.eyes === 'glasses' || outfit.eyes === 'monocle'
   const [eyes, eyeDx, eyeW, eyeH] =
