@@ -188,7 +188,12 @@ export function isoDate(value: unknown): string | null {
   if (!match) return null
   const [, y, m, d] = match
   const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)))
-  return Number.isNaN(date.getTime()) || date.getUTCDate() !== Number(d) ? null : `${y}-${m}-${d}`
+  // Date.UTC silently rolls over bad months/days (2020-13-01 → 2021-01-01), so check both.
+  return Number.isNaN(date.getTime()) ||
+    date.getUTCMonth() !== Number(m) - 1 ||
+    date.getUTCDate() !== Number(d)
+    ? null
+    : `${y}-${m}-${d}`
 }
 
 export function dateFromUnix(seconds: unknown): string | null {

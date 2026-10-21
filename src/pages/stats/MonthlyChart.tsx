@@ -21,7 +21,7 @@ export function MonthlyChart({ months, className }: { months: Month[]; className
   const total = months.reduce((sum, month) => sum + month.count, 0)
   const { top, ticks } = niceScale(Math.max(0, ...months.map((month) => month.count)))
   const longMonth = useMemo(() => {
-    const format = new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
+    const format = new Intl.DateTimeFormat(locale, {
       month: 'long',
       year: 'numeric',
     })

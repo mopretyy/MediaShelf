@@ -86,6 +86,13 @@ export function Backdrop({
 }) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [prevSrc, setPrevSrc] = useState(src)
+  if (src !== prevSrc) {
+    // A new image deserves a fresh attempt: do not keep hiding it after the previous one failed.
+    setPrevSrc(src)
+    setLoaded(false)
+    setFailed(false)
+  }
   if (!src || failed) return null
   return (
     <img

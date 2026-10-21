@@ -100,7 +100,12 @@ function NotesEditor({ entry }: { entry: LibraryEntry }) {
     actions.patch(
       latest.current,
       { notes: text },
-      { silent: true, onSuccess: () => setState('saved'), onError: () => setState('dirty') },
+      {
+        silent: true,
+        // The user may have typed again while this save was in flight: keep that draft dirty.
+        onSuccess: () => setState((current) => (current === 'saving' ? 'saved' : current)),
+        onError: () => setState('dirty'),
+      },
     )
   }
   useEffect(() => {

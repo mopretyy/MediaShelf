@@ -450,7 +450,10 @@ function Activity({ items }: { items: ActivityItem[] }) {
   const groups = useMemo(() => groupActivity(mergeActivity(items)), [items])
   if (!items.length) return null
   const today = new Date().toDateString()
-  const yesterday = new Date(Date.now() - 86_400_000).toDateString()
+  // Calendar arithmetic, not "now minus 24 h": DST days are 23 or 25 hours long.
+  const yesterdayDate = new Date()
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterday = yesterdayDate.toDateString()
   return (
     <section className="mt-8">
       <SectionHeader title={t('profile.activity')} />
