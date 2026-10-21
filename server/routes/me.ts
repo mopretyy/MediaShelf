@@ -171,7 +171,6 @@ export function meRoutes(deps: AppDeps) {
     if (!steamId) return c.json({ unlocked: null })
     const apiKey = getSteamKey(db, user.id) ?? config.steamApiKey
     const unlocked = await playerAchievements(appid, steamId, apiKey).catch(() => null)
-    c.header('Cache-Control', 'private, max-age=300')
     return c.json({ unlocked })
   })
 
