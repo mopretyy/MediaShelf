@@ -286,13 +286,16 @@ export default function DiscoverPage() {
 
   // Keep the URL in sync with the debounced query without adding history entries.
   useEffect(() => {
+    // Wait for the debounce to settle: right after Back/Forward the input already follows the URL
+    // while `query` is stale, and writing it back would undo the navigation.
+    if (query !== input.trim()) return
     const current = params.get('q') ?? ''
     if (current === query) return
     const next = new URLSearchParams(params)
     if (query) next.set('q', query)
     else next.delete('q')
     setParams(next, { replace: true })
-  }, [query, params, setParams])
+  }, [query, input, params, setParams])
 
   // Follow external navigation (e.g. the home search box).
   const urlQuery = params.get('q') ?? ''

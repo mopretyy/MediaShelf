@@ -114,16 +114,29 @@ export function EpisodesSection({
   )
 
   const defaultSeason = entry?.nextEpisode?.season ?? seasons[0]?.number ?? 1
+  // A season picked on another title may not exist here: fall back instead of an empty list.
   const seasonNumber =
-    chosenSeason ??
-    (seasons.some((s) => s.number === defaultSeason) ? defaultSeason : seasons[0]?.number)
+    chosenSeason !== null && seasons.some((s) => s.number === chosenSeason)
+      ? chosenSeason
+      : seasons.some((s) => s.number === defaultSeason)
+        ? defaultSeason
+        : seasons[0]?.number
   const season = seasons.find((s) => s.number === seasonNumber)
 
   const run = (episodes: { season: number; number: number }[], value: boolean) => {
     if (!entry) {
-      actions.add(title, 'in_progress')
+      // Add the title first, then apply the click the user actually made.
+      actions.add(
+        title,
+        'in_progress',
+        value ? { onSuccess: () => applyMarks(episodes, value) } : {},
+      )
       return
     }
+    applyMarks(episodes, value)
+  }
+
+  const applyMarks = (episodes: { season: number; number: number }[], value: boolean) => {
     mark.mutate(
       { titleId: title.id, episodes, watched: value },
       {

@@ -75,6 +75,8 @@ describe('dates and numbers', () => {
     expect(isoDate('2014-11-07T00:00:00.000Z')).toBe('2014-11-07')
     expect(isoDate('2016.08.30')).toBe('2016-08-30')
     expect(isoDate('2023-02-30')).toBeNull()
+    expect(isoDate('2020-13-01')).toBeNull()
+    expect(isoDate('2020-00-10')).toBeNull()
     expect(isoDate('soon')).toBeNull()
     expect(dateFromUnix(1600353507)).toBe('2020-09-17')
     expect(dateFromUnix(0)).toBeNull()

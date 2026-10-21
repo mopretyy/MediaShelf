@@ -105,6 +105,8 @@ export default function ShufflePage() {
   const [rolling, setRolling] = useState(false)
   const [result, setResult] = useState<TitleRecord | null>(null)
   const [history, setHistory] = useState<HistoryItem[]>(readHistory)
+  // Bumped whenever a spin becomes obsolete (e.g. the source changed mid-spin).
+  const rollId = useRef(0)
 
   // Remember the setup so coming back keeps source, kinds and statuses.
   useEffect(() => {
@@ -141,6 +143,7 @@ export default function ShufflePage() {
     const candidates =
       pool.length > 1 && result ? pool.filter((item) => item.id !== result.id) : pool
     const winner = pickRandom(candidates)
+    const id = ++rollId.current
     const strip = buildStrip(pool, winner, WINNER_INDEX + 6, WINNER_INDEX)
     setResult(null)
     setReel(strip)
@@ -165,6 +168,8 @@ export default function ShufflePage() {
       )
     }
     setRolling(false)
+    // The pool changed while spinning: this winner no longer belongs to it.
+    if (rollId.current !== id) return
     setResult(winner)
     const item: HistoryItem = {
       id: winner.id,
@@ -241,6 +246,7 @@ export default function ShufflePage() {
               aria-label={t('shuffle.source')}
               value={source}
               onChange={(value) => {
+                rollId.current++
                 setSource(value)
                 setReel([])
                 setResult(null)

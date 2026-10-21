@@ -61,13 +61,14 @@ export function useLibraryActions() {
 
   return {
     pending: add.isPending || update.isPending || remove.isPending,
-    add(title: TitleRecord, status: Status = 'planned') {
+    add(title: TitleRecord, status: Status = 'planned', options: { onSuccess?: () => void } = {}) {
       if (!requireAuth()) return
       const attempt = () =>
         add.mutate(
           { title, status },
           {
-            onSuccess: ({ entry, created }) =>
+            onSuccess: ({ entry, created }) => {
+              options.onSuccess?.()
               toast(
                 created
                   ? t('toast.added')
@@ -80,7 +81,8 @@ export function useLibraryActions() {
                     ? `${titleName(title.names, locale)} · ${statusText(entry, status)}`
                     : undefined,
                 },
-              ),
+              )
+            },
             onError: (error) =>
               toast.error(
                 message(error),

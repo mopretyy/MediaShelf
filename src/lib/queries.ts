@@ -44,7 +44,7 @@ export const keys = {
     ['charts', kind, list, locale, region] as const,
   search: (q: string, kind: string, locale: string) => ['search', q, kind, locale] as const,
   title: (id: string, locale: string) => ['title', id, locale] as const,
-  episodes: (id: string) => ['episodes', id] as const,
+  episodes: (id: string, locale: string) => ['episodes', id, locale] as const,
   marks: (id: string) => ['marks', id] as const,
   offers: (id: string, region: string) => ['offers', id, region] as const,
 }
@@ -275,8 +275,20 @@ function provisionalEntry(title: TitleRecord, status: Status): LibraryEntry {
 export function useAddEntry() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ title, status }: { title: TitleRecord; status?: Status; favorite?: boolean }) =>
-      api<EntryChange & { created: boolean }>('POST', '/library', { titleId: title.id, status }),
+    mutationFn: ({
+      title,
+      status,
+      favorite,
+    }: {
+      title: TitleRecord
+      status?: Status
+      favorite?: boolean
+    }) =>
+      api<EntryChange & { created: boolean }>('POST', '/library', {
+        titleId: title.id,
+        status,
+        favorite,
+      }),
     onMutate: async ({ title, status = 'planned' }) => {
       await client.cancelQueries({ queryKey: keys.library })
       const existing = client
@@ -395,8 +407,12 @@ export function useMarkEpisodes() {
       client.setQueryData(keys.marks(titleId), [...byKey.values()])
       return { previous }
     },
-    onError: (_error, { titleId }, context) =>
-      client.setQueryData(keys.marks(titleId), context?.previous),
+    onError: (_error, { titleId }, context) => {
+      // setQueryData(undefined) is a no-op, so an empty cache must be removed explicitly.
+      if (context?.previous === undefined)
+        client.removeQueries({ queryKey: keys.marks(titleId), exact: true })
+      else client.setQueryData(keys.marks(titleId), context.previous)
+    },
     onSuccess: (data, { titleId }) => {
       client.setQueryData(keys.marks(titleId), data.marks)
       setEntry(client, data.entry)
@@ -437,7 +453,11 @@ export function useEpisodeNote() {
 
 export function usePlaythroughs() {
   const client = useQueryClient()
-  const onSuccess = ({ entry }: { entry: LibraryEntry }) => setEntry(client, entry)
+  const onSuccess = ({ entry }: { entry: LibraryEntry }) => {
+    setEntry(client, entry)
+    // Playthroughs add activity items and game hours to stats.
+    invalidateDerived(client)
+  }
   return {
     add: useMutation({
       mutationFn: ({ titleId, input }: { titleId: string; input: PlaythroughInput }) =>
@@ -572,7 +592,7 @@ export function useTitle(id: string, enabled = true) {
 export function useEpisodeList(id: string, enabled: boolean) {
   const { locale } = useI18n()
   return useQuery({
-    queryKey: keys.episodes(id),
+    queryKey: keys.episodes(id, locale),
     queryFn: ({ signal }) =>
       get<{ list: EpisodeList | null }>(
         `/titles/${id}/episodes${query({ lang: locale })}`,
