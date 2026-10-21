@@ -20,6 +20,7 @@ import { limit, requireUser, type AppDeps, type AppEnv } from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
 import { exportLibrary, importLibrary } from '../library/transfer.ts'
 import { fetchOwnedGames, fetchRecentAppIds, importSteamLibrary } from '../library/steam-import.ts'
+import { claimSteamSync, deferSteamSync, markSteamSynced } from '../library/steam-sync.ts'
 import { getEntry, refreshEpisodeCounters } from '../library/entries.ts'
 import { sql } from '../db/index.ts'
 
@@ -175,21 +176,37 @@ export function meRoutes(deps: AppDeps) {
     return c.json({ ownKeyHint: null })
   })
 
-  app.post('/steam/import', async (c) => {
-    const user = requireUser(c)
-    limit(limits, 'sensitive', user.id)
-    const { steamId } = JSON.parse(user.preferences) as { steamId?: string }
-    if (!steamId) throw new ApiError(400, 'STEAM_NOT_LINKED', 'Steam is not linked')
-    const apiKey = getSteamKey(db, user.id) ?? config.steamApiKey
+  const runSteamImport = async (userId: string, steamId: string) => {
+    const apiKey = getSteamKey(db, userId) ?? config.steamApiKey
     const [{ games, partial }, recent] = await Promise.all([
       fetchOwnedGames(apiKey, steamId),
       fetchRecentAppIds(apiKey, steamId),
     ])
     // A partial list is the recent games themselves: never pause from it.
-    return c.json({
-      ...importSteamLibrary(db, titles, user.id, games, partial ? null : recent),
-      partial,
-    })
+    const result = importSteamLibrary(db, titles, userId, games, partial ? null : recent)
+    markSteamSynced(db, userId)
+    return { ...result, partial }
+  }
+
+  app.post('/steam/import', async (c) => {
+    const user = requireUser(c)
+    limit(limits, 'sensitive', user.id)
+    const { steamId } = JSON.parse(user.preferences) as { steamId?: string }
+    if (!steamId) throw new ApiError(400, 'STEAM_NOT_LINKED', 'Steam is not linked')
+    return c.json(await runSteamImport(user.id, steamId))
+  })
+
+  // The app calls this on load; it only reaches Steam when the last sync is old enough.
+  app.post('/steam/sync', async (c) => {
+    const user = requireUser(c)
+    const { steamId } = JSON.parse(user.preferences) as { steamId?: string }
+    if (!steamId || !claimSteamSync(db, user.id)) return c.json({ synced: false })
+    try {
+      return c.json({ synced: true, ...(await runSteamImport(user.id, steamId)) })
+    } catch {
+      deferSteamSync(db, user.id)
+      return c.json({ synced: false })
+    }
   })
 
   return app

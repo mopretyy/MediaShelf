@@ -152,6 +152,13 @@ const MIGRATIONS: string[] = [
     updated_at INTEGER NOT NULL
   ) STRICT;
   `,
+  // v6: when each user's Steam library was last synced (the app syncs every few hours).
+  `
+  CREATE TABLE steam_sync (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    synced_at INTEGER NOT NULL
+  ) STRICT;
+  `,
 ]
 
 export function migrate(db: DatabaseSync) {

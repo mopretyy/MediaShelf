@@ -3,6 +3,7 @@ import { ArrowUp } from 'lucide-react'
 import { Outlet, useLocation, useNavigationType } from 'react-router'
 import { useI18n } from '@/i18n'
 import { useHotkey } from '@/lib/hooks'
+import { useSteamAutoSync } from '@/lib/steam-sync'
 import { CommandPalette } from './CommandPalette'
 import { ShellContext } from './shell-context'
 import { MobileTabBar, Sidebar } from './Sidebar'
@@ -119,6 +120,7 @@ export function AppShell() {
   })
   useScrollMemory(scrollRef)
   useScrollingFlag(scrollRef)
+  useSteamAutoSync()
 
   const toggle = useCallback(() => {
     setCollapsed((value) => {
