@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { updateEntry } from './entries.ts'
 import { TitleStore } from './titles.ts'
 import {
   importSteamLibrary,
@@ -55,7 +56,14 @@ describe('steam import', () => {
       { appid: 400, name: 'Portal', playtimeMinutes: 750 },
       { appid: 620, name: 'Portal 2', playtimeMinutes: 0 },
     ])
-    expect(result).toEqual({ total: 2, imported: 2, existing: 0, failed: 0, skipped: 0 })
+    expect(result).toEqual({
+      total: 2,
+      imported: 2,
+      existing: 0,
+      updated: 0,
+      failed: 0,
+      skipped: 0,
+    })
     const library = await t.request('GET', '/api/library')
     const byId = Object.fromEntries(
       (
@@ -64,11 +72,29 @@ describe('steam import', () => {
     )
     expect(byId['steam-400']).toMatchObject({ status: 'in_progress', store: 'steam', hours: 12.5 })
     expect(byId['steam-620']).toMatchObject({ status: 'planned', store: 'steam' })
-    // Re-import skips what is already there.
+    // Re-import with the same hours changes nothing.
     expect(
       importSteamLibrary(t.db, new TitleStore(t.db), userId, [
         { appid: 400, name: 'Portal', playtimeMinutes: 750 },
       ]),
-    ).toEqual({ total: 1, imported: 0, existing: 1, failed: 0, skipped: 1 })
+    ).toEqual({ total: 1, imported: 0, existing: 1, updated: 0, failed: 0, skipped: 1 })
+  })
+
+  it('re-import refreshes hours but keeps the status the user set', async () => {
+    const t = testApp()
+    const registered = await registerAccount(t, account)
+    const userId = registered.body.user.id as string
+    const store = new TitleStore(t.db)
+    importSteamLibrary(t.db, store, userId, [{ appid: 400, name: 'Portal', playtimeMinutes: 600 }])
+    updateEntry(t.db, userId, 'steam-400', { status: 'completed' })
+    const result = importSteamLibrary(t.db, store, userId, [
+      { appid: 400, name: 'Portal', playtimeMinutes: 900 },
+    ])
+    expect(result).toMatchObject({ imported: 0, existing: 1, updated: 1 })
+    const library = await t.request('GET', '/api/library')
+    const entry = (
+      library.body.entries as { titleId: string; status: string; hours: number }[]
+    ).find((e) => e.titleId === 'steam-400')
+    expect(entry).toMatchObject({ status: 'completed', hours: 15 })
   })
 })
