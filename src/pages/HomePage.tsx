@@ -86,40 +86,67 @@ function ContinueCard({ entry }: { entry: LibraryEntry }) {
         ? [t('episodes.code', episodeCode(next.season, next.number)), next.name]
             .filter(Boolean)
             .join(' · ')
-        : t('home.caughtUp')
+        : entry.progress >= 100
+          ? t('home.caughtUp')
+          : entry.totalEpisodes
+            ? t('episodes.watchedOf', {
+                watched: entry.watchedEpisodes,
+                total: entry.totalEpisodes,
+              })
+            : t('home.percent', { value: entry.progress })
       : entry.kind === 'game'
         ? t('home.percent', { value: entry.progress })
         : t(statusLabelKey(entry.kind, entry.status))
+  const info = (
+    <>
+      <p className="truncate text-md font-semibold">{name}</p>
+      <p className="mt-0.5 truncate text-sm text-white/75">{subtitle}</p>
+      <ProgressBar
+        value={entry.progress}
+        tone="white"
+        className="mt-2.5"
+        label={fmt.percent(entry.progress)}
+      />
+    </>
+  )
   return (
     <div className="group/continue relative overflow-hidden rounded-xl bg-raised ring-1 ring-line ring-inset">
       <Link to={titleHref(entry.titleId)} className="block rounded-xl">
         <div className="relative aspect-[16/9] overflow-hidden">
           {entry.title.backdrop ? (
-            <Backdrop
-              src={entry.title.backdrop}
-              className="absolute inset-0 size-full transition-transform duration-500 group-hover/continue:scale-[1.03]"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-active">
-              <Poster
-                src={entry.title.poster}
-                alt=""
-                kind={entry.kind}
-                className="w-20 shadow-poster"
+            <>
+              <Backdrop
+                src={entry.title.backdrop}
+                className="absolute inset-0 size-full transition-transform duration-500 group-hover/continue:scale-[1.03]"
               />
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-3.5 text-white">{info}</div>
+            </>
+          ) : (
+            <>
+              {/* No wide image: the poster itself tints the card, then sits beside the text. */}
+              {entry.title.poster ? (
+                <img
+                  src={entry.title.poster}
+                  alt=""
+                  aria-hidden="true"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="absolute inset-0 size-full scale-125 object-cover opacity-50 blur-2xl"
+                />
+              ) : null}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
+              <div className="absolute inset-0 flex items-end gap-3.5 p-3.5 text-white">
+                <Poster
+                  src={entry.title.poster}
+                  alt=""
+                  kind={entry.kind}
+                  className="h-full w-auto shrink-0 shadow-poster transition-transform duration-500 group-hover/continue:scale-[1.03]"
+                />
+                <div className="min-w-0 flex-1">{info}</div>
+              </div>
+            </>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-3.5 text-white">
-            <p className="truncate text-md font-semibold">{name}</p>
-            <p className="mt-0.5 truncate text-sm text-white/75">{subtitle}</p>
-            <ProgressBar
-              value={entry.progress}
-              tone="white"
-              className="mt-2.5"
-              label={fmt.percent(entry.progress)}
-            />
-          </div>
         </div>
       </Link>
       {canMark ? (
