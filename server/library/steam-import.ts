@@ -155,6 +155,32 @@ async function fetchOwnedGamesApi(apiKey: string, steamId: string): Promise<Owne
   }))
 }
 
+/**
+ * App ids played in the last two weeks (official API, needs a key).
+ * Null when unknown: no key, bad key, private profile or Steam down.
+ */
+export async function fetchRecentAppIds(
+  apiKey: string | null,
+  steamId: string,
+): Promise<Set<number> | null> {
+  if (!apiKey) return null
+  const url =
+    `https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/` +
+    `?key=${encodeURIComponent(apiKey)}&steamid=${encodeURIComponent(steamId)}&format=json`
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const json = (await response.json()) as {
+      response?: { total_count?: number; games?: { appid: number }[] }
+    }
+    // A private profile answers with an empty object, not an empty list.
+    if (!json.response || json.response.total_count === undefined) return null
+    return new Set((json.response.games ?? []).map((game) => game.appid))
+  } catch {
+    return null
+  }
+}
+
 /** Minimal record from the app list: details load when the title is opened. */
 export function steamAppRecord(appid: number, name: string): TitleRecord {
   return {
@@ -173,10 +199,14 @@ export function steamAppRecord(appid: number, name: string): TitleRecord {
 export interface SteamImportResult {
   total: number
   imported: number
-  /** Already in the library: status, rating and notes are left untouched. */
+  /** Already in the library: rating and notes are left untouched. */
   existing: number
   /** Of `existing`: Steam entries whose hours went up. */
   updated: number
+  /** Of `existing`: planned/paused games played again → in progress. */
+  resumed: number
+  /** Of `existing`: in-progress games not played in two weeks → paused. */
+  paused: number
   /** Could not be stored. */
   failed: number
   /** existing + failed, kept for older clients. */
@@ -186,36 +216,50 @@ export interface SteamImportResult {
 const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10 || null
 
 /**
- * Adds owned games as Steam entries: played → in progress with hours, rest → planned.
- * Re-running it is a sync: existing Steam entries get fresh hours, nothing else changes.
+ * Adds owned games as Steam entries and, on re-runs, syncs existing ones.
+ *
+ * Status rules (Steam entries only; completed and dropped are never touched):
+ * - hours went up → planned/paused becomes in progress;
+ * - `recent` known and the game is not in it, hours unchanged → in progress becomes paused.
+ * Without `recent` (no API key) nothing is ever paused automatically.
  */
 export function importSteamLibrary(
   db: DB,
   titles: TitleStore,
   userId: string,
   games: OwnedGame[],
+  recent: Set<number> | null = null,
 ): SteamImportResult {
   let imported = 0
   let existing = 0
   let updated = 0
+  let resumed = 0
+  let paused = 0
   let failed = 0
   for (const game of games) {
     try {
       const record = steamAppRecord(game.appid, game.name)
       const current = getEntry(db, userId, record.id)
       if (current) {
-        // Never touch the status here: a finished or dropped game must stay that way.
         existing += 1
+        if (current.store !== 'steam') continue
         const hours = toHours(game.playtimeMinutes)
-        if (current.store === 'steam' && hours !== null && hours > (current.hours ?? 0)) {
-          updateEntry(db, userId, record.id, { hours })
+        const grew = hours !== null && hours > (current.hours ?? 0)
+        if (grew) {
+          const resume = current.status === 'planned' || current.status === 'paused'
+          updateEntry(db, userId, record.id, resume ? { hours, status: 'in_progress' } : { hours })
           updated += 1
+          if (resume) resumed += 1
+        } else if (recent && current.status === 'in_progress' && !recent.has(game.appid)) {
+          updateEntry(db, userId, record.id, { status: 'paused' })
+          paused += 1
         }
         continue
       }
       titles.putImported(record)
+      const played = game.playtimeMinutes > 0
       createEntry(db, userId, record, {
-        status: game.playtimeMinutes > 0 ? 'in_progress' : 'planned',
+        status: !played ? 'planned' : recent && !recent.has(game.appid) ? 'paused' : 'in_progress',
       })
       updateEntry(db, userId, record.id, {
         store: 'steam',
@@ -227,5 +271,14 @@ export function importSteamLibrary(
       failed += 1
     }
   }
-  return { total: games.length, imported, existing, updated, failed, skipped: existing + failed }
+  return {
+    total: games.length,
+    imported,
+    existing,
+    updated,
+    resumed,
+    paused,
+    failed,
+    skipped: existing + failed,
+  }
 }

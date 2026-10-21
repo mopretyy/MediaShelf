@@ -61,6 +61,8 @@ describe('steam import', () => {
       imported: 2,
       existing: 0,
       updated: 0,
+      resumed: 0,
+      paused: 0,
       failed: 0,
       skipped: 0,
     })
@@ -77,7 +79,16 @@ describe('steam import', () => {
       importSteamLibrary(t.db, new TitleStore(t.db), userId, [
         { appid: 400, name: 'Portal', playtimeMinutes: 750 },
       ]),
-    ).toEqual({ total: 1, imported: 0, existing: 1, updated: 0, failed: 0, skipped: 1 })
+    ).toEqual({
+      total: 1,
+      imported: 0,
+      existing: 1,
+      updated: 0,
+      resumed: 0,
+      paused: 0,
+      failed: 0,
+      skipped: 1,
+    })
   })
 
   it('re-import refreshes hours but keeps the status the user set', async () => {
@@ -96,5 +107,59 @@ describe('steam import', () => {
       library.body.entries as { titleId: string; status: string; hours: number }[]
     ).find((e) => e.titleId === 'steam-400')
     expect(entry).toMatchObject({ status: 'completed', hours: 15 })
+  })
+  it('auto-pauses and resumes steam games, never touching finished ones', async () => {
+    const t = testApp()
+    const registered = await registerAccount(t, account)
+    const userId = registered.body.user.id as string
+    const store = new TitleStore(t.db)
+    const statusOf = async (id: string) => {
+      const library = await t.request('GET', '/api/library')
+      return (library.body.entries as { titleId: string; status: string }[]).find(
+        (e) => e.titleId === id,
+      )?.status
+    }
+    // First import with a known recent list: played-but-not-recent games start paused.
+    importSteamLibrary(
+      t.db,
+      store,
+      userId,
+      [
+        { appid: 400, name: 'Portal', playtimeMinutes: 600 },
+        { appid: 620, name: 'Portal 2', playtimeMinutes: 300 },
+        { appid: 70, name: 'Half-Life', playtimeMinutes: 900 },
+      ],
+      new Set([400]),
+    )
+    expect(await statusOf('steam-400')).toBe('in_progress')
+    expect(await statusOf('steam-620')).toBe('paused')
+    updateEntry(t.db, userId, 'steam-70', { status: 'completed' })
+
+    // Two weeks later: Portal not played, Portal 2 played again, Half-Life replayed.
+    const result = importSteamLibrary(
+      t.db,
+      store,
+      userId,
+      [
+        { appid: 400, name: 'Portal', playtimeMinutes: 600 },
+        { appid: 620, name: 'Portal 2', playtimeMinutes: 420 },
+        { appid: 70, name: 'Half-Life', playtimeMinutes: 960 },
+      ],
+      new Set([620, 70]),
+    )
+    expect(result).toMatchObject({ updated: 2, resumed: 1, paused: 1 })
+    expect(await statusOf('steam-400')).toBe('paused')
+    expect(await statusOf('steam-620')).toBe('in_progress')
+    expect(await statusOf('steam-70')).toBe('completed')
+  })
+
+  it('never pauses without a recent list (no API key)', async () => {
+    const t = testApp()
+    const registered = await registerAccount(t, account)
+    const userId = registered.body.user.id as string
+    const store = new TitleStore(t.db)
+    const games = [{ appid: 400, name: 'Portal', playtimeMinutes: 600 }]
+    importSteamLibrary(t.db, store, userId, games)
+    expect(importSteamLibrary(t.db, store, userId, games)).toMatchObject({ paused: 0 })
   })
 })
