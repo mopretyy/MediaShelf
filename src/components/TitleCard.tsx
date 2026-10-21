@@ -1,5 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
@@ -204,7 +204,12 @@ export function Shelf({
         className="no-scrollbar flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pt-1 pb-3 sm:scroll-px-6 sm:gap-4 sm:px-6 lg:scroll-px-8 lg:px-8"
       >
         {children.map((child, index) => (
-          <div role="listitem" key={index} className={cn('shrink-0 snap-start', itemClassName)}>
+          <div
+            role="listitem"
+            // Prefer the child's own key so items keep their state when the list reorders.
+            key={isValidElement(child) && child.key != null ? child.key : index}
+            className={cn('shrink-0 snap-start', itemClassName)}
+          >
             {child}
           </div>
         ))}

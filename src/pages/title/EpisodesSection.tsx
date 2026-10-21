@@ -125,9 +125,18 @@ export function EpisodesSection({
 
   const run = (episodes: { season: number; number: number }[], value: boolean) => {
     if (!entry) {
-      actions.add(title, 'in_progress')
+      // Add the title first, then apply the click the user actually made.
+      actions.add(
+        title,
+        'in_progress',
+        value ? { onSuccess: () => applyMarks(episodes, value) } : {},
+      )
       return
     }
+    applyMarks(episodes, value)
+  }
+
+  const applyMarks = (episodes: { season: number; number: number }[], value: boolean) => {
     mark.mutate(
       { titleId: title.id, episodes, watched: value },
       {

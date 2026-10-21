@@ -22,7 +22,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { isStatusAllowed, STATUS_ORDER } from '@shared/status.ts'
@@ -237,7 +237,13 @@ export function Board({ entries }: { entries: LibraryEntry[] }) {
     },
   }
 
-  const onDragStart = (event: DragStartEvent) => setActive(String(event.active.id))
+  // Item the card was inserted in front of when it last crossed into another column.
+  const crossedBefore = useRef<string | null>(null)
+
+  const onDragStart = (event: DragStartEvent) => {
+    crossedBefore.current = null
+    setActive(String(event.active.id))
+  }
 
   const onDragOver = ({ active: dragged, over }: DragOverEvent) => {
     if (!over) return
@@ -246,6 +252,7 @@ export function Board({ entries }: { entries: LibraryEntry[] }) {
     const to = columnOf(String(over.id))
     const entry = byId.get(id)
     if (!from || !to || from === to || !entry || !isStatusAllowed(entry.kind, to)) return
+    crossedBefore.current = String(over.id)
     setColumns((current) => {
       const target = current[to].filter((item) => item !== id)
       const overIndex = target.indexOf(String(over.id))
@@ -274,7 +281,11 @@ export function Board({ entries }: { entries: LibraryEntry[] }) {
     let list = columns[status]
     const from = list.indexOf(id)
     const to = over.id === `column:${status}` ? list.length - 1 : list.indexOf(String(over.id))
-    if (from >= 0 && to >= 0 && from !== to) list = arrayMove(list, from, to)
+    // Dropped right where onDragOver inserted it (in front of `over`): the preview already shows
+    // the final slot, and arrayMove would push the card one position past it.
+    const keepCrossSlot = crossedBefore.current === String(over.id)
+    crossedBefore.current = null
+    if (!keepCrossSlot && from >= 0 && to >= 0 && from !== to) list = arrayMove(list, from, to)
     setColumns((current) => ({ ...current, [status]: list }))
     const index = list.indexOf(id)
     const before = index > 0 ? byId.get(list[index - 1])?.position : undefined
