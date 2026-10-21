@@ -77,7 +77,14 @@ export function useUser() {
 }
 
 export function resetUserData(client: QueryClient) {
-  for (const key of [keys.library, keys.stats, keys.activity, keys.sessions, ['marks']])
+  for (const key of [
+    keys.library,
+    keys.stats,
+    keys.activity,
+    keys.sessions,
+    ['marks'],
+    ['my-achievements'],
+  ])
     client.removeQueries({ queryKey: key })
   try {
     localStorage.removeItem('mediashelf:shuffle-history')
@@ -634,5 +641,21 @@ export function useAchievements(appid: string | null) {
       ).then((d) => d.achievements),
     enabled: Boolean(appid),
     staleTime: 60 * 60_000,
+  })
+}
+
+/** The signed-in user's unlocked achievement names; null when Steam is unlinked or private. */
+export function useMyAchievements(appid: string | null) {
+  const user = useUser()
+  const steamId = user?.preferences.steamId ?? null
+  return useQuery({
+    // Personal data: keyed by account and Steam id so a logout or Steam switch never reuses it.
+    queryKey: ['my-achievements', user?.id ?? null, steamId, appid] as const,
+    queryFn: ({ signal }) =>
+      get<{ unlocked: string[] | null }>(`/me/steam/achievements/${appid}`, signal).then(
+        (d) => d.unlocked,
+      ),
+    enabled: Boolean(appid) && Boolean(steamId),
+    staleTime: 5 * 60_000,
   })
 }

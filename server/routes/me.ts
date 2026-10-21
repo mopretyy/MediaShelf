@@ -23,6 +23,7 @@ import { fetchOwnedGames, fetchRecentAppIds, importSteamLibrary } from '../libra
 import { claimSteamSync, deferSteamSync, markSteamSynced } from '../library/steam-sync.ts'
 import { getEntry, refreshEpisodeCounters } from '../library/entries.ts'
 import { sql } from '../db/index.ts'
+import { playerAchievements } from '../catalog/steam-achievements.ts'
 
 export function meRoutes(deps: AppDeps) {
   const { db, config, limits, titles } = deps
@@ -160,6 +161,17 @@ export function meRoutes(deps: AppDeps) {
       ownKeyHint: key ? keyHint(key) : null,
       siteKey: Boolean(config.steamApiKey),
     })
+  })
+
+  app.get('/steam/achievements/:appid', async (c) => {
+    const user = requireUser(c)
+    const appid = c.req.param('appid')
+    if (!/^\d{1,12}$/.test(appid)) throw new ApiError(400, 'BAD_REQUEST', 'Bad app id')
+    const { steamId } = JSON.parse(user.preferences) as { steamId?: string }
+    if (!steamId) return c.json({ unlocked: null })
+    const apiKey = getSteamKey(db, user.id) ?? config.steamApiKey
+    const unlocked = await playerAchievements(appid, steamId, apiKey).catch(() => null)
+    return c.json({ unlocked })
   })
 
   app.put('/steam/key', async (c) => {

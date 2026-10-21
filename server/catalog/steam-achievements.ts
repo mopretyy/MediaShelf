@@ -84,3 +84,39 @@ export async function gameAchievements(
   if (cache.size > 200) cache.delete(cache.keys().next().value!)
   return data
 }
+
+interface PlayerJson {
+  playerstats?: {
+    success?: boolean
+    achievements?: { apiname: string; achieved: number }[]
+  }
+}
+
+/** Names the player unlocked, or null when Steam would not say (private profile, no stats). */
+export function parsePlayerAchievements(json: PlayerJson | null): string[] | null {
+  const stats = json?.playerstats
+  if (!stats?.success) return null
+  return (stats.achievements ?? []).filter((a) => a.achieved === 1).map((a) => a.apiname)
+}
+
+const PLAYER_TTL = 5 * 60_000
+const playerCache = new Map<string, { at: number; data: string[] | null }>()
+
+/** A user's own unlocked achievements for one game (needs an API key). */
+export async function playerAchievements(
+  appid: string,
+  steamId: string,
+  apiKey: string | null,
+): Promise<string[] | null> {
+  if (!apiKey) return null
+  const key = `${steamId}:${appid}`
+  const hit = playerCache.get(key)
+  if (hit && Date.now() - hit.at < PLAYER_TTL) return hit.data
+  const json = await getJson<PlayerJson>(
+    `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?key=${encodeURIComponent(apiKey)}&steamid=${encodeURIComponent(steamId)}&appid=${encodeURIComponent(appid)}&format=json`,
+  )
+  const data = parsePlayerAchievements(json)
+  playerCache.set(key, { at: Date.now(), data })
+  if (playerCache.size > 500) playerCache.delete(playerCache.keys().next().value!)
+  return data
+}

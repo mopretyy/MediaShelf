@@ -572,6 +572,8 @@ export const en: Messages = {
   },
   achievements: {
     title: 'Achievements',
+    mine: '{done} / {total}',
+    unlocked: 'Unlocked',
     percent: '{percent}%',
     hint: 'Share of Steam players who unlocked it.',
   },

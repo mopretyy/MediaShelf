@@ -638,6 +638,8 @@ export const ru = {
   },
   achievements: {
     title: 'Достижения',
+    mine: '{done} / {total}',
+    unlocked: 'Получено',
     percent: '{percent}%',
     hint: 'Сколько процентов игроков Steam открыли достижение.',
   },
