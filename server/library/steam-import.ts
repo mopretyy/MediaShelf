@@ -2,7 +2,7 @@ import { titleId } from '../../shared/ids.ts'
 import type { TitleRecord } from '../../shared/types.ts'
 import type { DB } from '../db/index.ts'
 import { ApiError } from '../http/errors.ts'
-import { createEntry, updateEntry } from './entries.ts'
+import { createEntry, getEntry, updateEntry } from './entries.ts'
 import type { TitleStore } from './titles.ts'
 
 export interface OwnedGame {
@@ -173,15 +173,22 @@ export function steamAppRecord(appid: number, name: string): TitleRecord {
 export interface SteamImportResult {
   total: number
   imported: number
-  /** Already in the library: left untouched. */
+  /** Already in the library: status, rating and notes are left untouched. */
   existing: number
+  /** Of `existing`: Steam entries whose hours went up. */
+  updated: number
   /** Could not be stored. */
   failed: number
   /** existing + failed, kept for older clients. */
   skipped: number
 }
 
-/** Adds owned games as Steam entries: played → in progress with hours, rest → planned. */
+const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10 || null
+
+/**
+ * Adds owned games as Steam entries: played → in progress with hours, rest → planned.
+ * Re-running it is a sync: existing Steam entries get fresh hours, nothing else changes.
+ */
 export function importSteamLibrary(
   db: DB,
   titles: TitleStore,
@@ -190,27 +197,35 @@ export function importSteamLibrary(
 ): SteamImportResult {
   let imported = 0
   let existing = 0
+  let updated = 0
   let failed = 0
   for (const game of games) {
     try {
       const record = steamAppRecord(game.appid, game.name)
-      titles.putImported(record)
-      const created = createEntry(db, userId, record, {
-        status: game.playtimeMinutes > 0 ? 'in_progress' : 'planned',
-      }).created
-      if (!created) {
+      const current = getEntry(db, userId, record.id)
+      if (current) {
+        // Never touch the status here: a finished or dropped game must stay that way.
         existing += 1
+        const hours = toHours(game.playtimeMinutes)
+        if (current.store === 'steam' && hours !== null && hours > (current.hours ?? 0)) {
+          updateEntry(db, userId, record.id, { hours })
+          updated += 1
+        }
         continue
       }
+      titles.putImported(record)
+      createEntry(db, userId, record, {
+        status: game.playtimeMinutes > 0 ? 'in_progress' : 'planned',
+      })
       updateEntry(db, userId, record.id, {
         store: 'steam',
         platform: 'pc',
-        hours: Math.round((game.playtimeMinutes / 60) * 10) / 10 || null,
+        hours: toHours(game.playtimeMinutes),
       })
       imported += 1
     } catch {
       failed += 1
     }
   }
-  return { total: games.length, imported, existing, failed, skipped: existing + failed }
+  return { total: games.length, imported, existing, updated, failed, skipped: existing + failed }
 }
