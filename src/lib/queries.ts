@@ -636,3 +636,18 @@ export function useAchievements(appid: string | null) {
     staleTime: 60 * 60_000,
   })
 }
+
+/** The signed-in user's unlocked achievement names; null when Steam is unlinked or private. */
+export function useMyAchievements(appid: string | null) {
+  const user = useUser()
+  const linked = Boolean(user?.preferences.steamId)
+  return useQuery({
+    queryKey: ['my-achievements', appid] as const,
+    queryFn: ({ signal }) =>
+      get<{ unlocked: string[] | null }>(`/me/steam/achievements/${appid}`, signal).then(
+        (d) => d.unlocked,
+      ),
+    enabled: Boolean(appid) && linked,
+    staleTime: 5 * 60_000,
+  })
+}
