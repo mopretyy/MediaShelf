@@ -259,11 +259,7 @@ export function importSteamLibrary(
       titles.putImported(record)
       const played = game.playtimeMinutes > 0
       createEntry(db, userId, record, {
-        status: !played
-          ? 'planned'
-          : recent && !recent.has(game.appid)
-            ? 'paused'
-            : 'in_progress',
+        status: !played ? 'planned' : recent && !recent.has(game.appid) ? 'paused' : 'in_progress',
       })
       updateEntry(db, userId, record.id, {
         store: 'steam',

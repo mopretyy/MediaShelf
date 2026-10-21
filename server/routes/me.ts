@@ -19,11 +19,7 @@ import { deleteUser, findUserByEmail, findUserById, toUser, updateUser } from '.
 import { limit, requireUser, type AppDeps, type AppEnv } from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
 import { exportLibrary, importLibrary } from '../library/transfer.ts'
-import {
-  fetchOwnedGames,
-  fetchRecentAppIds,
-  importSteamLibrary,
-} from '../library/steam-import.ts'
+import { fetchOwnedGames, fetchRecentAppIds, importSteamLibrary } from '../library/steam-import.ts'
 import { getEntry, refreshEpisodeCounters } from '../library/entries.ts'
 import { sql } from '../db/index.ts'
 
