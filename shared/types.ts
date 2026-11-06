@@ -150,6 +150,35 @@ export interface EpisodeList {
   ended: boolean | null
 }
 
+/** An episode of a followed show with a known air date (YYYY-MM-DD). */
+export interface AiringEpisode {
+  season: number
+  number: number
+  name: string | null
+  airdate: string
+}
+
+export interface AiringItem {
+  titleId: string
+  kind: Kind
+  status: Status
+  title: TitleRecord
+  /** New: the first aired episode you haven't watched. Upcoming: the episode that airs. */
+  episode: AiringEpisode
+  /** New: how many aired episodes are waiting. Upcoming: always 1. */
+  count: number
+}
+
+/** "What's new for me": fresh episodes of shows you had caught up on, and what airs soon. */
+export interface AiringFeed {
+  /** The day the feed was computed for (the viewer's local date). */
+  today: string
+  fresh: AiringItem[]
+  upcoming: AiringItem[]
+  /** Some episode lists are being refreshed in the background: ask again in a few seconds. */
+  refreshing?: boolean
+}
+
 export interface ChartPage {
   items: TitleRecord[]
   hasMore: boolean

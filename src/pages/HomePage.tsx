@@ -18,6 +18,7 @@ import { useDocumentTitle } from '@/lib/hooks'
 import { useActivity, useCharts, useLibrary, useMarkNext, useSession } from '@/lib/queries'
 import { episodeCode, localToday, statusLabelKey, titleHref, titleName } from '@/lib/titles'
 import { toast } from 'sonner'
+import { AiringSections } from './home/AiringSections'
 
 function greetingKey(hour: number) {
   if (hour < 5) return 'home.night' as const
@@ -300,6 +301,8 @@ function Dashboard({ name }: { name: string }) {
           )}
         </section>
       )}
+
+      {failed ? null : <AiringSections />}
 
       {failed ? null : library.isLoading || active.length ? <Trending /> : null}
 

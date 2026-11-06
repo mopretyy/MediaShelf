@@ -1,4 +1,5 @@
 import { profileLookEn } from './sections/profile-look.ts'
+import { airingEn } from './sections/airing.ts'
 import { steamConnectEn } from './sections/steam-connect.ts'
 import type { Messages } from './ru.ts'
 
@@ -7,6 +8,7 @@ const p = (one: string, other: string) => ({ one, few: other, many: other, other
 export const en: Messages = {
   profileLook: profileLookEn,
   steamConnect: steamConnectEn,
+  airing: airingEn,
   app: {
     name: 'MediaShell',
     tagline: 'Games, movies, series and anime — one library',

@@ -17,7 +17,7 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 19:00 UTC.
+- **Last updated:** 2026-11-06 18:52 UTC (from `date`).
 - **Code changes so far:** package `wp-data` is committed (Undo restores everything, the email verification link signs in, cache freshness, the cover 404, the episode count in stats). See PROGRESS.md → COMPLETED. Checks green: 219 unit/API tests, 13/13 e2e.
 - **Being implemented right now (wave 1, not committed yet):** P0–P3 client bugs in two worktrees. `wp-title` covers PROGRESS items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16. Each package is delivered as `/workspace/tools/patches/<wp>.patch`, applied to the branch, checked and committed. If the session dies before that, the work is lost (VM-local); redo those items from `PROGRESS.md`.
 - **Audit:** the client-bug audit is complete (16 findings, 14 of them reproduced in Chromium) and recorded in `docs/handoff/AUDIT.md`. The other audit streams (server bugs, UX/visual, new features, performance, a11y/i18n/mobile) were still running when this was written; their results get appended to `AUDIT.md` when they finish.
@@ -115,6 +115,12 @@ Full details with evidence and fix proposals: `docs/handoff/AUDIT.md`. Headline 
 | `src/components/SteamAccount.tsx` | invalidates stats and activity after an import |
 | `src/pages/VerifyEmailPage.tsx` | signs in after verification; keeps the theme |
 | `server/api.test.ts`, `server/cover.test.ts` | new tests for undo/restore and `coverVersion` |
+
+| `server/scripts/seed-demo.ts` | consistent demo data (episode marks, import-stub titles) |
+| `server/library/airing.ts`, `server/library/airing.test.ts` | new: personal episode feed (fresh and upcoming) |
+| `src/lib/airing.ts`, `src/lib/airing-days.ts` (+ test) | new: `useAiring` hook and pure date helpers |
+| `src/pages/home/AiringSections.tsx` | new: «Новые серии» and «Скоро выйдет» sections on Home |
+| `src/i18n/sections/airing.ts` | new: feed strings (ru + en), registered in `ru.ts` and `en.ts` |
 
 Keep this table current.
 

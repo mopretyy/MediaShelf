@@ -84,6 +84,7 @@ export function resetUserData(client: QueryClient) {
     keys.sessions,
     ['marks'],
     ['my-achievements'],
+    ['airing'],
   ])
     client.removeQueries({ queryKey: key })
   try {
@@ -263,6 +264,8 @@ export function invalidateDerived(client: QueryClient) {
   void client.invalidateQueries({ queryKey: keys.activity })
   // Profiles show favourites, stats and recent activity too (your own one included).
   void client.invalidateQueries({ queryKey: ['profile'] })
+  // New and upcoming episodes depend on marks and statuses.
+  void client.invalidateQueries({ queryKey: ['airing'] })
 }
 
 /** Undo one optimistic change, then refetch: a sibling mutation may have landed meanwhile. */

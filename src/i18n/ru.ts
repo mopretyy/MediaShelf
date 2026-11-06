@@ -1,4 +1,5 @@
 import { profileLookRu } from './sections/profile-look.ts'
+import { airingRu } from './sections/airing.ts'
 import { steamConnectRu } from './sections/steam-connect.ts'
 // Source of truth for UI copy. English (en.ts) must provide exactly the same keys.
 // Plural objects use Intl.PluralRules categories; {count} and other {vars} are interpolated.
@@ -6,6 +7,7 @@ import { steamConnectRu } from './sections/steam-connect.ts'
 export const ru = {
   profileLook: profileLookRu,
   steamConnect: steamConnectRu,
+  airing: airingRu,
   app: {
     name: 'MediaShell',
     tagline: 'Игры, фильмы, сериалы и аниме — в одной библиотеке',

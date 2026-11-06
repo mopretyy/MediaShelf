@@ -20,6 +20,7 @@ import {
 } from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
+import { computeAiring, isDay, staleEpisodeLists } from '../library/airing.ts'
 import {
   addPlaythrough,
   createEntry,
@@ -34,7 +35,7 @@ import {
   updateEntry,
   updatePlaythrough,
 } from '../library/entries.ts'
-import { ensureEpisodeList, resolveTitle } from '../library/resolve.ts'
+import { ensureEpisodeList, episodeList, resolveTitle } from '../library/resolve.ts'
 import { computeStats } from '../library/stats.ts'
 import { exportEntry, importEntries } from '../library/transfer.ts'
 import type { PlatformId } from '../../shared/types.ts'
@@ -77,6 +78,19 @@ export function libraryRoutes(deps: AppDeps) {
       })
       .parse(c.req.query())
     return c.json({ items: listActivity(db, user.id, query.limit, query.before) })
+  })
+
+  // New and upcoming episodes of followed shows. Lists that are missing or due are refreshed in
+  // the background; `refreshing` tells the client to ask again shortly instead of waiting here.
+  app.get('/airing', (c) => {
+    const user = requireUser(c)
+    const requested = c.req.query('today')
+    const today = isDay(requested) ? requested : new Date().toISOString().slice(0, 10)
+    const stale = staleEpisodeLists(db, user.id).slice(0, 4)
+    const locale = requestLocale(c)
+    const region = requestRegion(c)
+    for (const id of stale) void episodeList(deps, id, locale, region).catch(() => null)
+    return c.json({ ...computeAiring(db, user.id, today), refreshing: stale.length > 0 })
   })
 
   app.post('/', async (c) => {
