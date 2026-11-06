@@ -17,8 +17,8 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 18:45 UTC.
-- **Code changes so far:** none committed yet besides these handoff documents. Baseline is green.
+- **Last updated:** 2026-11-06 19:00 UTC.
+- **Code changes so far:** package `wp-data` is committed (Undo restores everything, the email verification link signs in, cache freshness, the cover 404, the episode count in stats). See PROGRESS.md → COMPLETED. Checks green: 219 unit/API tests, 13/13 e2e.
 - **Being implemented right now (wave 1, not committed yet):** P0–P3 client bugs in two worktrees. `wp-title` covers PROGRESS items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16. Each package is delivered as `/workspace/tools/patches/<wp>.patch`, applied to the branch, checked and committed. If the session dies before that, the work is lost (VM-local); redo those items from `PROGRESS.md`.
 - **Audit:** the client-bug audit is complete (16 findings, 14 of them reproduced in Chromium) and recorded in `docs/handoff/AUDIT.md`. The other audit streams (server bugs, UX/visual, new features, performance, a11y/i18n/mobile) were still running when this was written; their results get appended to `AUDIT.md` when they finish.
 - **Next step:** fix the P0/P1 bugs from `PROGRESS.md`, then the UX, performance and feature work.
@@ -58,6 +58,10 @@ Registration is two-step (email code). Without SMTP the `/api/auth/register/star
 
 - Node 24: `export PATH=$(nix shell nixpkgs#nodejs_24 -c sh -c 'dirname $(which node)'):$PATH`.
 - Playwright's bundled Chromium does not run on NixOS. A git-ignored `playwright.local.config.ts` (listed in `.git/info/exclude`) spreads `playwright.config.ts` and sets `use.launchOptions.executablePath` to the Nix Chromium; run `npx vite build && npx playwright test -c playwright.local.config.ts`. Set `E2E_PORT` to a unique port when several suites run at once.
+
+### Tembo-specific gotcha (only if you run inside a Tembo sandbox)
+
+`tembo commit` makes a local commit, has Tembo create a verified commit with the same tree on the remote, then runs `git fetch` and **`git reset --hard origin/<branch>`**. Any tracked-file changes that were not part of the commit are wiped. Always stage the complete working tree (`git add -A`) or save a patch (`git diff --binary HEAD > backup.patch`) before running it. Untracked files survive.
 
 ## Findings so far
 
@@ -101,14 +105,25 @@ Full details with evidence and fix proposals: `docs/handoff/AUDIT.md`. Headline 
 | `PROGRESS.md`           | new: COMPLETED / IN PROGRESS / TODO tracker                           |
 | `docs/handoff/AUDIT.md` | new: full audit findings (generated from the audit run, then curated) |
 
-No application code has been changed yet. Keep this table current.
+| `server/library/transfer.ts` | `exportEntry` and `importEntries` extracted; import recomputes episode counters |
+| `server/routes/library.ts` | `DELETE` returns `snapshot`; new `POST /api/library/restore` |
+| `server/routes/users.ts`, `shared/types.ts` | `UserProfile.coverVersion` |
+| `server/library/stats.ts` | `episodesWatched` = Σ regular watched episodes (same source as hours) |
+| `src/lib/queries.ts` | `restoreRemovedEntry`, `holdLibrary`/`refreshIfMissing`, `setEntry` moves updated entries to the front, profile invalidation |
+| `src/components/library-actions.tsx` | Undo uses `restoreRemovedEntry` |
+| `src/components/CoverPicker.tsx` | uses `coverVersion` instead of probing the image |
+| `src/components/SteamAccount.tsx` | invalidates stats and activity after an import |
+| `src/pages/VerifyEmailPage.tsx` | signs in after verification; keeps the theme |
+| `server/api.test.ts`, `server/cover.test.ts` | new tests for undo/restore and `coverVersion` |
+
+Keep this table current.
 
 ## Git
 
 - **Remote:** `origin` = `https://github.com/mopretyy/MediaShelf`; default branch `main`.
 - **Working branch:** `tembo/make-it-better`, created from `main` @ `49cbe1e` (#21, Steam achievement progress).
 - **Commits on the branch:** see `git log main..tembo/make-it-better`; the first one adds these handoff files.
-- **Worktrees:** `/workspace/wt/wp-title` and `/workspace/wt/wp-nav` (detached at `5863ec7`, wave 1). The plan uses one worktree per parallel work package (`git worktree add --detach /workspace/wt/<name> HEAD`, then symlink `node_modules` from the main checkout). Each package is delivered as a patch or commit and merged into the branch. List them with `git worktree list` and record any that are left behind here.
+- **Worktrees:** `/workspace/wt/wp-title` and `/workspace/wt/wp-nav` (detached at `5863ec7`, wave 1, agents still working), plus `/workspace/wt/wp-data` (detached at `49eaa58`; its work is already committed, safe to remove). The plan uses one worktree per parallel work package (`git worktree add --detach /workspace/wt/<name> HEAD`, then symlink `node_modules` from the main checkout). Each package is delivered as a patch or commit and merged into the branch. List them with `git worktree list` and record any that are left behind here.
 - **Uncommitted changes:** none besides what the latest commit contains; check with `git status`.
 - Other remote branches (`sauna/*`, `gumball/*`, `hoplite/*`, `feat/promo-video`, `codespaces-preview`, `backup/before-bug-fixes`) are older feature branches, already merged or abandoned. Leave them alone.
 
@@ -117,8 +132,8 @@ No application code has been changed yet. Keep this table current.
 | Agent / run                                                                         | Assignment                                                                                                                                                                                              | State when last updated                                                                                                          |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Audit workflow `mediashell-audit` (`wf_729d74b4-579`)                               | Six read-only auditors: client bugs, server bugs, UX/visual, features, performance, a11y/i18n/mobile; adversarial verifiers for both bug streams                                                        | Client bugs done (in `AUDIT.md`); server bugs and UX/visual running; the rest queued. Read-only: it changes no repository files. |
-| Fix workflow `mediashell-fix-wave1` (`wf_a0829402-001`), agent `implement:wp-title` | Worktree `/workspace/wt/wp-title`: notes autosave to the wrong title (key the page by id), stale next-episode state, date rejection, back arrow; plus e2e regression tests                              | Running since 18:44 UTC                                                                                                          |
-| Same workflow, agent `implement:wp-nav`                                             | Worktree `/workspace/wt/wp-nav`: stale command palette results, Ctrl K on the RU layout, year-story hotkey trap, library search caret, sticky Discover genre, recent titles across accounts; plus tests | Running since 18:44 UTC                                                                                                          |
+| Fix workflow `mediashell-fix-wave1` (`wf_a0829402-001`), agent `implement:wp-title` | Worktree `/workspace/wt/wp-title`: notes autosave to the wrong title (key the page by id), stale next-episode state, date rejection, back arrow; plus e2e regression tests                              | Running since 18:31 UTC                                                                                                          |
+| Same workflow, agent `implement:wp-nav`                                             | Worktree `/workspace/wt/wp-nav`: stale command palette results, Ctrl K on the RU layout, year-story hotkey trap, library search caret, sticky Discover genre, recent titles across accounts; plus tests | Running since 18:31 UTC                                                                                                          |
 
 If you cannot reach these agents (different account or machine), do not wait for them. The client-bug list alone is enough to start. Re-run only the dimensions that are missing from `AUDIT.md`, and only if you need them; for the UX work you can screenshot the app yourself.
 

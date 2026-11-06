@@ -8,6 +8,12 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 - [x] Screenshots of every page (desktop dark/light, mobile dark, guest and signed-in) reviewed by the lead. Observations are recorded in `HANDOFF.md` → Findings.
 - [x] Client-bug audit: 16 findings, 14 reproduced in Chromium. Recorded in `docs/handoff/AUDIT.md`.
 - [x] Handoff system: `HANDOFF.md`, `PROGRESS.md`, `docs/handoff/AUDIT.md`.
+- [x] Item 4, `bugs-client-undo-remove-data-loss`: Undo is now a real restore. `DELETE /api/library/:id` returns a full snapshot in export format (marks, playthroughs, notes, dates); `POST /api/library/restore` re-imports it through the shared import code, which now also recomputes episode counters, so «next episode» comes back. The client restore is a plain function on the QueryClient, so Undo works even after leaving the page. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 5, `bugs-client-verify-link-not-signed-in`: VerifyEmailPage now navigates and then applies the session, like the code form, and sends the stored theme instead of `system`. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 7, `bugs-client-mutation-during-initial-load`: optimistic mutations only cancel the library query when it already has data, and they refetch it after settling when it didn't. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 13, `bugs-client-cover-probe-404`: the profile API returns `coverVersion`; `CoverPicker` no longer probes the image URL, so there is no 404 on every visit. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 14, `bugs-client-stats-episodes-vs-hours`: «Серий просмотрено» and its hours caption now come from one source (regular episodes per entry). (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 15, `bugs-client-stale-derived-caches`: updated entries move to the front of the cached list (Continue order matches the server), profile queries are invalidated with stats and activity, and a Steam import refreshes stats and activity. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
 
 ## IN PROGRESS
 
@@ -24,13 +30,13 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 ### P1: broken flows
 
 3. [ ] `bugs-client-palette-adds-stale-result`: Ctrl K only shows and selects results that belong to the current query; closing with Ctrl K resets it.
-4. [ ] `bugs-client-undo-remove-data-loss`: make Undo a real restore (deferred delete, or server tombstone and restore endpoint).
-5. [ ] `bugs-client-verify-link-not-signed-in`: VerifyEmailPage applies the session (`signIn(user)`) and doesn't override the theme.
+4. [x] ~~done~~ (see COMPLETED)
+5. [x] ~~done~~ (see COMPLETED)
 6. [ ] `bugs-client-library-search-caret`: local state for the library search input, synced to the URL.
 
 ### P2
 
-7. [ ] `bugs-client-mutation-during-initial-load`: only cancel library queries when data exists; invalidate when the cache is empty.
+7. [x] ~~done~~ (see COMPLETED)
 8. [ ] `bugs-client-discover-sticky-genre`: reset the genre filter on query or kind change; add an empty state with «Сбросить фильтры».
 9. [ ] `bugs-client-year-story-palette-trap`: disable shell hotkeys while the year story is open, or layer it correctly.
 10. [ ] `bugs-client-hotkeys-ru-layout`: match `event.code` (`KeyK`, `Slash`) in `useHotkey`; add a unit test.
@@ -39,9 +45,9 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 
 11. [ ] `bugs-client-back-arrow-leaves-app`: use the router history index for the back button.
 12. [ ] `bugs-client-date-reject-stale`: reset the date on error, show the field error, and add min/max on the date inputs.
-13. [ ] `bugs-client-cover-probe-404`: expose `coverVersion` in the API and drop the `<img>` probe.
-14. [ ] `bugs-client-stats-episodes-vs-hours`: compute the episode count and hours from one source.
-15. [ ] `bugs-client-stale-derived-caches`: move updated entries to the front; invalidate the profile; refresh stats after a Steam import.
+13. [x] ~~done~~ (see COMPLETED)
+14. [x] ~~done~~ (see COMPLETED)
+15. [x] ~~done~~ (see COMPLETED)
 16. [ ] `bugs-client-recent-titles-cross-account`: clear or key the recent titles by user.
 17. [ ] Make the demo seed consistent (episode marks that match progress; no IMDb rating on games).
 

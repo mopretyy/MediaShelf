@@ -209,11 +209,18 @@ export function useEntry(titleId: string | undefined) {
   return titleId ? (map.get(titleId) ?? null) : null
 }
 
+/**
+ * Puts a fresh copy of an entry into the library cache. The server lists entries by
+ * updated_at, newest first, and "Continue" lists rely on that order, so an entry that changed
+ * moves to the front instead of keeping its old place until the next refetch.
+ */
 export function setEntry(client: QueryClient, entry: LibraryEntry) {
   client.setQueryData<LibraryEntry[]>(keys.library, (old) => {
     if (!old) return old
     const index = old.findIndex((item) => item.titleId === entry.titleId)
     if (index < 0) return [entry, ...old]
+    if (entry.updatedAt > old[index]!.updatedAt)
+      return [entry, ...old.slice(0, index), ...old.slice(index + 1)]
     const next = old.slice()
     next[index] = entry
     return next
@@ -221,11 +228,25 @@ export function setEntry(client: QueryClient, entry: LibraryEntry) {
 }
 
 function patchEntry(client: QueryClient, titleId: string, patch: Partial<LibraryEntry>) {
-  client.setQueryData<LibraryEntry[]>(keys.library, (old) =>
-    old?.map((item) =>
-      item.titleId === titleId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item,
-    ),
-  )
+  const current = client
+    .getQueryData<LibraryEntry[]>(keys.library)
+    ?.find((item) => item.titleId === titleId)
+  if (current) setEntry(client, { ...current, ...patch, updatedAt: new Date().toISOString() })
+}
+
+/**
+ * Optimistic updates cancel the library query so a refetch can't overwrite them. Before the
+ * first load there is nothing to protect: cancelling would only throw the request away and leave
+ * the page without a library, so the in-flight fetch is kept and refreshed once settled.
+ */
+async function holdLibrary(client: QueryClient) {
+  const hadData = client.getQueryData<LibraryEntry[]>(keys.library) !== undefined
+  if (hadData) await client.cancelQueries({ queryKey: keys.library })
+  return hadData
+}
+
+function refreshIfMissing(client: QueryClient, hadData: boolean | undefined) {
+  if (!hadData) void client.invalidateQueries({ queryKey: keys.library })
 }
 
 /** Rolls back one entry: its previous version, or nothing if it was provisional. */
@@ -237,9 +258,11 @@ function restoreEntry(client: QueryClient, titleId: string, previous: LibraryEnt
     )
 }
 
-function invalidateDerived(client: QueryClient) {
+export function invalidateDerived(client: QueryClient) {
   void client.invalidateQueries({ queryKey: keys.stats })
   void client.invalidateQueries({ queryKey: keys.activity })
+  // Profiles show favourites, stats and recent activity too (your own one included).
+  void client.invalidateQueries({ queryKey: ['profile'] })
 }
 
 /** Undo one optimistic change, then refetch: a sibling mutation may have landed meanwhile. */
@@ -297,18 +320,19 @@ export function useAddEntry() {
         favorite,
       }),
     onMutate: async ({ title, status = 'planned' }) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === title.id)
       setEntry(client, existing ? { ...existing, status } : provisionalEntry(title, status))
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, { title }, context) => rollback(client, title.id, context?.existing),
     onSuccess: ({ entry }) => {
       setEntry(client, entry)
       invalidateDerived(client)
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
 }
 
@@ -318,7 +342,7 @@ export function useUpdateEntry() {
     mutationFn: ({ titleId, patch }: { titleId: string; patch: EntryPatch }) =>
       api<EntryChange>('PATCH', `/library/${titleId}`, patch),
     onMutate: async ({ titleId, patch }) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === titleId)
@@ -336,7 +360,7 @@ export function useUpdateEntry() {
       ] as const)
         if (patch[key] !== undefined) Object.assign(optimistic, { [key]: patch[key] })
       patchEntry(client, titleId, optimistic)
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, { titleId }, context) => rollback(client, titleId, context?.existing),
     onSuccess: ({ entry }, { titleId }) => {
@@ -345,29 +369,64 @@ export function useUpdateEntry() {
       if (entry.kind === 'series' || entry.kind === 'anime')
         void client.invalidateQueries({ queryKey: keys.marks(titleId) })
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
 }
+
+/** Opaque copy of a removed entry (export format) that `restoreRemovedEntry` puts back. */
+export type EntrySnapshot = { readonly titleId: string } & Record<string, unknown>
 
 export function useRemoveEntry() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (titleId: string) => api<{ ok: true }>('DELETE', `/library/${titleId}`),
+    mutationFn: (titleId: string) =>
+      api<{ ok: true; snapshot: EntrySnapshot }>('DELETE', `/library/${titleId}`),
     onMutate: async (titleId) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === titleId)
       client.setQueryData<LibraryEntry[]>(keys.library, (old) =>
         old?.filter((entry) => entry.titleId !== titleId),
       )
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, titleId, context) => rollback(client, titleId, context?.existing),
     onSuccess: (_data, titleId) => {
       client.removeQueries({ queryKey: keys.marks(titleId) })
       invalidateDerived(client)
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
+}
+
+/**
+ * Undo of a removal: puts the entry back exactly as it was (episode marks, playthroughs, notes
+ * and dates included) from the snapshot the DELETE returned. A plain function on the query
+ * client, not a hook callback, so it still works after the page that removed it has unmounted.
+ */
+export async function restoreRemovedEntry(
+  client: QueryClient,
+  removed: LibraryEntry,
+  snapshot: EntrySnapshot,
+) {
+  setEntry(client, removed)
+  try {
+    const data = await api<{ entry: LibraryEntry; marks: EpisodeMark[] }>(
+      'POST',
+      '/library/restore',
+      { entry: snapshot },
+    )
+    setEntry(client, data.entry)
+    if (data.entry.kind === 'series' || data.entry.kind === 'anime')
+      client.setQueryData(keys.marks(data.entry.titleId), data.marks)
+    invalidateDerived(client)
+    return data.entry
+  } catch (error) {
+    restoreEntry(client, removed.titleId, undefined)
+    void client.invalidateQueries({ queryKey: keys.library })
+    throw error
+  }
 }
 
 export function useEpisodeMarks(titleId: string, enabled: boolean) {

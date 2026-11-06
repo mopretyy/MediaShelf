@@ -18,7 +18,7 @@ import {
   type AppDeps,
   type AppEnv,
 } from '../context.ts'
-import { notFound } from '../http/errors.ts'
+import { ApiError, notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
 import {
   addPlaythrough,
@@ -36,6 +36,7 @@ import {
 } from '../library/entries.ts'
 import { ensureEpisodeList, resolveTitle } from '../library/resolve.ts'
 import { computeStats } from '../library/stats.ts'
+import { exportEntry, importEntries } from '../library/transfer.ts'
 import type { PlatformId } from '../../shared/types.ts'
 
 export function libraryRoutes(deps: AppDeps) {
@@ -113,10 +114,27 @@ export function libraryRoutes(deps: AppDeps) {
     return c.json(updateEntry(db, user.id, titleId, patch))
   })
 
+  // Undo after a removal: the snapshot the DELETE returned (export format), put back as it was,
+  // episode marks, playthroughs and dates included.
+  app.post('/restore', async (c) => {
+    const user = requireUser(c)
+    const body = z.object({ entry: z.unknown() }).parse(await c.req.json())
+    const { imported } = importEntries(db, deps.titles, user.id, [body.entry])
+    const titleId = (body.entry as { titleId?: unknown }).titleId
+    const entry = imported && typeof titleId === 'string' ? getEntry(db, user.id, titleId) : null
+    if (!entry) throw new ApiError(400, 'VALIDATION', 'Snapshot could not be restored')
+    return c.json({ entry, marks: listEpisodeMarks(db, user.id, entry.titleId) })
+  })
+
   app.delete('/:titleId', (c) => {
     const user = requireUser(c)
-    deleteEntry(db, user.id, titleParam(c.req.param('titleId')))
-    return c.json({ ok: true })
+    const titleId = titleParam(c.req.param('titleId'))
+    const entry = getEntry(db, user.id, titleId)
+    if (!entry) throw notFound('Entry not found')
+    // Everything the delete wipes (marks and playthroughs cascade), so Undo can restore it.
+    const snapshot = exportEntry(db, user.id, entry)
+    deleteEntry(db, user.id, titleId)
+    return c.json({ ok: true, snapshot })
   })
 
   app.get('/:titleId/episodes', (c) => {

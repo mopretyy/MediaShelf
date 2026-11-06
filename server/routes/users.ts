@@ -102,10 +102,9 @@ export function usersRoutes(deps: AppDeps) {
     else if (banner === 'title') {
       const picked = all.find((entry) => entry.titleId === prefs.bannerTitleId)
       bannerImage = picked?.title?.backdrop ?? picked?.title?.poster ?? null
-    } else if (banner === 'image') {
-      const version = coverVersion(db, id)
-      bannerImage = version ? `/api/users/${id}/cover?v=${version}` : null
     }
+    const cover = coverVersion(db, id)
+    if (banner === 'image') bannerImage = cover ? `/api/users/${id}/cover?v=${cover}` : null
 
     const profile: UserProfile = {
       user: publicUser,
@@ -116,6 +115,7 @@ export function usersRoutes(deps: AppDeps) {
       inProgress: inProgress.map(toPublicEntry),
       heroPosters,
       bannerImage,
+      coverVersion: cover,
     }
     return c.json(profile)
   })

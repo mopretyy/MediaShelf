@@ -366,6 +366,102 @@ describe('library', () => {
   })
 })
 
+describe('undo after removal', () => {
+  it('restores a series with its marks, notes, rating and dates', async () => {
+    const t = await signedIn()
+    const id = 'series-tt0903747'
+    await t.request('POST', '/api/library', { titleId: id })
+    await t.request('POST', `/api/library/${id}/episodes`, {
+      episodes: [
+        { season: 1, number: 1 },
+        { season: 1, number: 2 },
+      ],
+      watched: true,
+    })
+    await t.request('PUT', `/api/library/${id}/episodes/note`, {
+      season: 1,
+      number: 2,
+      note: 'great twist',
+      rating: 9,
+    })
+    await t.request('PATCH', `/api/library/${id}`, {
+      notes: 'rewatch with friends',
+      startedAt: '2025-01-05T10:00:00.000Z',
+      rating: 8,
+      favorite: true,
+    })
+    const before = (await t.request('GET', `/api/library/${id}`)).body.entry
+    expect(before.nextEpisode).not.toBeNull()
+
+    const removed = await t.request('DELETE', `/api/library/${id}`)
+    expect(removed.status).toBe(200)
+    expect(removed.body.snapshot).toMatchObject({ titleId: id, notes: 'rewatch with friends' })
+    expect(removed.body.snapshot.episodes).toHaveLength(2)
+    expect((await t.request('GET', `/api/library/${id}`)).status).toBe(404)
+
+    const restored = await t.request('POST', '/api/library/restore', {
+      entry: removed.body.snapshot,
+    })
+    expect(restored.status).toBe(200)
+    expect(restored.body.entry).toMatchObject({
+      status: before.status,
+      rating: 8,
+      favorite: true,
+      notes: 'rewatch with friends',
+      addedAt: before.addedAt,
+      startedAt: before.startedAt,
+      watchedEpisodes: 2,
+      progress: before.progress,
+      nextEpisode: before.nextEpisode,
+    })
+    expect(restored.body.marks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ season: 1, number: 2, note: 'great twist', rating: 9 }),
+      ]),
+    )
+  })
+
+  it('restores a game with hours, store and extra playthroughs', async () => {
+    const t = await signedIn()
+    const id = 'steam-1145360'
+    await t.request('POST', '/api/library', { titleId: id })
+    await t.request('PATCH', `/api/library/${id}`, {
+      progress: 70,
+      hours: 120,
+      platform: 'pc',
+      store: 'gog',
+      notes: 'Скеллиге',
+    })
+    await t.request('POST', `/api/library/${id}/playthroughs`, {
+      label: 'NG+',
+      platform: 'switch',
+      status: 'in_progress',
+      progress: 10,
+    })
+    const removed = await t.request('DELETE', `/api/library/${id}`)
+    const restored = await t.request('POST', '/api/library/restore', {
+      entry: removed.body.snapshot,
+    })
+    expect(restored.body.entry).toMatchObject({
+      status: 'in_progress',
+      progress: 70,
+      hours: 120,
+      store: 'gog',
+      notes: 'Скеллиге',
+    })
+    expect(restored.body.entry.playthroughs).toEqual([
+      expect.objectContaining({ label: 'NG+', platform: 'switch', progress: 10 }),
+    ])
+  })
+
+  it('rejects snapshots that are not entries', async () => {
+    const t = await signedIn()
+    const res = await t.request('POST', '/api/library/restore', { entry: { titleId: 'nope' } })
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION')
+  })
+})
+
 describe('catalog', () => {
   it('serves charts, search, details, episodes and offers', async () => {
     const t = testApp()

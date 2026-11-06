@@ -4,7 +4,13 @@ import { isStatusAllowed } from '../../shared/status.ts'
 import type { LibraryEntry, TitleRecord, User } from '../../shared/types.ts'
 import { KINDS, PLATFORMS, STATUSES, STORES } from '../../shared/types.ts'
 import { sql, transaction, type DB } from '../db/index.ts'
-import { listEntries, listEpisodeMarks, MAX_ENTRIES, MAX_PLAYTHROUGHS } from './entries.ts'
+import {
+  listEntries,
+  listEpisodeMarks,
+  MAX_ENTRIES,
+  MAX_PLAYTHROUGHS,
+  refreshEpisodeCounters,
+} from './entries.ts'
 import type { TitleStore } from './titles.ts'
 
 // Imported artwork may only point at the image CDNs the catalogs themselves use.
@@ -121,44 +127,49 @@ export const importSchema = z.object({
   entries: z.array(z.unknown()).max(MAX_ENTRIES),
 })
 
+/** One entry in export format: everything needed to recreate it, marks and playthroughs included. */
+export function exportEntry(db: DB, userId: string, entry: LibraryEntry) {
+  const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(entry.titleId) as {
+    data: string
+  }
+  const title = JSON.parse(stored.data) as TitleRecord
+  return {
+    titleId: entry.titleId,
+    status: entry.status,
+    rating: entry.rating,
+    favorite: entry.favorite,
+    notes: entry.notes,
+    progress: entry.progress,
+    platform: entry.platform,
+    store: entry.store,
+    hours: entry.hours,
+    addedAt: entry.addedAt,
+    startedAt: entry.startedAt,
+    finishedAt: entry.finishedAt,
+    position: entry.position,
+    title: {
+      id: title.id,
+      kind: title.kind,
+      names: title.names,
+      year: title.year,
+      poster: title.poster,
+      backdrop: title.backdrop,
+      genres: title.genres,
+      ratings: title.ratings,
+      runtime: title.runtime ?? null,
+      seasons: title.seasons ?? null,
+      episodes: title.episodes ?? null,
+      externalIds: title.externalIds,
+    },
+    playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
+    episodes: listEpisodeMarks(db, userId, entry.titleId),
+  }
+}
+
+export type EntrySnapshot = ReturnType<typeof exportEntry>
+
 export function exportLibrary(db: DB, user: User) {
-  const entries = listEntries(db, user.id).map((entry: LibraryEntry) => {
-    const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(entry.titleId) as {
-      data: string
-    }
-    const title = JSON.parse(stored.data) as TitleRecord
-    return {
-      titleId: entry.titleId,
-      status: entry.status,
-      rating: entry.rating,
-      favorite: entry.favorite,
-      notes: entry.notes,
-      progress: entry.progress,
-      platform: entry.platform,
-      store: entry.store,
-      hours: entry.hours,
-      addedAt: entry.addedAt,
-      startedAt: entry.startedAt,
-      finishedAt: entry.finishedAt,
-      position: entry.position,
-      title: {
-        id: title.id,
-        kind: title.kind,
-        names: title.names,
-        year: title.year,
-        poster: title.poster,
-        backdrop: title.backdrop,
-        genres: title.genres,
-        ratings: title.ratings,
-        runtime: title.runtime ?? null,
-        seasons: title.seasons ?? null,
-        episodes: title.episodes ?? null,
-        externalIds: title.externalIds,
-      },
-      playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
-      episodes: listEpisodeMarks(db, user.id, entry.titleId),
-    }
-  })
+  const entries = listEntries(db, user.id).map((entry) => exportEntry(db, user.id, entry))
   return {
     format: 'mediashelf' as const,
     version: 4 as const,
@@ -173,6 +184,14 @@ const ms = (value: string | null | undefined) => (value ? Date.parse(value) : nu
 /** Merges an export into the user's library; existing entries are overwritten. */
 export function importLibrary(db: DB, titles: TitleStore, userId: string, payload: unknown) {
   const { entries } = importSchema.parse(payload)
+  return importEntries(db, titles, userId, entries)
+}
+
+/**
+ * Writes export-format entries (see `exportEntry`) in one transaction, skipping invalid ones.
+ * Also used by Undo after a removal, which restores the snapshot the DELETE returned.
+ */
+export function importEntries(db: DB, titles: TitleStore, userId: string, entries: unknown[]) {
   let imported = 0
   let skipped = 0
   transaction(db, () => {
@@ -278,6 +297,8 @@ export function importLibrary(db: DB, titles: TitleStore, userId: string, payloa
           userId,
           entry.titleId,
         )
+        // With a stored episode list this also restores "next episode" and the progress bar.
+        refreshEpisodeCounters(db, userId, entry.titleId)
       }
       imported++
     }

@@ -270,6 +270,8 @@ export interface UserProfile {
   heroPosters: string[]
   /** Backdrop of the first favourite title, for the 'favorite' banner. */
   bannerImage: string | null
+  /** Version of the uploaded cover picture, or null when none was uploaded. */
+  coverVersion: number | null
 }
 
 export interface SessionInfo {

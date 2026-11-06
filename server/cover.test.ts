@@ -24,6 +24,8 @@ describe('profile cover', () => {
     const profile = await t.request('GET', `/api/users/${id}/profile`)
     expect(profile.body.user.banner).toBe('image')
     expect(profile.body.bannerImage).toMatch(new RegExp(`^/api/users/${id}/cover\\?v=\\d+$`))
+    // Settings learn about the picture from here instead of probing the image URL (a 404).
+    expect(profile.body.coverVersion).toEqual(expect.any(Number))
 
     const image = await t.request('GET', `/api/users/${id}/cover`)
     expect(image.status).toBe(200)
@@ -52,6 +54,7 @@ describe('profile cover', () => {
     expect((await t.request('DELETE', '/api/me/cover')).status).toBe(200)
     const profile = await t.request('GET', `/api/users/${id}/profile`)
     expect(profile.body.bannerImage).toBeNull()
+    expect(profile.body.coverVersion).toBeNull()
     expect((await t.request('GET', `/api/users/${id}/cover`)).status).toBe(404)
   })
 
