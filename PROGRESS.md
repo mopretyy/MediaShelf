@@ -11,6 +11,7 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 
 ## IN PROGRESS
 
+- [ ] Wave 1 bug fixes (workflow `wf_a0829402-001`, two agents in worktrees, uncommitted until merged): `wp-title` covers TODO items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16.
 - [ ] Audit workflow `wf_729d74b4-579` (read-only, changes no files): server bugs, UX/visual, features, performance, a11y/i18n/mobile, plus adversarial verification of the bug findings. Results are appended to `docs/handoff/AUDIT.md` as they arrive.
 
 ## TODO (ordered by priority)

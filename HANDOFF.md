@@ -17,8 +17,9 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 18:35 UTC.
-- **Code changes so far:** none yet (only these handoff documents). Baseline is green.
+- **Last updated:** 2026-11-06 18:45 UTC.
+- **Code changes so far:** none committed yet besides these handoff documents. Baseline is green.
+- **Being implemented right now (wave 1, not committed yet):** P0–P3 client bugs in two worktrees. `wp-title` covers PROGRESS items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16. Each package is delivered as `/workspace/tools/patches/<wp>.patch`, applied to the branch, checked and committed. If the session dies before that, the work is lost (VM-local); redo those items from `PROGRESS.md`.
 - **Audit:** the client-bug audit is complete (16 findings, 14 of them reproduced in Chromium) and recorded in `docs/handoff/AUDIT.md`. The other audit streams (server bugs, UX/visual, new features, performance, a11y/i18n/mobile) were still running when this was written; their results get appended to `AUDIT.md` when they finish.
 - **Next step:** fix the P0/P1 bugs from `PROGRESS.md`, then the UX, performance and feature work.
 
@@ -107,15 +108,17 @@ No application code has been changed yet. Keep this table current.
 - **Remote:** `origin` = `https://github.com/mopretyy/MediaShelf`; default branch `main`.
 - **Working branch:** `tembo/make-it-better`, created from `main` @ `49cbe1e` (#21, Steam achievement progress).
 - **Commits on the branch:** see `git log main..tembo/make-it-better`; the first one adds these handoff files.
-- **Worktrees:** none at the moment. The plan uses one worktree per parallel work package (`git worktree add --detach /workspace/wt/<name> HEAD`, then symlink `node_modules` from the main checkout). Each package is delivered as a patch or commit and merged into the branch. List them with `git worktree list` and record any that are left behind here.
+- **Worktrees:** `/workspace/wt/wp-title` and `/workspace/wt/wp-nav` (detached at `5863ec7`, wave 1). The plan uses one worktree per parallel work package (`git worktree add --detach /workspace/wt/<name> HEAD`, then symlink `node_modules` from the main checkout). Each package is delivered as a patch or commit and merged into the branch. List them with `git worktree list` and record any that are left behind here.
 - **Uncommitted changes:** none besides what the latest commit contains; check with `git status`.
 - Other remote branches (`sauna/*`, `gumball/*`, `hoplite/*`, `feat/promo-video`, `codespaces-preview`, `backup/before-bug-fixes`) are older feature branches, already merged or abandoned. Leave them alone.
 
 ## Parallel agents
 
-| Agent / run                                           | Assignment                                                                                                                                       | State when last updated                                                                                                          |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Audit workflow `mediashell-audit` (`wf_729d74b4-579`) | Six read-only auditors: client bugs, server bugs, UX/visual, features, performance, a11y/i18n/mobile; adversarial verifiers for both bug streams | Client bugs done (in `AUDIT.md`); server bugs and UX/visual running; the rest queued. Read-only: it changes no repository files. |
+| Agent / run                                                                         | Assignment                                                                                                                                                                                              | State when last updated                                                                                                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Audit workflow `mediashell-audit` (`wf_729d74b4-579`)                               | Six read-only auditors: client bugs, server bugs, UX/visual, features, performance, a11y/i18n/mobile; adversarial verifiers for both bug streams                                                        | Client bugs done (in `AUDIT.md`); server bugs and UX/visual running; the rest queued. Read-only: it changes no repository files. |
+| Fix workflow `mediashell-fix-wave1` (`wf_a0829402-001`), agent `implement:wp-title` | Worktree `/workspace/wt/wp-title`: notes autosave to the wrong title (key the page by id), stale next-episode state, date rejection, back arrow; plus e2e regression tests                              | Running since 18:44 UTC                                                                                                          |
+| Same workflow, agent `implement:wp-nav`                                             | Worktree `/workspace/wt/wp-nav`: stale command palette results, Ctrl K on the RU layout, year-story hotkey trap, library search caret, sticky Discover genre, recent titles across accounts; plus tests | Running since 18:44 UTC                                                                                                          |
 
 If you cannot reach these agents (different account or machine), do not wait for them. The client-bug list alone is enough to start. Re-run only the dimensions that are missing from `AUDIT.md`, and only if you need them; for the UX work you can screenshot the app yourself.
 
