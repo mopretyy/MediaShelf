@@ -26,8 +26,11 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 
 ## IN PROGRESS
 
-- [ ] Wave 1, package `wp-title` (agent still working in `/workspace/wt/wp-title`): TODO items 1, 2, 11 and 12. `wp-nav` is merged.
-- [ ] Audit re-run `wf_5d0dc241-5ed` (the first audit died with the session interrupt): UX/visual, mobile+a11y+i18n, performance, server bugs, features. Partial notes land in `/workspace/tools/scratch/<dimension>/findings.md`.
+Nothing is running; all agents are stopped. Pending work is saved as patches. See «ГДЕ ОСТАНОВИЛИСЬ» in `HANDOFF.md`.
+
+- [ ] `docs/handoff/pending/wave2-palette-mobile-shuffle.patch`: written, not tested. Apply, check, commit.
+- [ ] `docs/handoff/pending/wp-title-unfinished.patch`: TODO items 1, 2, 11 and 12, unfinished. Apply with `--3way`, resolve conflicts, finish, check, commit.
+- [ ] Audit: UX and mobile/a11y/i18n are partial (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never run.
 
 ## TODO (ordered by priority)
 

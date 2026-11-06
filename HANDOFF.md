@@ -1,5 +1,45 @@
 # MediaShell — handoff
 
+## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 19:25 UTC) — читать первым
+
+Работа продолжается в новом чате, возможно на другой машине. Всё нужное лежит в репозитории, на ветке `tembo/make-it-better`. Локальные пути `/workspace/tools/...` и `/workspace/wt/...` могут уже не существовать, не рассчитывайте на них.
+
+### Состояние ветки
+
+- **Запушено и проверено** (до коммита `6c19a84` включительно; 249 unit-тестов и 19/19 e2e на тот момент):
+  - handoff-документы;
+  - фиксы данных: Undo восстанавливает запись целиком, ссылка подтверждения почты, обложка без 404, статистика серий, демо-seed;
+  - «Новые серии» и «Скоро выйдет» на Главной, значок новых серий;
+  - импорт из MyAnimeList, Шикимори и IMDb;
+  - пакет `wp-nav`: палитра Ctrl+K, горячие клавиши на русской раскладке, поиск, фильтры Discover, недавние тайтлы по аккаунтам;
+  - README.
+- **Не применено, лежит патчами** в `docs/handoff/pending/`:
+  1. `wave2-palette-mobile-shuffle.patch` (база: `6c19a84`). Фокус возвращается к кнопке, открывшей палитру; тосты и кнопка «наверх» над мобильной панелью вкладок (CSS-переменная `--tabbar-h`); `SectionHeader` переносится, а не расширяет страницу; Shuffle по умолчанию берёт планы из библиотеки, кнопка на Главной ведёт на `/shuffle?source=library`. Код написан, **тесты не прогонялись**.
+  2. `wp-title-unfinished.patch` (база: `5863ec7`, старее HEAD). Незаконченная работа агента по P0-багам страницы тайтла: ключ страницы по id и привязка черновика заметки к тайтлу, вычисление следующей серии из списка и отметок, плюс P3 (кнопка «Назад», сброс даты при ошибке). Новые файлы: `src/pages/title/dates.ts`, `src/pages/title/episode-progress.ts` (с тестами), `tests/e2e/title.spec.ts`. Агент остановлен до финальной проверки. Конфликты при применении ожидаются в `src/lib/queries.ts`, `src/components/library-actions.tsx`, `server/routes/library.ts`, `server/api.test.ts`, `src/pages/TitlePage.tsx`.
+
+### Что сделать дальше, по порядку
+
+1. `git fetch origin && git checkout tembo/make-it-better && npm ci` (Node 24).
+2. `git apply --3way docs/handoff/pending/wave2-palette-mobile-shuffle.patch`, затем прогнать все проверки (команды ниже, раздел «Commands»). Если зелено, закоммитить и удалить этот патч из `docs/handoff/pending/`.
+3. `git apply --3way docs/handoff/pending/wp-title-unfinished.patch`, разрешить конфликты (сохранить и логику из HEAD: `restoreRemovedEntry`, `holdLibrary`, `setEntry` с переносом вперёд, `invalidateDerived` с `airing`; и логику патча). Довести P0 (`bugs-client-notes-autosave-wrong-title`, `bugs-client-stale-next-episode`) и P3 (`bugs-client-back-arrow-leaves-app`, `bugs-client-date-reject-stale`), прогнать проверки и e2e (`tests/e2e/title.spec.ts`), закоммитить, удалить патч.
+4. UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md` (аудит прерван, это частичные списки). Главное:
+   - ряд кнопок героя на странице тайтла не переносится на 320–360 px, меню «…» недоступно;
+   - дублирующиеся кнопки статуса, оценки и избранного на странице тайтла;
+   - статус обрезается на карточках библиотеки («П…»);
+   - ряды топ-10 в Discover тратят место на цифру и обрезают названия;
+   - в профиле время в «Последних действиях» повторяется дважды;
+   - подсказка «Фон избранного» неверна, если у первого избранного нет фона;
+   - пять заглушек «Скоро» в настройках игр;
+   - частичные языки (uk/de/es/fr/ro, около 40%) показаны как полные.
+5. Не проверены совсем: серверные баги, производительность (замеры LCP и так далее), предложения новых функций. При желании провести эти аудиты заново.
+6. В конце: полная регрессия, скриншоты «до и после», обновить README и этот файл.
+
+### Важно
+
+- Если работаете в песочнице Tembo: `tembo commit` после коммита делает `git reset --hard origin/<branch>`, и незакоммиченные изменения отслеживаемых файлов пропадают. Перед ним всегда `git add -A` (или сохраните патч).
+- CI (`.github/workflows/ci.yml`) запускается только на push в `main` и на pull request. Push в эту ветку его не запускает, проверки гонять локально. Prettier проверяет и `.md`.
+- PR не открыт и не запрашивался.
+
 ## INSTRUCTIONS FOR THE NEXT AI AGENT
 
 You are continuing a large "make the whole site dramatically better" effort on this repository. Do **not** repeat the initial audit and do **not** start from scratch.
@@ -17,7 +57,7 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 19:16 UTC.
+- **Last updated:** 2026-11-06 19:25 UTC. Current status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
 - **Code changes so far:** package `wp-data` is committed (Undo restores everything, the email verification link signs in, cache freshness, the cover 404, the episode count in stats). See PROGRESS.md → COMPLETED. Checks green: 219 unit/API tests, 13/13 e2e.
 - **Being implemented right now (wave 1, not committed yet):** P0–P3 client bugs in two worktrees. `wp-title` covers PROGRESS items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16. Each package is delivered as `/workspace/tools/patches/<wp>.patch`, applied to the branch, checked and committed. If the session dies before that, the work is lost (VM-local); redo those items from `PROGRESS.md`.
 - **Audit:** the client-bug audit is complete (16 findings, 14 of them reproduced in Chromium) and recorded in `docs/handoff/AUDIT.md`. The other audit streams (server bugs, UX/visual, new features, performance, a11y/i18n/mobile) were still running when this was written; their results get appended to `AUDIT.md` when they finish.
@@ -128,6 +168,9 @@ Full details with evidence and fix proposals: `docs/handoff/AUDIT.md`. Headline 
 | `server/library/enrich.ts` (+ test), `server/routes/me.ts` | background enrichment of imported stubs after `/me/import` |
 
 | wave 1 `wp-nav`: `src/lib/hotkeys.ts` (+ test), `src/lib/hooks.ts`, `src/app/AppShell.tsx`, `src/app/shell-context.tsx`, `src/app/CommandPalette.tsx`, `src/lib/recent.ts` (+ test), `src/pages/DiscoverPage.tsx`, `src/pages/LibraryPage.tsx`, `src/pages/YearPage.tsx`, `src/pages/TitlePage.tsx`, `src/pages/settings/DataSection.tsx`, `tests/e2e/navigation.spec.ts` | palette freshness, RU-layout hotkeys, year-story hotkey lock, URL-synced search fields, Discover filter reset and empty state, per-account recent titles |
+
+| `docs/handoff/pending/*.patch` | not-yet-applied work: wave 2 (palette focus, tab bar offsets, header wrap, Shuffle default) and unfinished `wp-title` |
+| `docs/handoff/audit-ux-visual-partial.md`, `docs/handoff/audit-mobile-a11y-i18n-partial.md` | partial findings of the interrupted second audit |
 
 Keep this table current.
 
