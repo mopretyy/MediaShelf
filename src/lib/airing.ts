@@ -20,3 +20,9 @@ export function useAiring(enabled = true) {
       state.state.data?.refreshing && state.state.dataUpdateCount < 3 ? 4_000 : false,
   })
 }
+
+/** New episodes waiting across followed shows, for the badge on "Home". */
+export function useFreshCount() {
+  const { data } = useAiring()
+  return data?.fresh.reduce((sum, item) => sum + item.count, 0) ?? 0
+}

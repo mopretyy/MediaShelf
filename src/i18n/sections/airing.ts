@@ -15,6 +15,12 @@ export const airingRu = {
   premiere: 'Премьера сезона',
   showAll: 'Показать всё',
   showLess: 'Свернуть',
+  badge: {
+    one: '{count} новая серия',
+    few: '{count} новые серии',
+    many: '{count} новых серий',
+    other: '{count} новой серии',
+  },
 }
 
 export const airingEn: typeof airingRu = {
@@ -31,4 +37,10 @@ export const airingEn: typeof airingRu = {
   premiere: 'Season premiere',
   showAll: 'Show all',
   showLess: 'Show less',
+  badge: {
+    one: '{count} new episode',
+    few: '{count} new episodes',
+    many: '{count} new episodes',
+    other: '{count} new episodes',
+  },
 }
