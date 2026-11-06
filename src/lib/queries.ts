@@ -33,7 +33,7 @@ import type {
   UserProfile,
 } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
-import { api, get, query } from './api'
+import { api, ApiError, get, query } from './api'
 import { forgetRecent } from './recent'
 
 export const keys = {
@@ -479,7 +479,9 @@ export async function restoreRemovedEntry(
     invalidateDerived(client)
     return data.entry
   } catch (error) {
-    restoreEntry(client, removed.titleId, undefined)
+    // Already back in the library: keep showing it, the refetch brings the newer copy.
+    if (!(error instanceof ApiError && error.code === 'ENTRY_EXISTS'))
+      restoreEntry(client, removed.titleId, undefined)
     void client.invalidateQueries({ queryKey: keys.library })
     throw error
   }

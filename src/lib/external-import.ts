@@ -67,10 +67,12 @@ const XML_ENTITIES: Record<string, string> = {
 
 function decodeXml(value: string) {
   return value.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (match, name: string) => {
-    if (name[0] === '#')
-      return String.fromCodePoint(
-        name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : Number(name.slice(1)),
-      )
+    if (name[0] === '#') {
+      const code =
+        name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : Number(name.slice(1))
+      // An out-of-range reference would throw and abort the whole file: keep it as written.
+      return code <= 0x10ffff ? String.fromCodePoint(code) : match
+    }
     return XML_ENTITIES[name.toLowerCase()] ?? match
   })
 }
@@ -80,7 +82,9 @@ function isoDay(value: string | undefined): string | null {
   const match = value?.trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (!match || match[1] === '0000' || match[2] === '00' || match[3] === '00') return null
   const iso = `${match[1]}-${match[2]}-${match[3]}T12:00:00.000Z`
-  return Number.isNaN(Date.parse(iso)) ? null : iso
+  const time = Date.parse(iso)
+  // Date.parse rolls impossible days over (2024-02-30 → March 1st): require a round trip.
+  return Number.isNaN(time) || new Date(time).toISOString() !== iso ? null : iso
 }
 
 function intOrNull(value: string | undefined, min: number, max: number) {
@@ -264,8 +268,11 @@ export function convertImdbCsv(text: string): ConvertedFile {
     year: column('Year'),
     runtime: column('Runtime (mins)'),
     genres: column('Genres'),
+    position: column('Position'),
   }
-  const ratings = at.rating >= 0
+  // A ratings export has "Your Rating" and no "Position". The watchlist export has "Position" and,
+  // in its current format, an often empty "Your Rating" column too: every row decides by itself.
+  const watchlist = at.position >= 0 || at.rating < 0
   const entries: ExternalEntry[] = []
   const seen = new Set<string>()
   let skipped = 0
@@ -281,13 +288,15 @@ export function convertImdbCsv(text: string): ConvertedFile {
     const titleId = `${kind}-${tt}`
     if (seen.has(titleId)) continue
     seen.add(titleId)
-    const status: Status = ratings ? 'completed' : 'planned'
-    const finishedAt = ratings ? isoDay(cell(at.rated)) : null
+    const rating = intOrNull(cell(at.rating), 1, 10)
+    const watched = watchlist ? rating !== null : true
+    const status: Status = watched ? 'completed' : 'planned'
+    const finishedAt = watched ? isoDay(cell(at.rated)) : null
     const english = cell(at.title)
     entries.push({
       titleId,
       status,
-      rating: ratings ? intOrNull(cell(at.rating), 1, 10) : null,
+      rating: watched ? rating : null,
       favorite: false,
       notes: '',
       progress: status === 'completed' && kind === 'movie' ? 100 : 0,
@@ -316,7 +325,7 @@ export function convertImdbCsv(text: string): ConvertedFile {
       episodes: [],
     })
   }
-  return { source: ratings ? 'imdb-ratings' : 'imdb-watchlist', entries, skipped }
+  return { source: watchlist ? 'imdb-watchlist' : 'imdb-ratings', entries, skipped }
 }
 
 /** Detects the format and converts; null when the file is neither. */

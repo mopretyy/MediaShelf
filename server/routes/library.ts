@@ -9,6 +9,7 @@ import {
   playthroughSchema,
   titleIdSchema,
 } from '../../shared/schemas.ts'
+import { isTitleId } from '../../shared/ids.ts'
 import { parseJson } from '../db/index.ts'
 import {
   limit,
@@ -20,7 +21,7 @@ import {
 } from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
-import { computeAiring, isDay, staleEpisodeLists } from '../library/airing.ts'
+import { computeAiring, isDay, pickRefreshes, staleEpisodeLists } from '../library/airing.ts'
 import {
   addPlaythrough,
   createEntry,
@@ -43,6 +44,9 @@ import type { PlatformId } from '../../shared/types.ts'
 export function libraryRoutes(deps: AppDeps) {
   const { db, limits } = deps
   const app = new Hono<AppEnv>()
+  // Episode-feed background refreshes: when each title was last attempted, and which still run.
+  const refreshTried = new Map<string, number>()
+  const refreshing = new Set<string>()
 
   app.use('*', async (c, next) => {
     if (c.req.method !== 'GET') limit(limits, 'library', c.get('user')?.id ?? 'anonymous')
@@ -86,11 +90,19 @@ export function libraryRoutes(deps: AppDeps) {
     const user = requireUser(c)
     const requested = c.req.query('today')
     const today = isDay(requested) ? requested : new Date().toISOString().slice(0, 10)
-    const stale = staleEpisodeLists(db, user.id).slice(0, 4)
+    const stale = staleEpisodeLists(db, user.id)
+    const batch = pickRefreshes(stale, refreshTried)
     const locale = requestLocale(c)
     const region = requestRegion(c)
-    for (const id of stale) void episodeList(deps, id, locale, region).catch(() => null)
-    return c.json({ ...computeAiring(db, user.id, today), refreshing: stale.length > 0 })
+    for (const id of batch) {
+      refreshing.add(id)
+      void episodeList(deps, id, locale, region)
+        .catch(() => null)
+        .finally(() => refreshing.delete(id))
+    }
+    // Still true while an earlier request's refresh runs, so the client keeps polling until done.
+    const busy = batch.length > 0 || stale.some((id) => refreshing.has(id))
+    return c.json({ ...computeAiring(db, user.id, today), refreshing: busy })
   })
 
   app.post('/', async (c) => {
@@ -133,8 +145,11 @@ export function libraryRoutes(deps: AppDeps) {
   app.post('/restore', async (c) => {
     const user = requireUser(c)
     const body = z.object({ entry: z.unknown() }).parse(await c.req.json())
-    const { imported } = importEntries(db, deps.titles, user.id, [body.entry])
     const titleId = (body.entry as { titleId?: unknown }).titleId
+    // Added again (another tab, the palette) before Undo: never overwrite the newer entry.
+    if (typeof titleId === 'string' && isTitleId(titleId) && getEntry(db, user.id, titleId))
+      throw new ApiError(409, 'ENTRY_EXISTS', 'The title is already back in the library')
+    const { imported } = importEntries(db, deps.titles, user.id, [body.entry])
     const entry = imported && typeof titleId === 'string' ? getEntry(db, user.id, titleId) : null
     if (!entry) throw new ApiError(400, 'VALIDATION', 'Snapshot could not be restored')
     return c.json({ entry, marks: listEpisodeMarks(db, user.id, entry.titleId) })

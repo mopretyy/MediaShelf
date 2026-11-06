@@ -138,6 +138,53 @@ describe('IMDb CSV', () => {
   })
 })
 
+describe('IMDb watchlist in the current export format', () => {
+  // The current watchlist export also has "Your Rating" and "Date Rated", mostly empty.
+  const CURRENT = [
+    'Position,Const,Created,Modified,Description,Title,Original Title,URL,Title Type,IMDb Rating,Runtime (mins),Year,Genres,Num Votes,Release Date,Directors,Your Rating,Date Rated',
+    '1,tt0816692,2025-02-03,2025-02-03,,Interstellar,Interstellar,https://www.imdb.com/title/tt0816692/,Movie,8.7,169,2014,"Adventure, Drama",2000000,2014-10-26,Christopher Nolan,,',
+    '2,tt1375666,2025-02-04,2025-02-04,,Inception,Inception,https://www.imdb.com/title/tt1375666/,Movie,8.8,148,2010,Action,2500000,2010-07-08,Christopher Nolan,9,2025-03-01',
+  ].join('\n')
+
+  it('keeps unrated titles as plans and only rated ones as watched', () => {
+    const file = convertImdbCsv(CURRENT)
+    expect(file.source).toBe('imdb-watchlist')
+    expect(file.entries[0]).toMatchObject({
+      titleId: 'movie-tt0816692',
+      status: 'planned',
+      rating: null,
+      progress: 0,
+      finishedAt: null,
+    })
+    expect(file.entries[1]).toMatchObject({
+      titleId: 'movie-tt1375666',
+      status: 'completed',
+      rating: 9,
+      finishedAt: '2025-03-01T12:00:00.000Z',
+    })
+  })
+})
+
+describe('malformed values', () => {
+  it('keeps an out-of-range character reference instead of failing the whole file', () => {
+    const file = convertMalXml(
+      MAL.replace('Shingeki no Kyojin', 'Shingeki &#x110000; no Kyojin'),
+      '2025-01-01T00:00:00.000Z',
+    )
+    expect(file.entries.map((entry) => entry.title.names.original)).toContain(
+      'Shingeki &#x110000; no Kyojin',
+    )
+  })
+
+  it('drops impossible dates instead of rolling them over', () => {
+    const file = convertMalXml(
+      MAL.replace('<my_start_date>2021-01-10', '<my_start_date>2021-02-30'),
+      '2025-01-01T00:00:00.000Z',
+    )
+    expect(file.entries[0]).toMatchObject({ startedAt: null })
+  })
+})
+
 describe('detection and payload', () => {
   it('detects the format and leaves out titles already in the library', () => {
     expect(convertExternal('{"format":"mediashelf"}')).toBeNull()

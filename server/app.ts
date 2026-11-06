@@ -53,7 +53,8 @@ export function createApp(deps: AppDeps) {
     },
   })
   api.use('*', (c, next) =>
-    c.req.path === '/api/me/import'
+    // An Undo snapshot carries every episode mark and note of the removed entry: it can pass 1 MB.
+    c.req.path === '/api/me/import' || c.req.path === '/api/library/restore'
       ? largeBody(c, next)
       : c.req.path === '/api/me/cover'
         ? coverBody(c, next)

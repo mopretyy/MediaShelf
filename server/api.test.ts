@@ -454,6 +454,62 @@ describe('undo after removal', () => {
     ])
   })
 
+  it('refuses to overwrite a title that was added again before Undo', async () => {
+    const t = await signedIn()
+    const id = 'movie-tt0816692'
+    await t.request('POST', '/api/library', { titleId: id })
+    await t.request('PATCH', `/api/library/${id}`, { rating: 5 })
+    const removed = await t.request('DELETE', `/api/library/${id}`)
+    await t.request('POST', '/api/library', { titleId: id })
+    await t.request('PATCH', `/api/library/${id}`, { rating: 9 })
+    const res = await t.request('POST', '/api/library/restore', { entry: removed.body.snapshot })
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('ENTRY_EXISTS')
+    expect((await t.request('GET', `/api/library/${id}`)).body.entry.rating).toBe(9)
+  })
+
+  it('keeps marks set by "completed" automatic, so leaving "completed" still clears them', async () => {
+    const t = await signedIn()
+    const id = 'series-tt0903747'
+    await t.request('POST', '/api/library', { titleId: id })
+    await t.request('POST', `/api/library/${id}/episodes`, {
+      episodes: [{ season: 1, number: 1 }],
+      watched: true,
+    })
+    await t.request('PATCH', `/api/library/${id}`, { status: 'completed' })
+    const removed = await t.request('DELETE', `/api/library/${id}`)
+    const auto = removed.body.snapshot.episodes.filter((mark: { auto?: boolean }) => mark.auto)
+    expect(auto.length).toBeGreaterThan(0)
+    await t.request('POST', '/api/library/restore', { entry: removed.body.snapshot })
+    await t.request('PATCH', `/api/library/${id}`, { status: 'in_progress' })
+    const marks = (await t.request('GET', `/api/library/${id}/episodes`)).body.marks as {
+      season: number
+      number: number
+      watchedAt: string | null
+    }[]
+    expect(marks.filter((mark) => mark.watchedAt).map((m) => `${m.season}:${m.number}`)).toEqual([
+      '1:1',
+    ])
+  })
+
+  it('accepts an Undo snapshot larger than the usual 1 MB request limit', async () => {
+    const t = await signedIn()
+    const id = 'series-tt0903747'
+    await t.request('POST', '/api/library', { titleId: id })
+    const removed = await t.request('DELETE', `/api/library/${id}`)
+    const episodes = Array.from({ length: 600 }, (_, index) => ({
+      season: 1,
+      number: index + 1,
+      watchedAt: '2025-01-01T12:00:00.000Z',
+      rating: null,
+      note: 'x'.repeat(2000),
+    }))
+    const res = await t.request('POST', '/api/library/restore', {
+      entry: { ...removed.body.snapshot, episodes },
+    })
+    expect(res.status).toBe(200)
+  })
+
   it('rejects snapshots that are not entries', async () => {
     const t = await signedIn()
     const res = await t.request('POST', '/api/library/restore', { entry: { titleId: 'nope' } })

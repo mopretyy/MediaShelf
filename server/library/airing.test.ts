@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { EpisodeList } from '../../shared/types.ts'
 import { registerAccount, testApp } from '../test-utils.ts'
-import { addDays, isDay } from './airing.ts'
+import { addDays, isDay, pickRefreshes, REFRESH_RETRY } from './airing.ts'
 import { storeEpisodeList } from './entries.ts'
 
 const TODAY = '2026-11-06'
@@ -88,5 +88,18 @@ describe('airing feed', () => {
     expect(isDay('06.11.2026')).toBe(false)
     expect(isDay(undefined)).toBe(false)
     expect(addDays('2026-12-30', 3)).toBe('2027-01-02')
+  })
+})
+
+describe('background refreshes', () => {
+  it('does not retry the same titles on every request, so later ones get their turn', () => {
+    const tried = new Map<string, number>()
+    const stale = ['a', 'b', 'c', 'd', 'e', 'f']
+    const now = 1_000_000
+    expect(pickRefreshes(stale, tried, now)).toEqual(['a', 'b', 'c', 'd'])
+    // a–d never got a list (announced shows): still stale, but e and f are next.
+    expect(pickRefreshes(stale, tried, now + 4_000)).toEqual(['e', 'f'])
+    expect(pickRefreshes(stale, tried, now + 8_000)).toEqual([])
+    expect(pickRefreshes(stale, tried, now + REFRESH_RETRY)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

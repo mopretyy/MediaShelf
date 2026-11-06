@@ -12,7 +12,7 @@ import { useI18n } from '@/i18n'
 import { useAiring } from '@/lib/airing'
 import { groupByDay, relativeDay } from '@/lib/airing-days'
 import { cn } from '@/lib/cn'
-import { useMarkNext } from '@/lib/queries'
+import { useMarkEpisodes } from '@/lib/queries'
 import { episodeCode, statusLabelKey, titleHref, titleName } from '@/lib/titles'
 
 const VISIBLE_DAYS = 4
@@ -36,7 +36,7 @@ function useEpisodeText() {
 
 function FreshCard({ item, today }: { item: AiringItem; today: string }) {
   const { t, locale } = useI18n()
-  const markNext = useMarkNext()
+  const mark = useMarkEpisodes()
   const message = useErrorMessage()
   const episodeText = useEpisodeText()
   const name = titleName(item.title.names, locale)
@@ -70,20 +70,28 @@ function FreshCard({ item, today }: { item: AiringItem; today: string }) {
           <Button
             size="xs"
             variant="secondary"
-            loading={markNext.isPending}
+            loading={mark.isPending}
             onClick={() =>
-              markNext.mutate(item.titleId, {
-                onSuccess: ({ statusChanged }) =>
-                  toast(
-                    statusChanged
-                      ? t('toast.autoStatus', {
-                          status: t(statusLabelKey(item.kind, statusChanged.to)),
-                        })
-                      : t('toast.episodeMarked'),
-                    { description: `${name} · ${code}` },
-                  ),
-                onError: (error) => toast.error(message(error)),
-              })
+              // The exact episode on the card: "next" could be an earlier one with no air date.
+              mark.mutate(
+                {
+                  titleId: item.titleId,
+                  episodes: [{ season: item.episode.season, number: item.episode.number }],
+                  watched: true,
+                },
+                {
+                  onSuccess: ({ statusChanged }) =>
+                    toast(
+                      statusChanged
+                        ? t('toast.autoStatus', {
+                            status: t(statusLabelKey(item.kind, statusChanged.to)),
+                          })
+                        : t('toast.episodeMarked'),
+                      { description: `${name} · ${code}` },
+                    ),
+                  onError: (error) => toast.error(message(error)),
+                },
+              )
             }
           >
             <Check />

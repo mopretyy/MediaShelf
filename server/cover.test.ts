@@ -58,6 +58,21 @@ describe('profile cover', () => {
     expect((await t.request('GET', `/api/users/${id}/cover`)).status).toBe(404)
   })
 
+  it('keeps an uploaded picture private while it is not the shown banner', async () => {
+    const { t, id } = await signedIn()
+    await t.request('PUT', '/api/me/cover', { dataUrl: png })
+    // The owner still sees it (settings show the picture before it is chosen).
+    expect((await t.request('GET', `/api/users/${id}/profile`)).body.coverVersion).toEqual(
+      expect.any(Number),
+    )
+    expect((await t.request('GET', `/api/users/${id}/cover`)).status).toBe(200)
+
+    t.clearCookie()
+    await registerAccount(t, { ...account, name: 'Гость', email: 'guest@example.com' })
+    expect((await t.request('GET', `/api/users/${id}/profile`)).body.coverVersion).toBeNull()
+    expect((await t.request('GET', `/api/users/${id}/cover`)).status).toBe(404)
+  })
+
   it('only accepts library titles as the cover title', async () => {
     const { t } = await signedIn()
     const outside = await t.request('PATCH', '/api/me', {

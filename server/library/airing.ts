@@ -125,6 +125,28 @@ export function computeAiring(db: DB, userId: string, today: string): AiringFeed
   }
 }
 
+/** A title whose refresh was attempted is not attempted again for this long. */
+export const REFRESH_RETRY = 30 * 60_000
+
+/**
+ * Background refreshes for the feed: picks up to `max` stale titles not attempted recently, so a
+ * show without any episode list (announced anime, a source with no list) is not retried on every
+ * request and does not keep the other shows from refreshing. `tried` lives with the server.
+ */
+export function pickRefreshes(
+  stale: string[],
+  tried: Map<string, number>,
+  now = Date.now(),
+  max = 4,
+) {
+  if (tried.size > 5_000)
+    for (const [id, at] of tried) if (now - at >= REFRESH_RETRY) tried.delete(id)
+  const picked = stale.filter((id) => !(now - (tried.get(id) ?? -Infinity) < REFRESH_RETRY))
+  const batch = picked.slice(0, max)
+  for (const id of batch) tried.set(id, now)
+  return batch
+}
+
 /** Followed shows whose episode list is missing or due for a refresh, most recently touched first. */
 export function staleEpisodeLists(db: DB, userId: string, now = Date.now()) {
   const ids: string[] = []

@@ -33,13 +33,22 @@ function toPublicEntry(entry: LibraryEntry): PublicEntry {
   }
 }
 
+/** The banner a user shows; covers from the earlier preset list fall back to the poster collage. */
+function bannerOf(row: ReturnType<typeof findUserById>): BannerId {
+  const banner = row ? toUser(row).preferences.banner : undefined
+  return (BANNERS as readonly string[]).includes(banner ?? 'none') ? (banner ?? 'none') : 'none'
+}
+
 export function usersRoutes(deps: AppDeps) {
   const { db } = deps
   const app = new Hono<AppEnv>()
 
   app.get('/:id/cover', (c) => {
-    requireUser(c)
-    const cover = getCover(db, c.req.param('id'))
+    const viewer = requireUser(c)
+    const id = c.req.param('id')
+    // An uploaded picture someone is not showing stays private: only its owner can see it.
+    if (viewer.id !== id && bannerOf(findUserById(db, id)) !== 'image') throw notFound('No cover')
+    const cover = getCover(db, id)
     if (!cover) throw notFound('No cover')
     // Revalidated on every use: a replaced cover shows up at once, an unchanged one costs a 304.
     const etag = `"${cover.version}"`
@@ -52,17 +61,14 @@ export function usersRoutes(deps: AppDeps) {
   })
 
   app.get('/:id/profile', (c) => {
-    requireUser(c)
+    const viewer = requireUser(c)
     const id = c.req.param('id')
     const row = findUserById(db, id)
     if (!row) throw notFound('User not found')
 
     const user = toUser(row)
     const prefs = user.preferences
-    // Covers from the earlier preset list fall back to the poster collage.
-    const banner: BannerId = (BANNERS as readonly string[]).includes(prefs.banner ?? 'none')
-      ? (prefs.banner ?? 'none')
-      : 'none'
+    const banner = bannerOf(row)
     const publicUser: PublicUser = {
       id: user.id,
       name: user.name,
@@ -103,7 +109,8 @@ export function usersRoutes(deps: AppDeps) {
       const picked = all.find((entry) => entry.titleId === prefs.bannerTitleId)
       bannerImage = picked?.title?.backdrop ?? picked?.title?.poster ?? null
     }
-    const cover = coverVersion(db, id)
+    // Whether a picture was uploaded is the owner's business unless it is the shown banner.
+    const cover = banner === 'image' || viewer.id === id ? coverVersion(db, id) : null
     if (banner === 'image') bannerImage = cover ? `/api/users/${id}/cover?v=${cover}` : null
 
     const profile: UserProfile = {

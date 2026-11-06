@@ -114,6 +114,8 @@ const entrySchema = z.object({
         watchedAt: iso,
         rating: z.number().int().min(1).max(10).nullable().catch(null),
         note: text(2000).catch(''),
+        // Marked by "completed" rather than by hand: leaving "completed" clears it again.
+        auto: z.boolean().optional().catch(undefined),
       }),
     )
     .max(20000)
@@ -162,8 +164,23 @@ export function exportEntry(db: DB, userId: string, entry: LibraryEntry) {
       externalIds: title.externalIds,
     },
     playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
-    episodes: listEpisodeMarks(db, userId, entry.titleId),
+    episodes: snapshotMarks(db, userId, entry.titleId),
   }
+}
+
+/** Episode marks as `listEpisodeMarks` returns them, plus whether "completed" set them. */
+function snapshotMarks(db: DB, userId: string, titleId: string) {
+  const auto = new Set(
+    (
+      sql(
+        db,
+        'SELECT season, number FROM episode_marks WHERE user_id = ? AND title_id = ? AND auto = 1',
+      ).all(userId, titleId) as { season: number; number: number }[]
+    ).map((row) => `${row.season}:${row.number}`),
+  )
+  return listEpisodeMarks(db, userId, titleId).map((mark) =>
+    auto.has(`${mark.season}:${mark.number}`) ? { ...mark, auto: true } : mark,
+  )
 }
 
 export type EntrySnapshot = ReturnType<typeof exportEntry>
@@ -282,12 +299,22 @@ export function importEntries(db: DB, titles: TitleStore, userId: string, entrie
       } else if (entry.title.kind !== 'movie') {
         const insert = sql(
           db,
-          `INSERT INTO episode_marks (user_id, title_id, season, number, watched_at, rating, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT DO UPDATE SET watched_at = excluded.watched_at, rating = excluded.rating, note = excluded.note`,
+          `INSERT INTO episode_marks (user_id, title_id, season, number, watched_at, rating, note, auto)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT DO UPDATE SET watched_at = excluded.watched_at, rating = excluded.rating,
+             note = excluded.note, auto = excluded.auto`,
         )
         for (const e of entry.episodes)
-          insert.run(userId, entry.titleId, e.season, e.number, ms(e.watchedAt), e.rating, e.note)
+          insert.run(
+            userId,
+            entry.titleId,
+            e.season,
+            e.number,
+            ms(e.watchedAt),
+            e.rating,
+            e.note,
+            e.auto && e.watchedAt ? 1 : 0,
+          )
         const { count } = sql(
           db,
           'SELECT COUNT(*) AS count FROM episode_marks WHERE user_id = ? AND title_id = ? AND season > 0 AND watched_at IS NOT NULL',
