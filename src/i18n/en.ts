@@ -225,6 +225,8 @@ export const en: Messages = {
     genre: 'Genre',
     anyGenre: 'Any genre',
     hideAdded: 'Hide added',
+    noMatches: 'Nothing matches these filters',
+    clearFilters: 'Clear filters',
     sort: 'Sort',
     sortPopular: 'Most popular',
     sortRating: 'Highest rated',

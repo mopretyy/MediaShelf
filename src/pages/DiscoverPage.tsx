@@ -1,5 +1,5 @@
 import { ArrowRight, Search, SearchX, WifiOff, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CHART_LISTS, KINDS, type ChartList, type Kind, type TitleRecord } from '@shared/types.ts'
 import { genreLabel } from '@shared/genres.ts'
@@ -10,7 +10,7 @@ import { EmptyState, Switch } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
-import { useDebounced, useDocumentTitle } from '@/lib/hooks'
+import { useDocumentTitle, useSearchParamText } from '@/lib/hooks'
 import { useCharts, useLibraryMap, useSearch } from '@/lib/queries'
 import { compareNames } from '@/lib/titles'
 
@@ -56,11 +56,13 @@ function Filters({
   const genres = useMemo(() => {
     const counts = new Map<string, number>()
     for (const item of items) for (const g of item.genres) counts.set(g, (counts.get(g) ?? 0) + 1)
-    return [...counts.entries()]
+    const top = [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 24)
       .map(([g]) => g)
-  }, [items])
+    // A rarer genre picked through a link still shows in the trigger.
+    return genre && counts.has(genre) && !top.includes(genre) ? [...top, genre] : top
+  }, [items, genre])
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select
@@ -95,6 +97,22 @@ function Filters({
         {t('discover.hideAdded')}
       </label>
     </div>
+  )
+}
+
+/** Results exist, but the genre or "hide added" filter leaves none of them. */
+function NoMatches({ onReset }: { onReset(): void }) {
+  const { t } = useI18n()
+  return (
+    <EmptyState
+      icon={<SearchX />}
+      title={t('discover.noMatches')}
+      action={
+        <Button variant="secondary" onClick={onReset}>
+          {t('discover.clearFilters')}
+        </Button>
+      }
+    />
   )
 }
 
@@ -175,17 +193,27 @@ function ChartGrid({ kind, list }: { kind: Kind; list: ChartList }) {
       <div className="mt-5 mb-6">
         <Filters {...{ items: all, genre, setGenre, sort, setSort, hideAdded, setHideAdded }} />
       </div>
-      <TitleGrid>
-        {charts.isLoading
-          ? Array.from({ length: 18 }, (_, index) => <TitleCardSkeleton key={index} />)
-          : items.map((title, index) => (
-              <TitleCard key={title.id} title={title} eager={index < 12} />
-            ))}
-      </TitleGrid>
+      {/* Filters can hide every loaded title: say so once nothing more is coming. */}
+      {!charts.isLoading && all.length && !items.length && !charts.hasNextPage ? (
+        <NoMatches
+          onReset={() => {
+            setGenre('')
+            setHideAdded(false)
+          }}
+        />
+      ) : (
+        <TitleGrid>
+          {charts.isLoading
+            ? Array.from({ length: 18 }, (_, index) => <TitleCardSkeleton key={index} />)
+            : items.map((title, index) => (
+                <TitleCard key={title.id} title={title} eager={index < 12} />
+              ))}
+        </TitleGrid>
+      )}
       <div ref={sentinel} className="flex h-20 items-center justify-center text-sm text-fg-3">
         {charts.isFetchingNextPage ? (
           <Spinner />
-        ) : !charts.hasNextPage && all.length ? (
+        ) : !charts.hasNextPage && items.length ? (
           t('discover.end')
         ) : null}
       </div>
@@ -198,12 +226,13 @@ const SEARCH_SORTS: Sort[] = ['popular', 'rating', 'newest', 'title']
 function SearchResults({
   query,
   kind,
-  genre,
+  genre: genreParam,
   setGenre,
   sort,
   setSort,
   hideAdded,
   setHideAdded,
+  clearFilters,
 }: {
   query: string
   kind: Kind | 'all'
@@ -213,10 +242,19 @@ function SearchResults({
   setSort(value: Sort): void
   hideAdded: boolean
   setHideAdded(value: boolean): void
+  clearFilters(): void
 }) {
   const { t } = useI18n()
   const search = useSearch(query, kind)
-  const all = search.data?.items ?? []
+  const all = useMemo(() => search.data?.items ?? [], [search.data])
+  // A genre none of these results has (an old link, results that changed) would filter the page
+  // to nothing behind an empty picker: ignore it, and drop it from the URL once results are in.
+  const available = useMemo(() => new Set(all.flatMap((item) => item.genres)), [all])
+  const genre = available.has(genreParam) ? genreParam : ''
+  const staleGenre = Boolean(genreParam) && !genre && search.isSuccess && !search.isPlaceholderData
+  useEffect(() => {
+    if (staleGenre) setGenre('')
+  }, [staleGenre, setGenre])
   const items = useFiltered(all, genre, sort, hideAdded)
 
   if (query.trim().length < 2)
@@ -258,18 +296,25 @@ function SearchResults({
       <div className="mt-5 mb-6">
         <Filters {...{ items: all, genre, setGenre, sort, setSort, hideAdded, setHideAdded }} />
       </div>
-      <TitleGrid
-        className={
-          search.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'
-        }
-      >
-        {items.map((title, index) => (
-          <TitleCard key={title.id} title={title} showKind={kind === 'all'} eager={index < 12} />
-        ))}
-      </TitleGrid>
+      {items.length ? (
+        <TitleGrid
+          className={
+            search.isPlaceholderData ? 'opacity-60 transition-opacity' : 'transition-opacity'
+          }
+        >
+          {items.map((title, index) => (
+            <TitleCard key={title.id} title={title} showKind={kind === 'all'} eager={index < 12} />
+          ))}
+        </TitleGrid>
+      ) : (
+        <NoMatches onReset={clearFilters} />
+      )}
     </>
   )
 }
+
+// Genres come from the results, so a genre picked for one query or kind means nothing for the next.
+const SEARCH_RESETS = ['genre']
 
 export default function DiscoverPage() {
   const { t } = useI18n()
@@ -280,39 +325,24 @@ export default function DiscoverPage() {
   const list: ChartList = CHART_LISTS.includes(listParam as ChartList)
     ? (listParam as ChartList)
     : 'trending'
-  const [input, setInput] = useState(params.get('q') ?? '')
-  const query = useDebounced(input.trim(), 300)
+  // The field keeps its own text; the query settles 300 ms after typing stops and goes to the URL
+  // without adding history entries. A new query clears the genre picked for the previous one.
+  const search = useSearchParamText('q', 300, SEARCH_RESETS)
+  const query = search.query
   useDocumentTitle(t('discover.title'))
 
-  // Keep the URL in sync with the debounced query without adding history entries.
-  useEffect(() => {
-    // Wait for the debounce to settle: right after Back/Forward the input already follows the URL
-    // while `query` is stale, and writing it back would undo the navigation.
-    if (query !== input.trim()) return
-    const current = params.get('q') ?? ''
-    if (current === query) return
-    const next = new URLSearchParams(params)
-    if (query) next.set('q', query)
-    else next.delete('q')
-    setParams(next, { replace: true })
-  }, [query, input, params, setParams])
-
-  // Follow external navigation (e.g. the home search box).
-  const urlQuery = params.get('q') ?? ''
-  const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery)
-  if (urlQuery !== lastUrlQuery) {
-    setLastUrlQuery(urlQuery)
-    if (urlQuery !== query) setInput(urlQuery)
-  }
-
-  const update = (changes: Record<string, string | null>) => {
-    const next = new URLSearchParams(params)
-    for (const [key, value] of Object.entries(changes)) {
-      if (value) next.set(key, value)
-      else next.delete(key)
-    }
-    setParams(next, { replace: true })
-  }
+  const update = useCallback(
+    (changes: Record<string, string | null>) => {
+      const next = new URLSearchParams(params)
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) next.set(key, value)
+        else next.delete(key)
+      }
+      setParams(next, { replace: true })
+    },
+    [params, setParams],
+  )
+  const setGenre = useCallback((value: string) => update({ genre: value || null }), [update])
 
   // Search filters live in the URL so Back keeps them and links share them.
   const genre = params.get('genre') ?? ''
@@ -329,17 +359,17 @@ export default function DiscoverPage() {
             <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-fg-3" />
             <input
               type="search"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
+              value={search.text}
+              onChange={(event) => search.setText(event.target.value)}
               placeholder={t('discover.searchPlaceholder')}
               aria-label={t('nav.search')}
               enterKeyHint="search"
               className="h-11 w-full rounded-xl bg-raised pr-10 pl-10 text-lg ring-1 ring-line outline-none ring-inset transition-shadow placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
             />
-            {input ? (
+            {search.text ? (
               <button
                 type="button"
-                onClick={() => setInput('')}
+                onClick={search.clear}
                 aria-label={t('common.clear')}
                 className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-fg-3 hover:bg-hover hover:text-fg"
               >
@@ -351,7 +381,7 @@ export default function DiscoverPage() {
             <Segmented
               aria-label={t('discover.title')}
               value={kind}
-              onChange={(value) => update({ kind: value === 'all' ? null : value })}
+              onChange={(value) => update({ kind: value === 'all' ? null : value, genre: null })}
               options={(['all', ...KINDS] as const).map((value) => ({
                 value,
                 label: t(`kinds.${value}`),
@@ -373,11 +403,12 @@ export default function DiscoverPage() {
             query={query}
             kind={kind}
             genre={genre}
-            setGenre={(value) => update({ genre: value || null })}
+            setGenre={setGenre}
             sort={sort}
             setSort={(value) => update({ sort: value === 'popular' ? null : value })}
             hideAdded={hideAdded}
             setHideAdded={(value) => update({ hide: value ? '1' : null })}
+            clearFilters={() => update({ genre: null, hide: null })}
           />
         ) : kind === 'all' ? (
           KINDS.map((value) => <KindShelf key={value} kind={value} />)

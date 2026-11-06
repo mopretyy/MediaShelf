@@ -1,14 +1,25 @@
 import { ChevronLeft, ChevronRight, RotateCcw, Star, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Dialog as D } from 'radix-ui'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { Link, useNavigate } from 'react-router'
 import { genreLabel } from '@shared/genres.ts'
 import { KINDS } from '@shared/types.ts'
+import { useSuspendShellHotkeys } from '@/app/shell-context'
 import { Poster } from '@/components/Poster'
 import { KindIcon } from '@/components/StatusIcon'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { useDocumentTitle } from '@/lib/hooks'
+import { isTypingTarget } from '@/lib/hotkeys'
 import { useLibrary, useSession, useStats } from '@/lib/queries'
 import { titleHref, titleName } from '@/lib/titles'
 import { buildYearStory, type YearStory } from './year/story'
@@ -288,6 +299,44 @@ function useSlides(story: YearStory | null, name: string, again: () => void) {
   }, [story, name, again, t, locale, fmt])
 }
 
+/**
+ * The story is a real modal: focus stays inside it, the shell underneath is inert for assistive
+ * tech, and Escape closes only the topmost layer.
+ */
+function StoryDialog({
+  label,
+  onClose,
+  storyRef,
+  children,
+}: {
+  label: string
+  onClose(): void
+  storyRef: RefObject<HTMLDivElement | null>
+  children: ReactNode
+}) {
+  return (
+    <D.Root open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <D.Portal>
+        <D.Content
+          ref={storyRef}
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the story itself instead of ringing the close button on arrival.
+            event.preventDefault()
+            storyRef.current?.focus()
+          }}
+          // Only toasts lie outside a full-screen story; touching one must not close it.
+          onInteractOutside={(event) => event.preventDefault()}
+          className="dark fixed inset-0 z-[60] flex flex-col bg-black text-white outline-none"
+        >
+          <D.Title className="sr-only">{label}</D.Title>
+          {children}
+        </D.Content>
+      </D.Portal>
+    </D.Root>
+  )
+}
+
 export default function YearPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
@@ -307,11 +356,21 @@ export default function YearPage() {
   const close = useCallback(() => navigate('/stats'), [navigate])
   const next = useCallback(() => setIndex((i) => Math.min(i + 1, Math.max(total - 1, 0))), [total])
   const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), [])
+  const storyRef = useRef<HTMLDivElement>(null)
+  // The story covers the shell: Ctrl+K or '/' would open the palette invisibly underneath it.
+  useSuspendShellHotkeys()
 
+  // Escape is the dialog's own; this handles the slide keys.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
-      else if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown') {
+      if (event.defaultPrevented || isTypingTarget(event.target)) return
+      // Keys pressed in a dialog or menu on top of the story belong to that layer.
+      const target = event.target
+      const inStory =
+        target === document.body ||
+        (target instanceof Node && Boolean(storyRef.current?.contains(target)))
+      if (!inStory) return
+      if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown') {
         event.preventDefault()
         next()
       } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
@@ -321,7 +380,7 @@ export default function YearPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [close, next, prev])
+  }, [next, prev])
 
   // Stories pattern: the left third goes back, the rest goes forward. Links and buttons
   // inside a slide stop the click themselves.
@@ -334,12 +393,7 @@ export default function YearPage() {
 
   const slide = slides[Math.min(index, Math.max(total - 1, 0))]
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('year.title', { year })}
-      className="dark fixed inset-0 z-[60] flex flex-col bg-black text-white"
-    >
+    <StoryDialog label={t('year.title', { year })} onClose={close} storyRef={storyRef}>
       <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex flex-1 gap-1" aria-hidden="true">
           {slides.map((s, i) => (
@@ -408,6 +462,6 @@ export default function YearPage() {
           <ChevronRight />
         </Button>
       </div>
-    </div>
+    </StoryDialog>
   )
 }

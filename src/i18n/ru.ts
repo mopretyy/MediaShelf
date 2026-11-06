@@ -261,6 +261,8 @@ export const ru = {
     genre: 'Жанр',
     anyGenre: 'Любой жанр',
     hideAdded: 'Скрыть добавленные',
+    noMatches: 'Ничего не подходит под фильтры',
+    clearFilters: 'Сбросить фильтры',
     sort: 'Сортировка',
     sortPopular: 'По популярности',
     sortRating: 'По рейтингу',

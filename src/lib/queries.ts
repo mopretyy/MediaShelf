@@ -32,6 +32,7 @@ import type {
 } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
 import { api, get, query } from './api'
+import { forgetRecent } from './recent'
 
 export const keys = {
   session: ['session'] as const,
@@ -92,6 +93,8 @@ export function resetUserData(client: QueryClient) {
   } catch {
     /* ignore */
   }
+  // Accounts keep their own recent titles; what was opened signed out belonged to whoever sat here.
+  forgetRecent(null)
 }
 
 export function useLogin() {

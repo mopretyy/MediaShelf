@@ -41,6 +41,12 @@ export function CommandPalette({
   const navigate = useNavigate()
   const user = useUser()
   const [value, setValue] = useState('')
+  // However the palette closes (Escape, a pick, Ctrl+K again, a click outside), it reopens empty.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (!open) setValue('')
+  }
   const debounced = useDebounced(value, 220)
   const search = useSearch(open ? debounced : '', 'all')
   const { data: entries } = useLibrary()
@@ -49,16 +55,14 @@ export function CommandPalette({
   const setters = usePreferenceSetters()
   const logout = useLogout()
 
-  const close = () => {
-    onOpenChange(false)
-    setValue('')
-  }
+  const close = () => onOpenChange(false)
 
   const query = normalise(value.trim())
+  const owner = user?.id ?? null
   // Opened lately: offered first when the palette is empty, so the way back is one keystroke.
   const recent = useMemo(
-    () => (open && mode === 'search' && !query ? readRecent() : []),
-    [open, mode, query],
+    () => (open && mode === 'search' && !query ? readRecent(owner) : []),
+    [open, mode, query, owner],
   )
   const libraryMatches = useMemo(() => {
     if (!entries) return []
@@ -73,9 +77,17 @@ export function CommandPalette({
       .slice(0, 6)
   }, [entries, query, mode, recent])
 
-  const catalogItems = (query.length >= 2 ? (search.data?.items ?? []) : []).filter(
+  // Catalog rows must belong to what is typed now. During the debounce, and while the new query
+  // loads with the previous results kept as placeholder data, they belong to an older query:
+  // showing them would let Enter (cmdk selects the first row) add or open the wrong title.
+  const searchable = query.length >= 2
+  const fresh = normalise(debounced.trim()) === query && !search.isPlaceholderData
+  const catalogItems = (searchable && fresh ? (search.data?.items ?? []) : []).filter(
     (item) => !libraryMatches.some((entry) => entry.titleId === item.id),
   )
+  const loading = search.isPending || search.isFetching
+  const searching = searchable && (!fresh || (loading && !catalogItems.length))
+  const catalogFailed = searchable && fresh && search.isError && !catalogItems.length
 
   const pick = (title: TitleRecord) => {
     const saved = library.get(title.id)
@@ -177,7 +189,7 @@ export function CommandPalette({
   }
 
   return (
-    <D.Root open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+    <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
         <D.Overlay className="anim-fade fixed inset-0 z-50 bg-scrim" />
         <D.Content
@@ -185,7 +197,9 @@ export function CommandPalette({
           aria-describedby={undefined}
         >
           <D.Title className="sr-only">{t('nav.search')}</D.Title>
-          <Command shouldFilter={false} loop label={t('nav.search')}>
+          {/* No vim bindings: Ctrl+K closes the palette, and cmdk would first move the selection
+              with it (up, wrapping to the last row), so a quick reopen could land on «Выйти». */}
+          <Command shouldFilter={false} loop vimBindings={false} label={t('nav.search')}>
             <div className="flex items-center gap-3 border-b border-line px-4">
               <Search className="size-4 shrink-0 text-fg-3" />
               <Command.Input
@@ -197,7 +211,7 @@ export function CommandPalette({
                 }
                 className="h-14 min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-fg-3"
               />
-              {search.isFetching && query.length >= 2 ? (
+              {searchable && (searching || search.isFetching) ? (
                 <Spinner className="text-fg-3" />
               ) : (
                 <Kbd>Esc</Kbd>
@@ -217,7 +231,7 @@ export function CommandPalette({
                   {catalogItems.slice(0, 10).map(row)}
                 </Command.Group>
               ) : null}
-              {query.length >= 2 && search.isFetching && !catalogItems.length ? (
+              {searching ? (
                 <div className="flex h-11 items-center gap-3 px-2.5 text-sm text-fg-3">
                   <Spinner />
                   {t('palette.searching')}
@@ -266,12 +280,17 @@ export function CommandPalette({
                   ) : null}
                 </>
               ) : null}
-              {query.length >= 2 &&
-              !search.isFetching &&
+              {searchable &&
+              !searching &&
               !catalogItems.length &&
               !libraryMatches.length &&
-              !commands.some((item) => matches(item.label)) ? (
-                <p className="px-2.5 py-6 text-center text-sm text-fg-3">{t('palette.empty')}</p>
+              !(
+                mode === 'search' &&
+                [...commands, ...actionItems].some((item) => matches(item.label))
+              ) ? (
+                <p className="px-2.5 py-6 text-center text-sm text-fg-3">
+                  {catalogFailed ? t('discover.unavailable') : t('palette.empty')}
+                </p>
               ) : null}
             </Command.List>
             <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-xs text-fg-3 max-sm:hidden">

@@ -1,5 +1,5 @@
 import { ExternalLink, MoreHorizontal, Play, SearchX, Trash2, WifiOff } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { parseTitleId } from '@shared/ids.ts'
 import type { TitleRecord } from '@shared/types.ts'
@@ -16,7 +16,7 @@ import { EmptyState, Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { useDocumentTitle } from '@/lib/hooks'
-import { useEntry, useTitle } from '@/lib/queries'
+import { useEntry, useSession, useTitle } from '@/lib/queries'
 import {
   formatRating,
   genreList,
@@ -243,9 +243,16 @@ export default function TitlePage() {
   const valid = Boolean(parseTitleId(id))
   const query = useTitle(id, valid)
   const loaded = query.data
+  const session = useSession()
+  // Recents belong to whoever opened the title: wait for the session on a fresh load, and don't
+  // file the open title again under the next person when someone signs out on this page.
+  const owner = session.isLoading ? undefined : (session.user?.id ?? null)
+  const remembered = useRef<string | null>(null)
   useEffect(() => {
-    if (loaded) rememberTitle(loaded)
-  }, [loaded])
+    if (!loaded || owner === undefined || remembered.current === loaded.id) return
+    remembered.current = loaded.id
+    rememberTitle(loaded, owner)
+  }, [loaded, owner])
   const entry = useEntry(id)
   const actions = useLibraryActions()
   const [confirmRemove, setConfirmRemove] = useState(false)

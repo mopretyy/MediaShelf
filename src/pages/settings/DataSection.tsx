@@ -10,7 +10,8 @@ import { ConfirmDialog } from '@/components/ui/dialog'
 import { Field, PasswordInput } from '@/components/ui/input'
 import { useI18n, type MessageKey } from '@/i18n'
 import { api, ApiError } from '@/lib/api'
-import { keys } from '@/lib/queries'
+import { keys, resetUserData } from '@/lib/queries'
+import { forgetRecent } from '@/lib/recent'
 import { ExternalImportButton, ExternalImportHelp } from './ExternalImport'
 import { Group, Row, SectionHeading } from './layout'
 
@@ -144,7 +145,7 @@ function ImportButton() {
   )
 }
 
-function DeleteAccount({ email }: { email: string }) {
+function DeleteAccount({ userId, email }: { userId: string; email: string }) {
   const { t } = useI18n()
   const client = useQueryClient()
   const navigate = useNavigate()
@@ -160,14 +161,14 @@ function DeleteAccount({ email }: { email: string }) {
     if (!deleted) return
     navigate('/', { replace: true })
     return () => {
-      for (const queryKey of [keys.library, keys.stats, keys.activity, keys.sessions, ['marks']])
-        client.removeQueries({ queryKey })
+      resetUserData(client)
+      forgetRecent(userId)
       client.setQueryData<{ user: User | null; registrationOpen: boolean }>(keys.session, {
         user: null,
         registrationOpen: true,
       })
     }
-  }, [deleted, client, navigate])
+  }, [deleted, client, navigate, userId])
 
   const onOpenChange = (value: boolean) => {
     setOpen(value)
@@ -256,7 +257,7 @@ export function DataSection({ user }: { user: User }) {
           <Row
             title={t('settings.danger')}
             description={t('settings.dangerText')}
-            action={<DeleteAccount email={user.email} />}
+            action={<DeleteAccount userId={user.id} email={user.email} />}
           />
         </Group>
       </div>

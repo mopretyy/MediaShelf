@@ -137,20 +137,45 @@ export function AppShell() {
     (mode: 'search' | 'add' = 'search') => setPalette({ open: true, mode }),
     [],
   )
+  // Full-screen layers (the year story) switch the shortcuts off while they are up: the palette
+  // would open underneath them, invisible, and swallow every click and key.
+  const [hotkeyLocks, setHotkeyLocks] = useState(0)
+  const suspendHotkeys = useCallback(() => {
+    setHotkeyLocks((count) => count + 1)
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      setHotkeyLocks((count) => count - 1)
+    }
+  }, [])
+  const hotkeys = hotkeyLocks === 0
   useHotkey(
     'k',
     (event) => {
       event.preventDefault()
-      setPalette((state) => ({ open: !state.open, mode: 'search' }))
+      // Holding the keys must not flicker the palette open and shut.
+      if (event.repeat) return
+      // Closing keeps the mode, so an Add palette doesn't turn into Search while it fades out.
+      setPalette((state) =>
+        state.open ? { ...state, open: false } : { open: true, mode: 'search' },
+      )
     },
-    { mod: true, allowInInputs: true },
+    { mod: true, code: 'KeyK', allowInInputs: true, enabled: hotkeys },
   )
-  useHotkey('/', (event) => {
-    event.preventDefault()
-    openPalette('search')
-  })
+  useHotkey(
+    '/',
+    (event) => {
+      event.preventDefault()
+      openPalette('search')
+    },
+    { code: 'Slash', enabled: hotkeys },
+  )
 
-  const context = useMemo(() => ({ scrollRef, openPalette }), [openPalette])
+  const context = useMemo(
+    () => ({ scrollRef, openPalette, suspendHotkeys }),
+    [openPalette, suspendHotkeys],
+  )
 
   return (
     <ShellContext.Provider value={context}>
