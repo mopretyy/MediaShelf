@@ -205,3 +205,23 @@ test('palette recents stay with the account that opened them', async ({ page }) 
   await expect(page.getByRole('group', { name: 'Недавние' })).toHaveCount(0)
   await expect(page.getByRole('option', { name: /Начало/ })).toHaveCount(0)
 })
+
+test('closing the palette puts focus back where it was', async ({ page }) => {
+  await register(page)
+  const searchButton = page.getByRole('button', { name: /^Поиск/ }).first()
+  await searchButton.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByPlaceholder(SEARCH_PLACEHOLDER)).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(searchButton).toBeFocused()
+
+  // Ctrl K from a text field returns to that field, not to <body>.
+  await page.goto('/discover')
+  const discoverSearch = page.getByRole('searchbox', { name: 'Поиск' })
+  await discoverSearch.click()
+  await page.keyboard.press('Control+K')
+  await expect(page.getByPlaceholder(SEARCH_PLACEHOLDER)).toBeFocused()
+  await page.keyboard.press('Control+K')
+  await expect(page.getByPlaceholder(SEARCH_PLACEHOLDER)).toHaveCount(0)
+  await expect(discoverSearch).toBeFocused()
+})

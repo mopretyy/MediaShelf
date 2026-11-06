@@ -23,12 +23,12 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 - [x] Item 9, `bugs-client-year-story-palette-trap`: the year story suspends shell hotkeys (`useSuspendShellHotkeys`) and ignores keys that belong to other layers. (wave 1, package `wp-nav`; checks: typecheck, lint, prettier, 249 unit tests, 19/19 e2e incl. new `tests/e2e/navigation.spec.ts`).
 - [x] Item 10, `bugs-client-hotkeys-ru-layout`: `matchesHotkey` uses the physical key as a fallback (ЙЦУКЕН works; Dvorak and Colemak letters win), ignores IME composition and Alt chords, with unit tests. (wave 1, package `wp-nav`; checks: typecheck, lint, prettier, 249 unit tests, 19/19 e2e incl. new `tests/e2e/navigation.spec.ts`).
 - [x] Item 16, `bugs-client-recent-titles-cross-account`: recent titles are stored per account (`mediashelf:recent-titles:<user|guest>`); the guest list is cleared on sign-in or out, and the legacy shared key is removed. (wave 1, package `wp-nav`; checks: typecheck, lint, prettier, 249 unit tests, 19/19 e2e incl. new `tests/e2e/navigation.spec.ts`).
+- [x] **Wave 2** (was `docs/handoff/pending/wave2-palette-mobile-shuffle.patch`, applied 2026-11-06 19:45 UTC): closing the command palette returns focus to whatever opened it (`mobile-a11y-i18n-palette-focus-loss`); toasts, the back-to-top button and the page bottom padding sit above the mobile tab bar via `--tabbar-h` (home indicator included, 0 from `md` up; toasts also on 601–767 px, where Sonner already uses its desktop offset) (`mobile-a11y-i18n-toast-over-tabbar`); `SectionHeader` wraps instead of widening the page (`mobile-a11y-i18n-sectionheader-nowrap`); Shuffle defaults to your plans when there are any and Home links to `/shuffle?source=library` (`ux-visual-shuffle-default-ignores-plans`). Checks: typecheck, lint, prettier, 249 unit tests, 22/22 e2e incl. 3 new (palette focus return, Shuffle from plans, toasts above the tab bar at 412 and 700 px; the toast test fails without the fix).
 
 ## IN PROGRESS
 
 Nothing is running; all agents are stopped. Pending work is saved as patches. See «ГДЕ ОСТАНОВИЛИСЬ» in `HANDOFF.md`.
 
-- [ ] `docs/handoff/pending/wave2-palette-mobile-shuffle.patch`: written, not tested. Apply, check, commit.
 - [ ] `docs/handoff/pending/wp-title-unfinished.patch`: TODO items 1, 2, 11 and 12, unfinished. Apply with `--3way`, resolve conflicts, finish, check, commit.
 - [ ] Audit: UX and mobile/a11y/i18n are partial (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never run.
 

@@ -1,26 +1,26 @@
 # MediaShell — handoff
 
-## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 19:25 UTC) — читать первым
+## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 19:45 UTC) — читать первым
 
 Работа продолжается в новом чате, возможно на другой машине. Всё нужное лежит в репозитории, на ветке `tembo/make-it-better`. Локальные пути `/workspace/tools/...` и `/workspace/wt/...` могут уже не существовать, не рассчитывайте на них.
 
 ### Состояние ветки
 
-- **Запушено и проверено** (до коммита `6c19a84` включительно; 249 unit-тестов и 19/19 e2e на тот момент):
+- **Запушено и проверено** (249 unit-тестов и 22/22 e2e на последнем коммите):
   - handoff-документы;
   - фиксы данных: Undo восстанавливает запись целиком, ссылка подтверждения почты, обложка без 404, статистика серий, демо-seed;
   - «Новые серии» и «Скоро выйдет» на Главной, значок новых серий;
   - импорт из MyAnimeList, Шикимори и IMDb;
   - пакет `wp-nav`: палитра Ctrl+K, горячие клавиши на русской раскладке, поиск, фильтры Discover, недавние тайтлы по аккаунтам;
-  - README.
-- **Не применено, лежит патчами** в `docs/handoff/pending/`:
-  1. `wave2-palette-mobile-shuffle.patch` (база: `6c19a84`). Фокус возвращается к кнопке, открывшей палитру; тосты и кнопка «наверх» над мобильной панелью вкладок (CSS-переменная `--tabbar-h`); `SectionHeader` переносится, а не расширяет страницу; Shuffle по умолчанию берёт планы из библиотеки, кнопка на Главной ведёт на `/shuffle?source=library`. Код написан, **тесты не прогонялись**.
-  2. `wp-title-unfinished.patch` (база: `5863ec7`, старее HEAD). Незаконченная работа агента по P0-багам страницы тайтла: ключ страницы по id и привязка черновика заметки к тайтлу, вычисление следующей серии из списка и отметок, плюс P3 (кнопка «Назад», сброс даты при ошибке). Новые файлы: `src/pages/title/dates.ts`, `src/pages/title/episode-progress.ts` (с тестами), `tests/e2e/title.spec.ts`. Агент остановлен до финальной проверки. Конфликты при применении ожидаются в `src/lib/queries.ts`, `src/components/library-actions.tsx`, `server/routes/library.ts`, `server/api.test.ts`, `src/pages/TitlePage.tsx`.
+  - README;
+  - **wave 2** (бывший `wave2-palette-mobile-shuffle.patch`, применён и проверен 19:45 UTC): фокус возвращается туда, откуда открыли палитру; тосты, кнопка «наверх» и нижний отступ страниц над мобильной панелью вкладок (CSS-переменная `--tabbar-h`, на `md+` равна 0; тосты подняты и на 601–767 px, где у sonner уже «десктоп», а панель ещё видна); `SectionHeader` переносится, а не расширяет страницу; Shuffle по умолчанию берёт планы из библиотеки, кнопка на Главной ведёт на `/shuffle?source=library`. Новые e2e: возврат фокуса из палитры, Shuffle из планов, тосты над панелью на 412 и 700 px.
+- **Не применено, лежит патчем** в `docs/handoff/pending/`:
+  1. `wp-title-unfinished.patch` (база: `5863ec7`, старее HEAD). Незаконченная работа агента по P0-багам страницы тайтла: ключ страницы по id и привязка черновика заметки к тайтлу, вычисление следующей серии из списка и отметок, плюс P3 (кнопка «Назад», сброс даты при ошибке). Новые файлы: `src/pages/title/dates.ts`, `src/pages/title/episode-progress.ts` (с тестами), `tests/e2e/title.spec.ts`. Агент остановлен до финальной проверки. Конфликты при применении ожидаются в `src/lib/queries.ts`, `src/components/library-actions.tsx`, `server/routes/library.ts`, `server/api.test.ts`, `src/pages/TitlePage.tsx`.
 
 ### Что сделать дальше, по порядку
 
 1. `git fetch origin && git checkout tembo/make-it-better && npm ci` (Node 24).
-2. `git apply --3way docs/handoff/pending/wave2-palette-mobile-shuffle.patch`, затем прогнать все проверки (команды ниже, раздел «Commands»). Если зелено, закоммитить и удалить этот патч из `docs/handoff/pending/`.
+2. ~~Применить `wave2-palette-mobile-shuffle.patch`~~ — сделано (см. «Состояние ветки»).
 3. `git apply --3way docs/handoff/pending/wp-title-unfinished.patch`, разрешить конфликты (сохранить и логику из HEAD: `restoreRemovedEntry`, `holdLibrary`, `setEntry` с переносом вперёд, `invalidateDerived` с `airing`; и логику патча). Довести P0 (`bugs-client-notes-autosave-wrong-title`, `bugs-client-stale-next-episode`) и P3 (`bugs-client-back-arrow-leaves-app`, `bugs-client-date-reject-stale`), прогнать проверки и e2e (`tests/e2e/title.spec.ts`), закоммитить, удалить патч.
 4. UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md` (аудит прерван, это частичные списки). Главное:
    - ряд кнопок героя на странице тайтла не переносится на 320–360 px, меню «…» недоступно;
@@ -31,6 +31,7 @@
    - подсказка «Фон избранного» неверна, если у первого избранного нет фона;
    - пять заглушек «Скоро» в настройках игр;
    - частичные языки (uk/de/es/fr/ro, около 40%) показаны как полные.
+   - Уже закрыто wave 2: `mobile-a11y-i18n-toast-over-tabbar`, `mobile-a11y-i18n-palette-focus-loss`, `mobile-a11y-i18n-sectionheader-nowrap` (общая часть; короткая подпись «Добавить» для прохождений ещё не сделана), `ux-visual-shuffle-default-ignores-plans`.
 5. Не проверены совсем: серверные баги, производительность (замеры LCP и так далее), предложения новых функций. При желании провести эти аудиты заново.
 6. В конце: полная регрессия, скриншоты «до и после», обновить README и этот файл.
 
@@ -57,11 +58,10 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 19:25 UTC. Current status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
-- **Code changes so far:** package `wp-data` is committed (Undo restores everything, the email verification link signs in, cache freshness, the cover 404, the episode count in stats). See PROGRESS.md → COMPLETED. Checks green: 219 unit/API tests, 13/13 e2e.
-- **Being implemented right now (wave 1, not committed yet):** P0–P3 client bugs in two worktrees. `wp-title` covers PROGRESS items 1, 2, 11 and 12; `wp-nav` covers items 3, 6, 8, 9, 10 and 16. Each package is delivered as `/workspace/tools/patches/<wp>.patch`, applied to the branch, checked and committed. If the session dies before that, the work is lost (VM-local); redo those items from `PROGRESS.md`.
-- **Audit:** the client-bug audit is complete (16 findings, 14 of them reproduced in Chromium) and recorded in `docs/handoff/AUDIT.md`. The other audit streams (server bugs, UX/visual, new features, performance, a11y/i18n/mobile) were still running when this was written; their results get appended to `AUDIT.md` when they finish.
-- **Next step:** fix the P0/P1 bugs from `PROGRESS.md`, then the UX, performance and feature work.
+- **Last updated:** 2026-11-06 19:45 UTC. The detailed status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
+- **Committed:** `wp-data`, the airing feed, external imports, `wp-nav` and wave 2 (palette focus return, tab-bar offsets, header wrap, Shuffle default). Checks green on the latest commit: typecheck, lint, prettier, 249 unit/API tests, 22/22 e2e.
+- **Next step:** apply and finish `docs/handoff/pending/wp-title-unfinished.patch` (PROGRESS items 1, 2, 11, 12), then the UX/mobile findings from the partial audits.
+- **Audit:** the client-bug audit is complete (`docs/handoff/AUDIT.md`); UX/visual and mobile/a11y/i18n are partial lists (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never audited.
 
 ## Baseline (verified on `49cbe1e`, Node 24.11.1)
 
@@ -169,7 +169,8 @@ Full details with evidence and fix proposals: `docs/handoff/AUDIT.md`. Headline 
 
 | wave 1 `wp-nav`: `src/lib/hotkeys.ts` (+ test), `src/lib/hooks.ts`, `src/app/AppShell.tsx`, `src/app/shell-context.tsx`, `src/app/CommandPalette.tsx`, `src/lib/recent.ts` (+ test), `src/pages/DiscoverPage.tsx`, `src/pages/LibraryPage.tsx`, `src/pages/YearPage.tsx`, `src/pages/TitlePage.tsx`, `src/pages/settings/DataSection.tsx`, `tests/e2e/navigation.spec.ts` | palette freshness, RU-layout hotkeys, year-story hotkey lock, URL-synced search fields, Discover filter reset and empty state, per-account recent titles |
 
-| `docs/handoff/pending/*.patch` | not-yet-applied work: wave 2 (palette focus, tab bar offsets, header wrap, Shuffle default) and unfinished `wp-title` |
+| wave 2: `src/app/App.tsx`, `src/app/AppShell.tsx`, `src/app/CommandPalette.tsx`, `src/app/PageHeader.tsx`, `src/components/ui/misc.tsx`, `src/pages/HomePage.tsx`, `src/pages/ShufflePage.tsx`, `src/styles/index.css`, `tests/e2e/{navigation,library,mobile}.spec.ts` | palette focus return, `--tabbar-h` offsets for toasts / back-to-top / page padding, wrapping `SectionHeader`, Shuffle defaults to your plans; e2e for all three |
+| `docs/handoff/pending/wp-title-unfinished.patch` | not-yet-applied work: unfinished `wp-title` (PROGRESS items 1, 2, 11, 12) |
 | `docs/handoff/audit-ux-visual-partial.md`, `docs/handoff/audit-mobile-a11y-i18n-partial.md` | partial findings of the interrupted second audit |
 
 Keep this table current.
@@ -185,12 +186,12 @@ Keep this table current.
 
 ## Parallel agents
 
-| Agent / run                                                                         | Assignment                                                                                                                                                                                              | State when last updated                                                                                                                                                              |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Audit workflow `mediashell-audit` (`wf_729d74b4-579`)                               | Six read-only auditors                                                                                                                                                                                  | **Dead.** The session interrupt at 18:28 UTC killed it. Only the client-bug stream finished (in `AUDIT.md`); the server-bug and UX streams died mid-run, and the rest never started. |
-| Audit workflow `mediashell-audit-2` (`wf_5d0dc241-5ed`)                             | Lean re-run: UX/visual, mobile+a11y+i18n, performance, server bugs, features. Reads the snapshot worktree `/workspace/wt/audit` (at `4c02da3`) and the demo server on :4180                             | Started at 19:05 UTC. Each auditor appends findings to `/workspace/tools/scratch/<dimension>/findings.md` as it goes (VM-local), and results go into `AUDIT.md` when done.           |
-| Fix workflow `mediashell-fix-wave1` (`wf_a0829402-001`), agent `implement:wp-title` | Worktree `/workspace/wt/wp-title`: notes autosave to the wrong title (key the page by id), stale next-episode state, date rejection, back arrow; plus e2e regression tests                              | Running since 18:31 UTC                                                                                                                                                              |
-| Same workflow, agent `implement:wp-nav`                                             | Worktree `/workspace/wt/wp-nav`: stale command palette results, Ctrl K on the RU layout, year-story hotkey trap, library search caret, sticky Discover genre, recent titles across accounts; plus tests | Running since 18:31 UTC                                                                                                                                                              |
+| Agent / run                                                                         | Assignment                                                                                                                                                                                              | State when last updated                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Audit workflow `mediashell-audit` (`wf_729d74b4-579`)                               | Six read-only auditors                                                                                                                                                                                  | **Dead.** The session interrupt at 18:28 UTC killed it. Only the client-bug stream finished (in `AUDIT.md`); the server-bug and UX streams died mid-run, and the rest never started.                            |
+| Audit workflow `mediashell-audit-2` (`wf_5d0dc241-5ed`)                             | Lean re-run: UX/visual, mobile+a11y+i18n, performance, server bugs, features. Reads the snapshot worktree `/workspace/wt/audit` (at `4c02da3`) and the demo server on :4180                             | **Stopped** at 19:25 UTC. Partial results were saved as `docs/handoff/audit-ux-visual-partial.md` and `docs/handoff/audit-mobile-a11y-i18n-partial.md`; performance, server bugs and features produced nothing. |
+| Fix workflow `mediashell-fix-wave1` (`wf_a0829402-001`), agent `implement:wp-title` | Worktree `/workspace/wt/wp-title`: notes autosave to the wrong title (key the page by id), stale next-episode state, date rejection, back arrow; plus e2e regression tests                              | **Stopped.** Unfinished work saved as `docs/handoff/pending/wp-title-unfinished.patch`.                                                                                                                         |
+| Same workflow, agent `implement:wp-nav`                                             | Worktree `/workspace/wt/wp-nav`: stale command palette results, Ctrl K on the RU layout, year-story hotkey trap, library search caret, sticky Discover genre, recent titles across accounts; plus tests | **Done**, committed in `6c19a84`.                                                                                                                                                                               |
 
 If you cannot reach these agents (different account or machine), do not wait for them. The client-bug list alone is enough to start. Re-run only the dimensions that are missing from `AUDIT.md`, and only if you need them; for the UX work you can screenshot the app yourself.
 

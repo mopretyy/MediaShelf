@@ -195,7 +195,10 @@ function Toasts() {
     <Toaster
       theme={resolved}
       position="bottom-center"
-      mobileOffset={{ bottom: 76 }}
+      // Above the tab bar, home indicator included (see --tabbar-h in index.css). Sonner's
+      // "mobile" ends at 600 px but the tab bar stays up to 768 px, so both offsets need it.
+      offset={{ bottom: 'calc(var(--tabbar-h) + 24px)' }}
+      mobileOffset={{ bottom: 'calc(var(--tabbar-h) + 12px)' }}
       visibleToasts={3}
     />
   )

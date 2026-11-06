@@ -375,7 +375,7 @@ function Dashboard({ name }: { name: string }) {
           <h2 className="mt-4 text-xl font-semibold tracking-tight">{t('home.shuffleTitle')}</h2>
           <p className="mt-1.5 text-base text-fg-2">{t('home.shuffleText')}</p>
           <Button asChild variant="primary" className="mt-5">
-            <Link to="/shuffle">
+            <Link to="/shuffle?source=library">
               <Dices />
               {t('home.shuffleAction')}
             </Link>

@@ -114,7 +114,7 @@ export function PageBody({
   return (
     <div
       className={cn(
-        'mx-auto w-full px-4 pb-24 sm:px-6 md:pb-12 lg:px-8',
+        'mx-auto w-full px-4 pb-[calc(var(--tabbar-h)+2.5rem)] sm:px-6 md:pb-12 lg:px-8',
         width === 'narrow' && 'max-w-3xl',
         width === 'wide' && 'max-w-[1400px]',
         className,

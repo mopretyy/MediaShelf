@@ -32,10 +32,13 @@ export function CommandPalette({
   open,
   mode,
   onOpenChange,
+  returnFocus,
 }: {
   open: boolean
   mode: 'search' | 'add'
   onOpenChange(open: boolean): void
+  /** Puts focus back where it was before opening (the palette has no trigger of its own). */
+  returnFocus?(): void
 }) {
   const { t, locale } = useI18n()
   const navigate = useNavigate()
@@ -195,6 +198,11 @@ export function CommandPalette({
         <D.Content
           className="anim-pop fixed top-[10vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[640px] -translate-x-1/2 overflow-hidden rounded-xl liquid-float outline-none max-sm:top-3"
           aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            if (!returnFocus) return
+            event.preventDefault()
+            returnFocus()
+          }}
         >
           <D.Title className="sr-only">{t('nav.search')}</D.Title>
           {/* No vim bindings: Ctrl+K closes the palette, and cmdk would first move the selection
