@@ -34,7 +34,7 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 
 See «ГДЕ ОСТАНОВИЛИСЬ» in `HANDOFF.md`.
 
-- [ ] Step 4 (UX, mobile, a11y, i18n from `docs/handoff/audit-*-partial.md`) is being implemented in four VM-local worktrees (`/workspace/wt/wp-title2`, `wp-lists`, `wp-shell`, `wp-i18n`); patches land in `/workspace/tools/patches/`. If they are gone, redo the items listed under «Что сделать дальше» in `HANDOFF.md`.
+- [ ] Step 4 (UX, mobile, a11y, i18n from `docs/handoff/audit-*-partial.md`): stopped mid-work at the owner's request (2026-11-06 20:40 UTC) and saved as unfinished, unverified patches on top of `b2a4e3f`: `docs/handoff/pending/wp-title2.patch` (title hero wrap, one control of each kind, rating scale targets, whole-row episode marks, overflow check against the device width), `wp-lists.patch` (card status, Discover top-10, tablet quick-add, profile activity time, favourite backdrop on client and server, «Скоро» line, Shuffle empty state), `wp-shell.patch` (onboarding after registration, year story as a modal, toast region label, input focus rings, light `--fg-3` contrast, touch targets), `wp-i18n.patch` (formal gender-neutral Russian, language picker in the palette, parity test; the uk/de/es/fr/ro translations were not started). Each applies cleanly with `git apply --3way`, and all four in a row as well. Apply, run every check and e2e, finish, review, commit.
 - [ ] Audit: UX and mobile/a11y/i18n are partial (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never run.
 
 ## TODO (ordered by priority)

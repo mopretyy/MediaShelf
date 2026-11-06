@@ -1,0 +1,928 @@
+diff --git a/src/app/CommandPalette.tsx b/src/app/CommandPalette.tsx
+index e2e333b..226fac4 100644
+--- a/src/app/CommandPalette.tsx
++++ b/src/app/CommandPalette.tsx
+@@ -1,16 +1,29 @@
+ import { Command } from 'cmdk'
+-import { CornerDownLeft, Languages, LogOut, Monitor, Moon, Plus, Search, Sun } from 'lucide-react'
++import {
++  Check,
++  ChevronLeft,
++  ChevronRight,
++  CornerDownLeft,
++  Languages,
++  LogOut,
++  Monitor,
++  Moon,
++  Plus,
++  Search,
++  Sun,
++} from 'lucide-react'
+ import { Dialog as D } from 'radix-ui'
+-import { useMemo, useState } from 'react'
++import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+ import { useNavigate } from 'react-router'
+ import { toast } from 'sonner'
+-import type { TitleRecord } from '@shared/types.ts'
++import { LOCALES, type TitleRecord } from '@shared/types.ts'
+ import { useLibraryActions } from '@/components/library-actions'
+ import { Poster } from '@/components/Poster'
+ import { StatusIcon } from '@/components/StatusIcon'
+-import { Spinner } from '@/components/ui/button'
++import { Button, Spinner } from '@/components/ui/button'
+ import { Kbd } from '@/components/ui/misc'
+-import { useI18n } from '@/i18n'
++import { translate, useI18n } from '@/i18n'
++import { foldForSearch, LANGUAGE_NAMES, languageOptions, matchLanguages } from '@/i18n/languages'
+ import { cn } from '@/lib/cn'
+ import { useDebounced } from '@/lib/hooks'
+ import { readRecent } from '@/lib/recent'
+@@ -28,6 +41,20 @@ function normalise(value: string) {
+   return value.toLocaleLowerCase().replaceAll('ё', 'е')
+ }
+ 
++interface PaletteCommand {
++  id: string
++  label: string
++  icon: ReactNode
++  /** Folded words that also find the command when the query starts one of them. */
++  keywords?: string[]
++  /** Muted text at the end of the row. */
++  detail?: ReactNode
++  run(): void
++}
++
++/** The main list, or the language choice that replaces it until Escape, Backspace or «Назад». */
++type Page = 'root' | 'language'
++
+ export function CommandPalette({
+   open,
+   mode,
+@@ -44,14 +71,23 @@ export function CommandPalette({
+   const navigate = useNavigate()
+   const user = useUser()
+   const [value, setValue] = useState('')
++  const [page, setPage] = useState<Page>('root')
++  // The row to highlight when the main list comes back from a sub-list.
++  const [returnTo, setReturnTo] = useState<string>()
+   // However the palette closes (Escape, a pick, Ctrl+K again, a click outside), it reopens empty.
+   const [wasOpen, setWasOpen] = useState(open)
+   if (open !== wasOpen) {
+     setWasOpen(open)
+     if (!open) setValue('')
++    // Back to the main list on open rather than on close, so nothing jumps while it fades out.
++    else {
++      setPage('root')
++      setReturnTo(undefined)
++    }
+   }
++  const root = page === 'root'
+   const debounced = useDebounced(value, 220)
+-  const search = useSearch(open ? debounced : '', 'all')
++  const search = useSearch(open && root ? debounced : '', 'all')
+   const { data: entries } = useLibrary()
+   const library = useLibraryMap()
+   const actions = useLibraryActions()
+@@ -64,11 +100,11 @@ export function CommandPalette({
+   const owner = user?.id ?? null
+   // Opened lately: offered first when the palette is empty, so the way back is one keystroke.
+   const recent = useMemo(
+-    () => (open && mode === 'search' && !query ? readRecent(owner) : []),
+-    [open, mode, query, owner],
++    () => (open && root && mode === 'search' && !query ? readRecent(owner) : []),
++    [open, root, mode, query, owner],
+   )
+   const libraryMatches = useMemo(() => {
+-    if (!entries) return []
++    if (!entries || !root) return []
+     if (!query)
+       return mode === 'search'
+         ? entries.filter((entry) => !recent.some((item) => item.id === entry.titleId)).slice(0, 5)
+@@ -78,12 +114,12 @@ export function CommandPalette({
+         Object.values(entry.title.names).some((name) => name && normalise(name).includes(query)),
+       )
+       .slice(0, 6)
+-  }, [entries, query, mode, recent])
++  }, [entries, root, query, mode, recent])
+ 
+   // Catalog rows must belong to what is typed now. During the debounce, and while the new query
+   // loads with the previous results kept as placeholder data, they belong to an older query:
+   // showing them would let Enter (cmdk selects the first row) add or open the wrong title.
+-  const searchable = query.length >= 2
++  const searchable = root && query.length >= 2
+   const fresh = normalise(debounced.trim()) === query && !search.isPlaceholderData
+   const catalogItems = (searchable && fresh ? (search.data?.items ?? []) : []).filter(
+     (item) => !libraryMatches.some((entry) => entry.titleId === item.id),
+@@ -108,7 +144,40 @@ export function CommandPalette({
+     fn()
+   }
+ 
+-  const commands = [
++  // Every language is listed in itself; its name in the current language helps with the rest.
++  const languages = useMemo(() => languageOptions(locale), [locale])
++  // «Язык…» also answers to the word for «language» and to any language's name, in every
++  // language, so a person stuck in an interface they can't read still finds the way out.
++  const languageKeywords = useMemo(
++    () => [
++      ...LOCALES.map((code) => foldForSearch(translate(code, 'nav.language'))),
++      ...languages.flatMap((item) => item.words),
++    ],
++    [languages],
++  )
++  const languageMatches = matchLanguages(languages, value)
++
++  const openLanguages = () => {
++    // A language typed by name stays as the filter: «deutsch», Enter, Enter.
++    if (!languageMatches.length) setValue('')
++    setPage('language')
++  }
++  const back = () => {
++    setPage('root')
++    setValue('')
++    setReturnTo('action-language')
++  }
++
++  const list = useRef<HTMLDivElement>(null)
++  // cmdk highlights `returnTo` on the main list, but doesn't scroll to it: «Язык…» sits low.
++  useLayoutEffect(() => {
++    if (page !== 'root' || !returnTo) return
++    list.current
++      ?.querySelector(`[cmdk-item][data-value="${returnTo}"]`)
++      ?.scrollIntoView({ block: 'nearest' })
++  }, [page, returnTo])
++
++  const commands: PaletteCommand[] = [
+     ...NAV_ITEMS.map((item) => ({
+       id: item.to,
+       label: t(item.label),
+@@ -116,7 +185,7 @@ export function CommandPalette({
+       run: run(() => navigate(item.to)),
+     })),
+   ]
+-  const actionItems = [
++  const actionItems: PaletteCommand[] = [
+     {
+       id: 'theme-light',
+       label: t('palette.themeLight'),
+@@ -137,9 +206,16 @@ export function CommandPalette({
+     },
+     {
+       id: 'language',
+-      label: t('palette.switchLanguage'),
++      label: t('palette.language'),
+       icon: <Languages />,
+-      run: run(() => setters.setLocale(locale === 'ru' ? 'en' : 'ru')),
++      keywords: languageKeywords,
++      detail: (
++        <>
++          {LANGUAGE_NAMES[locale]}
++          <ChevronRight />
++        </>
++      ),
++      run: openLanguages,
+     },
+     ...(user
+       ? [
+@@ -155,7 +231,12 @@ export function CommandPalette({
+         ]
+       : []),
+   ]
+-  const matches = (label: string) => !query || normalise(label).includes(query)
++  const folded = foldForSearch(value.trim())
++  const matches = (item: PaletteCommand) =>
++    !query ||
++    normalise(item.label).includes(query) ||
++    Boolean(item.keywords?.some((word) => word.startsWith(folded)))
++  const listLabel = root ? t('nav.search') : t('settings.language')
+ 
+   const row = (title: TitleRecord) => {
+     const saved = library.get(title.id)
+@@ -203,19 +284,61 @@ export function CommandPalette({
+             event.preventDefault()
+             returnFocus()
+           }}
++          onEscapeKeyDown={(event) => {
++            // In the language list Escape steps back; only the main list closes on it.
++            if (root) return
++            event.preventDefault()
++            back()
++          }}
+         >
+           <D.Title className="sr-only">{t('nav.search')}</D.Title>
+           {/* No vim bindings: Ctrl+K closes the palette, and cmdk would first move the selection
+-              with it (up, wrapping to the last row), so a quick reopen could land on «Выйти». */}
+-          <Command shouldFilter={false} loop vimBindings={false} label={t('nav.search')}>
++              with it (up, wrapping to the last row), so a quick reopen could land on «Выйти».
++              Keyed by page: cmdk only takes the row to start on when it mounts, so the language
++              list opens on the current language and the way back lands on «Язык…». */}
++          <Command
++            key={page}
++            defaultValue={root ? returnTo : `language-${locale}`}
++            shouldFilter={false}
++            loop
++            vimBindings={false}
++            label={listLabel}
++            onKeyDown={(event) => {
++              // Backspace in the empty field steps back too; holding it only clears the text.
++              if (root || value || event.key !== 'Backspace' || event.repeat) return
++              event.preventDefault()
++              back()
++            }}
++          >
+             <div className="flex items-center gap-3 border-b border-line px-4">
+-              <Search className="size-4 shrink-0 text-fg-3" />
++              {root ? (
++                <Search className="size-4 shrink-0 text-fg-3" />
++              ) : (
++                <Button
++                  variant="ghost"
++                  size="icon-xs"
++                  aria-label={t('common.back')}
++                  onClick={back}
++                  // Enter presses the button; cmdk would cancel that and pick a language instead.
++                  onKeyDown={(event) => {
++                    if (event.key === 'Enter') event.stopPropagation()
++                  }}
++                  // Sits where the search icon was; a finger gets an invisible 44 px target.
++                  className="-mx-1.5 pointer-coarse:before:absolute pointer-coarse:before:-inset-2 pointer-coarse:before:content-['']"
++                >
++                  <ChevronLeft />
++                </Button>
++              )}
+               <Command.Input
+                 autoFocus
+                 value={value}
+                 onValueChange={setValue}
+                 placeholder={
+-                  mode === 'add' ? t('palette.addPlaceholder') : t('palette.placeholder')
++                  !root
++                    ? t('palette.languagePlaceholder')
++                    : mode === 'add'
++                      ? t('palette.addPlaceholder')
++                      : t('palette.placeholder')
+                 }
+                 className="h-14 min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-fg-3"
+               />
+@@ -225,7 +348,36 @@ export function CommandPalette({
+                 <Kbd>Esc</Kbd>
+               )}
+             </div>
+-            <Command.List className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3">
++            <Command.List
++              ref={list}
++              // cmdk would name the listbox «Suggestions», in English.
++              label={listLabel}
++              className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3"
++            >
++              {!root ? (
++                languageMatches.length ? (
++                  <Command.Group heading={t('settings.language')}>
++                    {languageMatches.map((item) => (
++                      <Command.Item
++                        key={item.code}
++                        value={`language-${item.code}`}
++                        // aria-selected follows the keyboard; aria-checked marks the one in use.
++                        aria-checked={item.code === locale}
++                        onSelect={run(() => setters.setLocale(item.code))}
++                        className={cn(itemClass, 'h-9')}
++                      >
++                        <span lang={item.code}>{item.name}</span>
++                        {item.hint ? (
++                          <span className="min-w-0 truncate text-sm text-fg-3">{item.hint}</span>
++                        ) : null}
++                        {item.code === locale ? <Check className="ml-auto" /> : null}
++                      </Command.Item>
++                    ))}
++                  </Command.Group>
++                ) : (
++                  <p className="px-2.5 py-6 text-center text-sm text-fg-3">{t('palette.empty')}</p>
++                )
++              ) : null}
+               {recent.length ? (
+                 <Command.Group heading={t('palette.recent')}>{recent.map(row)}</Command.Group>
+               ) : null}
+@@ -250,12 +402,12 @@ export function CommandPalette({
+                   {t('palette.typeToSearch')}
+                 </p>
+               ) : null}
+-              {mode === 'search' ? (
++              {mode === 'search' && root ? (
+                 <>
+-                  {commands.some((item) => matches(item.label)) ? (
++                  {commands.some((item) => matches(item)) ? (
+                     <Command.Group heading={t('palette.navigation')}>
+                       {commands
+-                        .filter((item) => matches(item.label))
++                        .filter((item) => matches(item))
+                         .map((item) => (
+                           <Command.Item
+                             key={item.id}
+@@ -269,10 +421,10 @@ export function CommandPalette({
+                         ))}
+                     </Command.Group>
+                   ) : null}
+-                  {actionItems.some((item) => matches(item.label)) ? (
++                  {actionItems.some((item) => matches(item)) ? (
+                     <Command.Group heading={t('palette.actions')}>
+                       {actionItems
+-                        .filter((item) => matches(item.label))
++                        .filter((item) => matches(item))
+                         .map((item) => (
+                           <Command.Item
+                             key={item.id}
+@@ -282,6 +434,11 @@ export function CommandPalette({
+                           >
+                             <span className="text-fg-2">{item.icon}</span>
+                             {item.label}
++                            {item.detail ? (
++                              <span className="ml-auto flex min-w-0 items-center gap-1 pl-2 text-sm text-fg-3 [&_svg]:-mr-1">
++                                {item.detail}
++                              </span>
++                            ) : null}
+                           </Command.Item>
+                         ))}
+                     </Command.Group>
+@@ -293,8 +450,7 @@ export function CommandPalette({
+               !catalogItems.length &&
+               !libraryMatches.length &&
+               !(
+-                mode === 'search' &&
+-                [...commands, ...actionItems].some((item) => matches(item.label))
++                mode === 'search' && [...commands, ...actionItems].some((item) => matches(item))
+               ) ? (
+                 <p className="px-2.5 py-6 text-center text-sm text-fg-3">
+                   {catalogFailed ? t('discover.unavailable') : t('palette.empty')}
+@@ -311,11 +467,15 @@ export function CommandPalette({
+                 <Kbd>
+                   <CornerDownLeft className="size-3" />
+                 </Kbd>
+-                {mode === 'add' ? t('common.add') : t('palette.hintOpen')}
++                {mode === 'add'
++                  ? t('common.add')
++                  : root
++                    ? t('palette.hintOpen')
++                    : t('palette.hintApply')}
+               </span>
+               <span className="flex items-center gap-1.5">
+                 <Kbd>Esc</Kbd>
+-                {t('palette.hintClose')}
++                {root ? t('palette.hintClose') : t('palette.hintBack')}
+               </span>
+             </div>
+           </Command>
+diff --git a/src/i18n/en.ts b/src/i18n/en.ts
+index 5593279..881ca45 100644
+--- a/src/i18n/en.ts
++++ b/src/i18n/en.ts
+@@ -560,8 +560,6 @@ export const en: Messages = {
+     steamUnlink: 'Unlink',
+     steamImport: 'Import library',
+     importDone: 'Added {imported} of {total} games.',
+-    importPartial:
+-      'Added {imported} recent games from the profile showcase. Steam hides the full list — it needs the site key.',
+     connected: 'Connected',
+     soon: 'Soon',
+     steamKeyHelp: 'How to import the entire library at once?',
+@@ -617,9 +615,9 @@ export const en: Messages = {
+     yesterday: 'Yesterday',
+     emptyOwnKicker: 'Welcome',
+     emptyOwnTitle: 'Build your shelf',
+-    emptyStep1: 'Find a game, film or series',
+-    emptyStep2: 'Mark what you watch or finished',
+-    emptyStep3: 'Heart the best: that is your Top 4',
++    emptyStep1: 'Find a game, movie or series',
++    emptyStep2: 'Mark what you’re watching or have finished',
++    emptyStep3: 'Heart the best — that’s your Top 4',
+     openDiscover: 'Open Discover',
+     emptyOther: 'Nothing here yet',
+     shareTitle: 'Profile link',
+@@ -714,9 +712,12 @@ export const en: Messages = {
+     themeLight: 'Light theme',
+     themeDark: 'Dark theme',
+     themeSystem: 'System theme',
+-    switchLanguage: 'Переключить на русский',
++    language: 'Language…',
++    languagePlaceholder: 'Choose a language…',
+     hintNavigate: 'navigate',
+     hintOpen: 'open',
++    hintApply: 'apply',
++    hintBack: 'back',
+     hintClose: 'close',
+   },
+   toast: {
+diff --git a/src/i18n/languages.test.ts b/src/i18n/languages.test.ts
+new file mode 100644
+index 0000000..a079be7
+--- /dev/null
++++ b/src/i18n/languages.test.ts
+@@ -0,0 +1,63 @@
++import { describe, expect, it } from 'vitest'
++import { LOCALES } from '../../shared/types.ts'
++import { foldForSearch, languageOptions, matchLanguages } from './languages.ts'
++
++const codes = (options: { code: string }[]) => options.map((option) => option.code)
++
++describe('foldForSearch', () => {
++  it('ignores case, ё and accents', () => {
++    expect(foldForSearch('Română')).toBe('romana')
++    expect(foldForSearch('Français')).toBe('francais')
++    expect(foldForSearch('Español')).toBe('espanol')
++    expect(foldForSearch('Ёлка')).toBe('елка')
++  })
++})
++
++describe('languageOptions', () => {
++  it('lists every locale under its own name, with a hint in the interface language', () => {
++    const options = languageOptions('ru')
++    expect(codes(options)).toEqual([...LOCALES])
++    expect(options.map((option) => option.name)).toEqual([
++      'Русский',
++      'English',
++      'Українська',
++      'Deutsch',
++      'Español',
++      'Français',
++      'Română',
++    ])
++    expect(options.find((option) => option.code === 'de')?.hint).toBe('немецкий')
++    expect(languageOptions('en').find((option) => option.code === 'de')?.hint).toBe('German')
++  })
++
++  it('leaves out a hint that only repeats the name', () => {
++    expect(languageOptions('ru').find((option) => option.code === 'ru')?.hint).toBe('')
++    expect(languageOptions('uk').find((option) => option.code === 'uk')?.hint).toBe('')
++    expect(languageOptions('en').find((option) => option.code === 'en')?.hint).toBe('')
++  })
++})
++
++describe('matchLanguages', () => {
++  const russian = languageOptions('ru')
++  const german = languageOptions('de')
++
++  it('keeps everything for an empty query', () => {
++    expect(matchLanguages(russian, '  ')).toHaveLength(LOCALES.length)
++  })
++
++  it('finds a language by its own name, without the accents', () => {
++    expect(codes(matchLanguages(german, 'francais'))).toEqual(['fr'])
++    expect(codes(matchLanguages(german, 'УКРАЇН'))).toEqual(['uk'])
++    expect(codes(matchLanguages(german, 'рус'))).toEqual(['ru'])
++  })
++
++  it('finds a language by its name in the interface language or in English', () => {
++    expect(codes(matchLanguages(russian, 'немец'))).toEqual(['de'])
++    expect(codes(matchLanguages(german, 'Rumänisch'))).toEqual(['ro'])
++    expect(codes(matchLanguages(german, 'spanish'))).toEqual(['es'])
++  })
++
++  it('finds nothing for something that is not a language', () => {
++    expect(matchLanguages(russian, 'язык')).toEqual([])
++  })
++})
+diff --git a/src/i18n/languages.ts b/src/i18n/languages.ts
+new file mode 100644
+index 0000000..a663bb4
+--- /dev/null
++++ b/src/i18n/languages.ts
+@@ -0,0 +1,63 @@
++// Relative import (not @shared): unit tests type-check this file under tsconfig.node.json,
++// which has no path aliases.
++import { LOCALES, type Locale } from '../../shared/types.ts'
++
++/** Every interface language named in itself, so people find their own whatever the UI shows. */
++export const LANGUAGE_NAMES: Record<Locale, string> = {
++  ru: 'Русский',
++  en: 'English',
++  uk: 'Українська',
++  de: 'Deutsch',
++  es: 'Español',
++  fr: 'Français',
++  ro: 'Română',
++}
++
++/**
++ * Fully translated locales: parity.test.ts fails when one of them lacks a key that ru.ts has.
++ * The others are partial and fall back to English. Add a locale once its translation is done.
++ */
++export const COMPLETE_LOCALES: readonly Locale[] = ['ru', 'en']
++
++/** Lower case, ё as е and no accents: «francais» finds Français, «romana» finds Română. */
++export function foldForSearch(value: string) {
++  return value
++    .toLocaleLowerCase()
++    .replaceAll('ё', 'е')
++    .normalize('NFD')
++    .replace(/\p{Diacritic}/gu, '')
++}
++
++export interface LanguageOption {
++  code: Locale
++  /** The language's own name. */
++  name: string
++  /** Its name in the interface language, left out when it only repeats `name`. */
++  hint: string
++  /** Folded names it can be found by: its own, in the interface language and in English. */
++  words: string[]
++}
++
++/** The languages for a picker shown in `locale`, in the order of LOCALES. */
++export function languageOptions(locale: Locale): LanguageOption[] {
++  const local = new Intl.DisplayNames([locale], { type: 'language' })
++  const english = new Intl.DisplayNames(['en'], { type: 'language' })
++  return LOCALES.map((code) => {
++    const name = LANGUAGE_NAMES[code]
++    const localName = local.of(code) ?? ''
++    return {
++      code,
++      name,
++      hint: foldForSearch(localName) === foldForSearch(name) ? '' : localName,
++      words: [name, localName, english.of(code) ?? ''].map(foldForSearch),
++    }
++  })
++}
++
++/** The options whose names contain what was typed; all of them for an empty query. */
++export function matchLanguages(options: LanguageOption[], query: string) {
++  const folded = foldForSearch(query.trim())
++  return folded
++    ? options.filter((option) => option.words.some((word) => word.includes(folded)))
++    : options
++}
+diff --git a/src/i18n/parity.test.ts b/src/i18n/parity.test.ts
+new file mode 100644
+index 0000000..2e28cb0
+--- /dev/null
++++ b/src/i18n/parity.test.ts
+@@ -0,0 +1,104 @@
++import { describe, expect, it } from 'vitest'
++import { LOCALES, type Locale } from '../../shared/types.ts'
++import { de } from './de.ts'
++import { en } from './en.ts'
++import { es } from './es.ts'
++import { fr } from './fr.ts'
++import { COMPLETE_LOCALES } from './languages.ts'
++import { ro } from './ro.ts'
++import { ru } from './ru.ts'
++import { uk } from './uk.ts'
++
++// ru.ts is the source of truth. Every other dictionary may only hold keys that ru.ts has, with the
++// same {placeholders}, and the complete ones must hold all of them. A plural object is one key.
++
++const DICTIONARIES: Record<Locale, object> = { ru, en, uk, de, es, fr, ro }
++const PLURAL_FORMS = new Set(['zero', 'one', 'two', 'few', 'many', 'other'])
++
++type Leaf = string | Record<string, string>
++
++function isPlural(value: unknown): value is Record<string, string> {
++  if (!value || typeof value !== 'object') return false
++  const forms = Object.keys(value)
++  return forms.length > 0 && forms.every((form) => PLURAL_FORMS.has(form))
++}
++
++/** Dotted key → text or plural object. Anything else ends up as a leaf too, to be reported. */
++function flatten(node: object, prefix = '', out = new Map<string, Leaf>()) {
++  for (const [key, value] of Object.entries(node)) {
++    const path = prefix ? `${prefix}.${key}` : key
++    if (value && typeof value === 'object' && !isPlural(value)) flatten(value, path, out)
++    else out.set(path, value)
++  }
++  return out
++}
++
++/** The {names} that translate() fills in, from every form of a plural. */
++function placeholders(leaf: Leaf) {
++  const texts = typeof leaf === 'string' ? [leaf] : Object.values(leaf)
++  const names = texts.flatMap((text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]))
++  return [...new Set(names)].sort().join(', ')
++}
++
++/** The forms a language picks for whole numbers, plus `other`, which translate() falls back to. */
++function pluralForms(locale: Locale) {
++  const rules = new Intl.PluralRules(locale)
++  const forms = new Set(['other'])
++  for (let count = 0; count <= 1000; count++) forms.add(rules.select(count))
++  return [...forms]
++}
++
++const source = flatten(ru)
++
++describe('i18n dictionaries', () => {
++  it('ru and en have the same keys and placeholders', () => {
++    const english = flatten(en)
++    expect([...english.keys()].sort()).toEqual([...source.keys()].sort())
++    const differ = [...source].filter(
++      ([key, leaf]) => placeholders(leaf) !== placeholders(english.get(key) ?? ''),
++    )
++    expect(differ.map(([key]) => key)).toEqual([])
++  })
++
++  it.each(LOCALES.filter((locale) => locale !== 'ru'))(
++    '%s only has keys from ru.ts, with the same shape and placeholders',
++    (locale) => {
++      const problems: string[] = []
++      for (const [key, leaf] of flatten(DICTIONARIES[locale])) {
++        const original = source.get(key)
++        if (original === undefined) problems.push(`${key}: not in ru.ts`)
++        else if (typeof leaf !== typeof original)
++          problems.push(`${key}: ${isPlural(leaf) ? 'plural' : 'text'}, ru.ts has the other kind`)
++        else if (placeholders(leaf) !== placeholders(original))
++          problems.push(`${key}: {${placeholders(leaf)}}, ru.ts has {${placeholders(original)}}`)
++      }
++      expect(problems).toEqual([])
++    },
++  )
++
++  it('lists only real locales as complete, ru and en among them', () => {
++    expect(COMPLETE_LOCALES).toEqual(expect.arrayContaining(['ru', 'en']))
++    for (const locale of COMPLETE_LOCALES) expect(LOCALES).toContain(locale)
++  })
++
++  it.each(COMPLETE_LOCALES)('%s translates every key in ru.ts', (locale) => {
++    const keys = flatten(DICTIONARIES[locale])
++    expect([...source.keys()].filter((key) => !keys.has(key))).toEqual([])
++  })
++
++  it.each(LOCALES)('%s has no empty texts and every plural form it needs', (locale) => {
++    const forms = pluralForms(locale)
++    const problems: string[] = []
++    for (const [key, leaf] of flatten(DICTIONARIES[locale])) {
++      if (typeof leaf === 'string') {
++        if (!leaf.trim()) problems.push(`${key}: empty`)
++      } else if (!isPlural(leaf)) {
++        problems.push(`${key}: neither a text nor a plural`)
++      } else {
++        const missing = forms.filter((form) => !leaf[form]?.trim())
++        if (missing.length) problems.push(`${key}: no ${missing.join(', ')}`)
++      }
++    }
++    expect(problems).toEqual([])
++  })
++})
+diff --git a/src/i18n/ru.ts b/src/i18n/ru.ts
+index abb9cfd..35a4c34 100644
+--- a/src/i18n/ru.ts
++++ b/src/i18n/ru.ts
+@@ -4,6 +4,12 @@ import { externalImportRu } from './sections/external-import.ts'
+ import { steamConnectRu } from './sections/steam-connect.ts'
+ // Source of truth for UI copy. English (en.ts) must provide exactly the same keys.
+ // Plural objects use Intl.PluralRules categories; {count} and other {vars} are interpolated.
++// parity.test.ts checks every locale against these keys and {placeholders}.
++//
++// Tone: address the user formally and gender-neutrally. «Вы» and its imperative («Отметьте»,
++// «Найдите»), never «ты» («Отметь», «смотришь»). No past tense in the masculine or feminine about
++// the user («Посмотрел», «прошёл»): use the plural («Вы прошли»), an impersonal form («Просмотрено»)
++// or a noun. Status names like «Смотрю» or «Хочу пройти» speak for the user and stay first person.
+ 
+ export const ru = {
+   profileLook: profileLookRu,
+@@ -625,8 +631,6 @@ export const ru = {
+     steamUnlink: 'Отвязать',
+     steamImport: 'Импортировать библиотеку',
+     importDone: 'Добавлено игр: {imported} из {total}.',
+-    importPartial:
+-      'Добавили {imported} недавние игры с витрины профиля. Весь список Steam прячет — для него нужен ключ сайта.',
+     connected: 'Подключено',
+     soon: 'Скоро',
+     steamKeyHelp: 'Как импортировать сразу всю библиотеку?',
+@@ -682,10 +686,10 @@ export const ru = {
+     today: 'Сегодня',
+     yesterday: 'Вчера',
+     emptyOwnKicker: 'Добро пожаловать',
+-    emptyOwnTitle: 'Собери свою полку',
+-    emptyStep1: 'Найди игру, фильм или сериал',
+-    emptyStep2: 'Отметь, что смотришь или прошёл',
+-    emptyStep3: 'Лучшее отметь сердцем: это Топ-4',
++    emptyOwnTitle: 'Соберите свою полку',
++    emptyStep1: 'Найдите игру, фильм или сериал',
++    emptyStep2: 'Отметьте, что смотрите или уже прошли',
++    emptyStep3: 'Лучшее отметьте сердцем — это Топ-4',
+     openDiscover: 'Открыть Обзор',
+     emptyOther: 'Здесь пока пусто',
+     shareTitle: 'Ссылка на профиль',
+@@ -780,9 +784,12 @@ export const ru = {
+     themeLight: 'Светлая тема',
+     themeDark: 'Тёмная тема',
+     themeSystem: 'Тема как в системе',
+-    switchLanguage: 'Switch to English',
++    language: 'Язык…',
++    languagePlaceholder: 'Выберите язык…',
+     hintNavigate: 'выбрать',
+     hintOpen: 'открыть',
++    hintApply: 'применить',
++    hintBack: 'назад',
+     hintClose: 'закрыть',
+   },
+   toast: {
+diff --git a/src/i18n/sections/airing.ts b/src/i18n/sections/airing.ts
+index bf2410e..164b5d6 100644
+--- a/src/i18n/sections/airing.ts
++++ b/src/i18n/sections/airing.ts
+@@ -10,7 +10,7 @@ export const airingRu = {
+     many: 'и ещё {count} серий',
+     other: 'и ещё {count} серии',
+   },
+-  watched: 'Посмотрел',
++  watched: 'Просмотрено',
+   upcomingTitle: 'Скоро выйдет',
+   premiere: 'Премьера сезона',
+   showAll: 'Показать всё',
+diff --git a/src/pages/UserPage.tsx b/src/pages/UserPage.tsx
+index 32e192b..7d94831 100644
+--- a/src/pages/UserPage.tsx
++++ b/src/pages/UserPage.tsx
+@@ -490,7 +490,7 @@ function Step({ n, icon, text }: { n: number; icon: ReactNode; text: string }) {
+       </span>
+       <span className="flex min-w-0 items-center gap-2 text-base text-fg-2 [&_svg]:size-4 [&_svg]:shrink-0">
+         {icon}
+-        <span className="truncate">{text}</span>
++        <span className="min-w-0 text-pretty">{text}</span>
+       </span>
+     </li>
+   )
+@@ -504,7 +504,7 @@ function StartShelf() {
+         <Sparkles className="size-4 shrink-0" aria-hidden="true" />
+         <span className="truncate">{t('profile.emptyOwnKicker')}</span>
+       </p>
+-      <h2 className="display mt-1 truncate text-2xl">{t('profile.emptyOwnTitle')}</h2>
++      <h2 className="display mt-1 text-2xl text-balance">{t('profile.emptyOwnTitle')}</h2>
+       <ol className="mt-4 space-y-3">
+         <Step n={1} icon={<Compass />} text={t('profile.emptyStep1')} />
+         <Step n={2} icon={<ListChecks />} text={t('profile.emptyStep2')} />
+diff --git a/tests/e2e/i18n.spec.ts b/tests/e2e/i18n.spec.ts
+new file mode 100644
+index 0000000..c8f1f13
+--- /dev/null
++++ b/tests/e2e/i18n.spec.ts
+@@ -0,0 +1,117 @@
++import { expect, test, type Page } from '@playwright/test'
++import { api, register } from './helpers.ts'
++
++async function savedLocale(page: Page) {
++  const { body } = await api<{ user: { preferences: { locale: string } } }>(
++    page,
++    'GET',
++    '/auth/session',
++  )
++  return body.user.preferences.locale
++}
++
++test('the palette picks the interface language from a list of languages named in themselves', async ({
++  page,
++}) => {
++  await register(page)
++  const search = page.getByPlaceholder('Поиск по библиотеке и каталогу…')
++  const languages = page.getByPlaceholder('Выберите язык…')
++  const command = page.getByRole('option', { name: /^Язык…/ })
++
++  // One «Язык…» row that names the current language, not seven languages in the main list.
++  await page.keyboard.press('Control+K')
++  await expect(command).toContainText('Русский')
++  await expect(page.getByRole('option', { name: /Deutsch/ })).toHaveCount(0)
++
++  // Enter opens the list on the language in use.
++  await search.fill('язык')
++  await expect(command).toHaveAttribute('aria-selected', 'true')
++  await page.keyboard.press('Enter')
++  await expect(languages).toBeFocused()
++  await expect(page.getByRole('option')).toHaveText([
++    /^Русский/,
++    /^English/,
++    /^Українська/,
++    /^Deutsch/,
++    /^Español/,
++    /^Français/,
++    /^Română/,
++  ])
++  const russian = page.getByRole('option', { name: /^Русский/ })
++  await expect(russian).toHaveAttribute('aria-selected', 'true')
++  await expect(page.getByRole('option', { checked: true })).toHaveText(/^Русский/)
++
++  // Escape steps back to the main list, onto «Язык…», and only then closes the palette.
++  await page.keyboard.press('Escape')
++  await expect(search).toBeFocused()
++  await expect(command).toHaveAttribute('aria-selected', 'true')
++  await page.keyboard.press('Enter')
++  await expect(languages).toBeFocused()
++
++  // Backspace in the empty field steps back too, but holding it only clears the text.
++  await page.keyboard.type('de')
++  await expect(page.getByRole('option')).toHaveText([/^Deutsch/])
++  for (let press = 0; press < 4; press++) await page.keyboard.down('Backspace')
++  await page.keyboard.up('Backspace')
++  await expect(languages).toHaveValue('')
++  await expect(page.getByRole('option')).toHaveCount(7)
++  await page.keyboard.press('Backspace')
++  await expect(search).toBeFocused()
++
++  // The back button, for a pointer and for Tab and Enter.
++  const backButton = page.getByRole('dialog').getByRole('button', { name: 'Назад' })
++  await page.keyboard.press('Enter')
++  await backButton.click()
++  await expect(search).toBeFocused()
++  await page.keyboard.press('Enter')
++  await page.keyboard.press('Shift+Tab')
++  await expect(backButton).toBeFocused()
++  await page.keyboard.press('Enter')
++  await expect(search).toBeFocused()
++  await page.keyboard.press('Escape')
++  await expect(search).toHaveCount(0)
++
++  // Arrow down, Enter: the interface switches and the account remembers it.
++  await page.keyboard.press('Control+K')
++  await search.fill('язык')
++  await expect(command).toHaveAttribute('aria-selected', 'true')
++  await page.keyboard.press('Enter')
++  await page.keyboard.press('ArrowDown')
++  await expect(page.getByRole('option', { name: /^English/ })).toHaveAttribute(
++    'aria-selected',
++    'true',
++  )
++  await page.keyboard.press('Enter')
++  await expect(languages).toHaveCount(0)
++  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
++  await expect(page.getByRole('navigation').getByRole('link', { name: 'Library' })).toBeVisible()
++  await expect.poll(() => savedLocale(page)).toBe('en')
++
++  // A language typed by name stays as the filter: «deutsch», Enter, Enter.
++  await page.keyboard.press('Control+K')
++  await page.getByPlaceholder('Search your library and the catalog…').fill('deutsch')
++  await expect(page.getByRole('option', { name: /^Language…/ })).toHaveAttribute(
++    'aria-selected',
++    'true',
++  )
++  await page.keyboard.press('Enter')
++  await expect(page.getByRole('option')).toHaveText([/^Deutsch/])
++  await page.keyboard.press('Enter')
++  await expect(page.locator('html')).toHaveAttribute('lang', 'de')
++
++  // Whatever the interface shows, the way back is the language's own name. (No German copy is
++  // matched here: the German palette is still partial and its labels will change.)
++  await page.keyboard.press('Control+K')
++  await page.getByRole('combobox').fill('русский')
++  await expect(page.getByRole('option', { name: /Deutsch/ })).toHaveAttribute(
++    'aria-selected',
++    'true',
++  )
++  await page.keyboard.press('Enter')
++  await expect(page.getByRole('option', { checked: true })).toHaveCount(0)
++  await expect(page.getByRole('option')).toHaveText([/^Русский/])
++  await page.keyboard.press('Enter')
++  await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
++  await expect(page.getByRole('navigation').getByRole('link', { name: 'Библиотека' })).toBeVisible()
++  await expect.poll(() => savedLocale(page)).toBe('ru')
++})
+diff --git a/tests/e2e/mobile.spec.ts b/tests/e2e/mobile.spec.ts
+index c65b30b..0c2e162 100644
+--- a/tests/e2e/mobile.spec.ts
++++ b/tests/e2e/mobile.spec.ts
+@@ -22,6 +22,24 @@ test('mobile layout: tab bar navigation and no horizontal overflow', async ({ pa
+   }
+ })
+ 
++test('mobile layout: the palette language list works by touch', async ({ page }) => {
++  await register(page)
++  await page.locator('header').getByRole('button', { name: 'Поиск' }).tap()
++  const command = page.getByRole('option', { name: /^Язык…/ })
++  await command.tap()
++  await expect(page.getByPlaceholder('Выберите язык…')).toBeVisible()
++  // Without an Escape key the way back is a button.
++  await page.getByRole('dialog').getByRole('button', { name: 'Назад' }).tap()
++  await expect(page.getByPlaceholder('Поиск по библиотеке и каталогу…')).toBeVisible()
++  await command.tap()
++  await page.getByRole('option', { name: /^English/ }).tap()
++  await expect(page.getByRole('dialog')).toHaveCount(0)
++  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
++  await expect(
++    page.getByRole('navigation', { name: 'Menu' }).getByRole('link', { name: 'Library' }),
++  ).toBeVisible()
++})
++
+ test('mobile layout: profile page fits every phone width in both themes', async ({ page }) => {
+   await register(page, 'Константинопольский')
+   // A long two-word name must truncate, never wrap or overflow.
+@@ -43,12 +61,24 @@ test('mobile layout: profile page fits every phone width in both themes', async
+ 
+   // Empty library: the onboarding card and Top-4 slots.
+   await page.goto(url)
+-  await expect(page.getByRole('heading', { name: 'Собери свою полку' })).toBeVisible()
++  const onboarding = page.locator('section', {
++    has: page.getByRole('heading', { name: 'Соберите свою полку' }),
++  })
++  await expect(onboarding).toBeVisible()
+   for (const width of [320, 360, 393, 412])
+     for (const colorScheme of ['dark', 'light'] as const) {
+       await page.setViewportSize({ width, height: 800 })
+       await page.emulateMedia({ colorScheme })
+       await check()
++      // The steps wrap: no sentence loses its end to an ellipsis.
++      const cut = await onboarding
++        .locator('h2, li span')
++        .evaluateAll((nodes) =>
++          nodes
++            .filter((node) => node.scrollWidth > node.clientWidth + 1)
++            .map((node) => node.textContent),
++        )
++      expect(cut).toEqual([])
+     }
+ 
+   // A filled library: stats strip, Top-4, Now.

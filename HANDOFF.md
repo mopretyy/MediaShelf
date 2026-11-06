@@ -1,6 +1,6 @@
 # MediaShell — handoff
 
-## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 20:55 UTC) — читать первым
+## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 20:50 UTC) — читать первым
 
 Работа продолжается в новом чате, возможно на другой машине. Всё нужное лежит в репозитории, на ветке `tembo/make-it-better`. Локальные пути `/workspace/tools/...` и `/workspace/wt/...` могут уже не существовать, не рассчитывайте на них.
 
@@ -15,14 +15,14 @@
   - README;
   - **wave 2** (коммит `14a5344`): фокус возвращается туда, откуда открыли палитру; тосты, кнопка «наверх» и нижний отступ страниц над мобильной панелью вкладок (`--tabbar-h`, на `md+` равна 0; тосты подняты и на 601–767 px); `SectionHeader` переносится; Shuffle по умолчанию берёт планы, кнопка на Главной ведёт на `/shuffle?source=library`;
   - **страница тайтла, P0 и P3** (бывший `wp-title-unfinished.patch`, доделан и проверен 20:55 UTC): заметка больше не попадает в чужой тайтл (страница пересоздаётся по id, черновик привязан к тайтлу, сохраняется при уходе со страницы и при закрытии вкладки); «Следующая серия», «Просмотрено X из Y» и процент считаются из списка серий и отметок, запись перечитывается после загрузки списка, лента «Новые серии» и библиотека обновляют друг друга; стрелка «Назад» не уводит из приложения; даты проверяются (не позже сегодня, порядок начала и конца, понятная причина отказа, сервер называет поле). Перед коммитом было независимое ревью (9 находок, все исправлены, на каждую тест). Подробности в `PROGRESS.md`.
-- **Не применённых патчей нет**: `docs/handoff/pending/` пуст.
+- **Не применено, лежит патчами** в `docs/handoff/pending/` (шаг 4, работа прервана по просьбе владельца в 20:40 UTC): `wp-title2.patch`, `wp-lists.patch`, `wp-shell.patch`, `wp-i18n.patch`. База — `b2a4e3f`; каждый применяется чисто (`git apply --3way`), все четыре подряд тоже без конфликтов. **Код не доделан и не проверен**: агентов остановили посреди работы, проверки и ревью по этим патчам не запускались. В `wp-i18n` сделана только основная часть (тон текста, выбор языка в палитре, тест паритета); переводы uk/de/es/fr/ro не начаты.
 
 ### Что сделать дальше, по порядку
 
 1. `git fetch origin && git checkout tembo/make-it-better && npm ci` (Node 24).
 2. ~~Применить `wave2-palette-mobile-shuffle.patch`~~ — сделано, `14a5344`.
 3. ~~Применить и доделать `wp-title-unfinished.patch`~~ — сделано (см. «Состояние ветки»).
-4. **В работе:** UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md`. Делается четырьмя пакетами в локальных worktree (`/workspace/wt/<пакет>`, патчи в `/workspace/tools/patches/<пакет>.patch`); если их уже нет, делать заново по этому списку:
+4. **Начато, лежит патчами:** UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md`. Применить по одному патчу из `docs/handoff/pending/` (`git apply --3way`), прогнать все проверки и e2e, доделать по списку ниже, закоммитить, удалить патч. Объём каждого пакета:
    - `wp-title2`: ряд кнопок героя переносится на 320–360 px (трейлер иконкой на телефоне), без дублей статуса, оценки и избранного (панель справа: прогресс, даты, заметки, удаление), шкала оценки 5×2 с целями 44 px и без сброса повторным нажатием, вся строка серии отмечает её, меню серии «Ещё: S1 · E3», короткая подпись «Добавить» у прохождений; e2e-проверка переполнения сравнивает с шириной экрана (с `isMobile` старая проверка его не видела);
    - `wp-lists`: статус не обрезается на карточках библиотеки, топ-10 в Discover (постер поверх цифры, названия в две строки), невидимый «+» на планшетах, время в «Последних действиях» профиля, «Фон избранного» берёт первое избранное с фоном (клиент и сервер), одна строка «Скоро: …» вместо пяти карточек в настройках игр, пустой Shuffle без наложения на рамку и с кнопкой «Бросить по популярному»;
    - `wp-shell`: новые аккаунты попадают на /welcome, история года как настоящий модальный диалог (фокус, inert, h2), подпись области уведомлений по-русски, видимый фокус у полей ввода, контраст `--fg-3` в светлой теме, цели касания 40–44 px на телефонах;
@@ -55,7 +55,7 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 - **Last updated:** 2026-11-06 20:55 UTC. The detailed status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
 - **Committed:** `wp-data`, the airing feed, external imports, `wp-nav`, wave 2 (palette focus return, tab-bar offsets, header wrap, Shuffle default) and the title-page P0/P3 fixes (PROGRESS items 1, 2, 11, 12) with their review fixes. Checks green on the latest commit: typecheck, lint, prettier, 264 unit/API tests, 32/32 e2e.
-- **Next step:** finish and merge the four step-4 packages (UX, mobile, a11y, i18n), then decide on the server/performance/features audits, then the final regression.
+- **Next step:** apply, verify and finish the four unfinished step-4 patches in `docs/handoff/pending/` (UX, mobile, a11y, i18n), then decide on the server/performance/features audits, then the final regression.
 - **Audit:** the client-bug audit is complete (`docs/handoff/AUDIT.md`); UX/visual and mobile/a11y/i18n are partial lists (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never audited.
 
 ## Baseline (verified on `49cbe1e`, Node 24.11.1)
