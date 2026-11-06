@@ -14,6 +14,7 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 - [x] Item 13, `bugs-client-cover-probe-404`: the profile API returns `coverVersion`; `CoverPicker` no longer probes the image URL, so there is no 404 on every visit. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
 - [x] Item 14, `bugs-client-stats-episodes-vs-hours`: «Серий просмотрено» and its hours caption now come from one source (regular episodes per entry). (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
 - [x] Item 15, `bugs-client-stale-derived-caches`: updated entries move to the front of the cached list (Continue order matches the server), profile queries are invalidated with stats and activity, and a Steam import refreshes stats and activity. (wave 1, package `wp-data`, commit: see `git log`; checks: typecheck, lint, prettier, 219 unit/API tests incl. 3 new, 13/13 e2e).
+- [x] Item 17, demo seed: titles are stored as import stubs (no fake IMDb rating on games, real details, backdrops and descriptions load on first view); series and anime get real episode marks that match their counters (Game of Thrones 48/73 → next S5 · E9), so the demo no longer shows «all watched» or «0 episodes ≈ 160 h».
 
 ## IN PROGRESS
 
@@ -49,7 +50,7 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 14. [x] ~~done~~ (see COMPLETED)
 15. [x] ~~done~~ (see COMPLETED)
 16. [ ] `bugs-client-recent-titles-cross-account`: clear or key the recent titles by user.
-17. [ ] Make the demo seed consistent (episode marks that match progress; no IMDb rating on games).
+17. [x] ~~done~~ (see COMPLETED)
 
 ### After the bugs: quality and features (to be refined with the remaining audit streams)
 
