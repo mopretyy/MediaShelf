@@ -209,6 +209,12 @@ export const es: DeepPartial<Messages> = {
     loginForLibrary: 'Inicia sesión para elegir de tu biblioteca.',
   },
   auth: {
+    tabLogin: 'Entrar',
+    tabRegister: 'Registrarse',
+    modeSwitch: 'Entrar o registrarse',
+    showcaseTitle: 'Todo lo que juegas y ves, en una sola estantería.',
+    showcaseText:
+      'Juegos, películas, series y anime: sigue tu progreso, planea lo siguiente y repasa tu año.',
     loginTitle: 'Iniciar sesión en MediaShell',
     loginSubtitle: '¡Bienvenido de nuevo! Tu biblioteca te espera.',
     registerTitle: 'Crea una cuenta',

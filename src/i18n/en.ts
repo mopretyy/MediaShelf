@@ -667,6 +667,12 @@ export const en: Messages = {
     backToRegister: 'Back to registration',
   },
   auth: {
+    tabLogin: 'Sign in',
+    tabRegister: 'Sign up',
+    modeSwitch: 'Sign in or sign up',
+    showcaseTitle: 'Everything you play and watch, on one shelf.',
+    showcaseText:
+      "Games, movies, series and anime — track progress, plan what's next and see your year at a glance.",
     loginTitle: 'Sign in to MediaShell',
     loginSubtitle: 'Email and password for your account on this server.',
     registerTitle: 'Create your account',

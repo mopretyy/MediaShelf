@@ -733,6 +733,12 @@ export const ru = {
     backToRegister: 'К регистрации',
   },
   auth: {
+    tabLogin: 'Вход',
+    tabRegister: 'Регистрация',
+    modeSwitch: 'Вход или регистрация',
+    showcaseTitle: 'Всё, во что вы играете и что смотрите, — на одной полке.',
+    showcaseText:
+      'Игры, фильмы, сериалы и аниме: отмечайте прогресс, планируйте следующее и смотрите итоги года.',
     loginTitle: 'Вход в MediaShell',
     loginSubtitle: 'Почта и пароль от аккаунта на этом сервере.',
     registerTitle: 'Создайте аккаунт',

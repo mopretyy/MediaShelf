@@ -210,6 +210,12 @@ export const ro: DeepPartial<Messages> = {
     loginForLibrary: 'Autentifică-te ca să alegi din biblioteca ta.',
   },
   auth: {
+    tabLogin: 'Autentificare',
+    tabRegister: 'Înregistrare',
+    modeSwitch: 'Autentificare sau înregistrare',
+    showcaseTitle: 'Tot ce joci și urmărești, pe un singur raft.',
+    showcaseText:
+      'Jocuri, filme, seriale și anime: urmărește progresul, planifică ce urmează și vezi-ți anul dintr-o privire.',
     loginTitle: 'Autentificare la MediaShell',
     loginSubtitle: 'Bine ai revenit! Biblioteca te așteaptă.',
     registerTitle: 'Creează un cont',

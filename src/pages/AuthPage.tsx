@@ -1,5 +1,5 @@
 import { ArrowLeft, Check } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { loginSchema, registerStartSchema } from '@shared/schemas.ts'
@@ -18,6 +18,8 @@ import {
   useSession,
 } from '@/lib/queries'
 import { useTheme } from '@/lib/theme'
+import { cn } from '@/lib/cn'
+import { AuthShowcase } from './auth/AuthShowcase'
 
 type Errors = Partial<Record<'name' | 'email' | 'password' | 'form', string>>
 
@@ -181,171 +183,202 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
   if (!isLogin && pendingEmail) {
     return (
-      <div className="flex min-h-dvh flex-col bg-panel">
-        <div className="flex h-14 items-center px-4">
+      <AuthShell
+        back={
           <Button variant="ghost" size="sm" onClick={() => setPendingEmail(null)}>
             <ArrowLeft />
             {t('welcome.back')}
           </Button>
-        </div>
-        <main className="flex flex-1 items-start justify-center px-5 pt-[8vh] pb-16">
-          <div className="w-full max-w-[380px] animate-rise text-center">
-            <BrandMark className="mx-auto size-10" />
-            <h1 className="display mt-6 text-3xl">{t('auth.codeTitle')}</h1>
-            <p className="mt-2 text-md text-fg-2">{t('auth.codeText', { email: pendingEmail })}</p>
-            <button
-              type="button"
-              onClick={() => setPendingEmail(null)}
-              className="mt-1.5 text-sm text-fg-3 transition-colors hover:text-fg hover:underline hover:underline-offset-4"
-            >
-              {t('auth.changeEmail')}
-            </button>
-            <div className="mt-8 grid place-items-center">
-              <PinPad
-                key={codeStatus === 'success' ? 'done' : 'live'}
-                label={t('auth.codeTitle')}
-                status={codeStatus}
-                length={6}
-                autoFocus
-                onComplete={submitCode}
-              />
-            </div>
-            {codeStatus === 'success' ? (
-              <p
-                role="status"
-                className="mt-4 flex animate-fade-in items-center justify-center gap-1.5 text-sm text-fg-2"
-              >
-                <Check className="size-4" />
-                {t('auth.codeAccepted')}
-              </p>
-            ) : null}
-            {codeError ? (
-              <p role="alert" className="mt-4 text-sm text-danger">
-                {codeError}
-              </p>
-            ) : null}
-            {!delivered && devCode ? (
-              <p className="mx-auto mt-6 max-w-[300px] rounded-lg bg-raised px-3.5 py-2.5 text-sm text-fg-2 ring-1 ring-line ring-inset">
-                {t('auth.devCodeHint')}{' '}
-                <span className="tabular text-lg font-bold tracking-[0.2em] text-fg">
-                  {devCode}
-                </span>
-              </p>
-            ) : null}
-            <div className="mt-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={Boolean(cooldown) || resend.isPending}
-                loading={resend.isPending}
-                onClick={resendCode}
-              >
-                {cooldown ? t('auth.resendIn', { seconds: cooldown }) : t('auth.resend')}
-              </Button>
-            </div>
+        }
+      >
+        <div className="w-full max-w-[380px] animate-rise text-center">
+          <BrandMark className="mx-auto size-10" />
+          <h1 className="display mt-6 text-3xl">{t('auth.codeTitle')}</h1>
+          <p className="mt-2 text-md text-fg-2">{t('auth.codeText', { email: pendingEmail })}</p>
+          <button
+            type="button"
+            onClick={() => setPendingEmail(null)}
+            className="mt-1.5 text-sm text-fg-3 transition-colors hover:text-fg hover:underline hover:underline-offset-4"
+          >
+            {t('auth.changeEmail')}
+          </button>
+          <div className="mt-8 grid place-items-center">
+            <PinPad
+              key={codeStatus === 'success' ? 'done' : 'live'}
+              label={t('auth.codeTitle')}
+              status={codeStatus}
+              length={6}
+              autoFocus
+              onComplete={submitCode}
+            />
           </div>
-        </main>
-      </div>
+          {codeStatus === 'success' ? (
+            <p
+              role="status"
+              className="mt-4 flex animate-fade-in items-center justify-center gap-1.5 text-sm text-fg-2"
+            >
+              <Check className="size-4" />
+              {t('auth.codeAccepted')}
+            </p>
+          ) : null}
+          {codeError ? (
+            <p role="alert" className="mt-4 text-sm text-danger">
+              {codeError}
+            </p>
+          ) : null}
+          {!delivered && devCode ? (
+            <p className="mx-auto mt-6 max-w-[300px] rounded-lg bg-raised px-3.5 py-2.5 text-sm text-fg-2 ring-1 ring-line ring-inset">
+              {t('auth.devCodeHint')}{' '}
+              <span className="tabular text-lg font-bold tracking-[0.2em] text-fg">{devCode}</span>
+            </p>
+          ) : null}
+          <div className="mt-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={Boolean(cooldown) || resend.isPending}
+              loading={resend.isPending}
+              onClick={resendCode}
+            >
+              {cooldown ? t('auth.resendIn', { seconds: cooldown }) : t('auth.resend')}
+            </Button>
+          </div>
+        </div>
+      </AuthShell>
     )
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-panel">
-      <div className="flex h-14 items-center px-4">
+    <AuthShell
+      back={
         <Button asChild variant="ghost" size="sm">
           <Link to="/">
             <ArrowLeft />
             MediaShell
           </Link>
         </Button>
-      </div>
-      <main className="flex flex-1 items-start justify-center px-5 pt-[8vh] pb-16">
-        <div className="w-full max-w-[380px] animate-rise">
-          <BrandMark className="size-10" />
-          <h1 className="display mt-6 text-3xl">
-            {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
-          </h1>
-          <p className="mt-2 text-md text-fg-2">
-            {isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
-          </p>
+      }
+    >
+      <div key={mode} className="w-full max-w-[380px] animate-rise">
+        <BrandMark className="size-10" />
+        <nav
+          aria-label={t('auth.modeSwitch')}
+          className="mt-8 grid grid-cols-2 rounded-lg bg-raised p-1 ring-1 ring-line ring-inset"
+        >
+          {(['login', 'register'] as const).map((m) => (
+            <Link
+              key={m}
+              to={(m === 'login' ? '/login' : '/register') + suffix}
+              replace
+              aria-current={m === mode ? 'page' : undefined}
+              className={cn(
+                'rounded-md py-1.5 text-center text-sm font-medium transition-[background-color,color,box-shadow] duration-200',
+                m === mode
+                  ? 'bg-panel text-fg shadow-card ring-1 ring-line ring-inset'
+                  : 'text-fg-3 hover:text-fg',
+              )}
+            >
+              {m === 'login' ? t('auth.tabLogin') : t('auth.tabRegister')}
+            </Link>
+          ))}
+        </nav>
+        <h1 className="display mt-6 text-3xl">
+          {isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}
+        </h1>
+        <p className="mt-2 text-md text-fg-2">
+          {isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}
+        </p>
 
-          {closed ? (
-            <p className="mt-8 rounded-lg bg-raised p-4 text-base text-fg-2 ring-1 ring-line ring-inset">
-              {t('auth.closed')}
-            </p>
-          ) : (
-            <form className="mt-8 grid gap-4" onSubmit={onSubmit} noValidate>
-              {!isLogin ? (
-                <Field label={t('auth.name')} error={errors.name}>
-                  {(props) => (
-                    <Input
-                      {...props}
-                      name="name"
-                      size="lg"
-                      autoComplete="name"
-                      placeholder={t('auth.namePlaceholder')}
-                      maxLength={60}
-                      autoFocus
-                    />
-                  )}
-                </Field>
-              ) : null}
-              <Field label={t('auth.email')} error={errors.email}>
+        {closed ? (
+          <p className="mt-8 rounded-lg bg-raised p-4 text-base text-fg-2 ring-1 ring-line ring-inset">
+            {t('auth.closed')}
+          </p>
+        ) : (
+          <form className="mt-8 grid gap-4" onSubmit={onSubmit} noValidate>
+            {!isLogin ? (
+              <Field label={t('auth.name')} error={errors.name}>
                 {(props) => (
                   <Input
                     {...props}
-                    name="email"
-                    type="email"
+                    name="name"
                     size="lg"
-                    autoComplete="email"
-                    inputMode="email"
-                    placeholder="you@example.com"
-                    autoFocus={isLogin}
+                    autoComplete="name"
+                    placeholder={t('auth.namePlaceholder')}
+                    maxLength={60}
+                    autoFocus
                   />
                 )}
               </Field>
-              <Field
-                label={t('auth.password')}
-                error={errors.password}
-                hint={!isLogin ? t('auth.passwordHint') : undefined}
-              >
-                {(props) => (
-                  <PasswordInput
-                    {...props}
-                    name="password"
-                    size="lg"
-                    autoComplete={isLogin ? 'current-password' : 'new-password'}
-                  />
-                )}
-              </Field>
-              {errors.form ? (
-                <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
-                  {errors.form}
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="mt-2 w-full"
-                loading={pending}
-              >
-                {isLogin ? t('auth.login') : t('auth.register')}
-              </Button>
-            </form>
-          )}
-
-          <p className="mt-6 text-center text-sm text-fg-2">
-            {isLogin ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
-            <Link
-              to={(isLogin ? '/register' : '/login') + suffix}
-              className="font-medium text-fg underline-offset-4 hover:underline"
+            ) : null}
+            <Field label={t('auth.email')} error={errors.email}>
+              {(props) => (
+                <Input
+                  {...props}
+                  name="email"
+                  type="email"
+                  size="lg"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="you@example.com"
+                  autoFocus={isLogin}
+                />
+              )}
+            </Field>
+            <Field
+              label={t('auth.password')}
+              error={errors.password}
+              hint={!isLogin ? t('auth.passwordHint') : undefined}
             >
-              {isLogin ? t('auth.register') : t('auth.login')}
-            </Link>
-          </p>
-        </div>
-      </main>
+              {(props) => (
+                <PasswordInput
+                  {...props}
+                  name="password"
+                  size="lg"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                />
+              )}
+            </Field>
+            {errors.form ? (
+              <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">
+                {errors.form}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="mt-2 w-full"
+              loading={pending}
+            >
+              {isLogin ? t('auth.login') : t('auth.register')}
+            </Button>
+          </form>
+        )}
+
+        <p className="mt-6 text-center text-sm text-fg-2">
+          {isLogin ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
+          <Link
+            to={(isLogin ? '/register' : '/login') + suffix}
+            className="font-medium text-fg underline-offset-4 hover:underline"
+          >
+            {isLogin ? t('auth.register') : t('auth.login')}
+          </Link>
+        </p>
+      </div>
+    </AuthShell>
+  )
+}
+
+function AuthShell({ back, children }: { back: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid min-h-dvh bg-panel lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-2 lg:bg-bg lg:p-2">
+      <div className="flex min-h-dvh flex-col bg-panel lg:min-h-0 lg:rounded-2xl lg:ring-1 lg:ring-line lg:ring-inset">
+        <div className="flex h-14 items-center px-4">{back}</div>
+        <main className="flex flex-1 items-start justify-center px-5 pt-[6vh] pb-16 lg:items-center lg:pt-0">
+          {children}
+        </main>
+      </div>
+      <AuthShowcase />
     </div>
   )
 }

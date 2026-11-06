@@ -424,3 +424,23 @@
 [data-sonner-toast][data-type='error'] [data-icon] {
   color: var(--danger);
 }
+
+/* Auth showcase: posters drifting gently around their resting spot. */
+@keyframes auth-float {
+  0%,
+  100% {
+    transform: translate(var(--x), var(--y)) rotate(var(--r));
+  }
+  50% {
+    transform: translate(var(--x), calc(var(--y) - 12px)) rotate(calc(var(--r) * 0.8));
+  }
+}
+.auth-float {
+  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  animation: auth-float 7s var(--ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-float {
+    animation: none;
+  }
+}

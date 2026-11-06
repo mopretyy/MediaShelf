@@ -211,6 +211,12 @@ export const uk: DeepPartial<Messages> = {
     loginForLibrary: 'Увійдіть, щоб обирати зі своєї бібліотеки.',
   },
   auth: {
+    tabLogin: 'Вхід',
+    tabRegister: 'Реєстрація',
+    modeSwitch: 'Вхід або реєстрація',
+    showcaseTitle: 'Усе, у що ви граєте і що дивитеся, — на одній полиці.',
+    showcaseText:
+      'Ігри, фільми, серіали й аніме: відмічайте прогрес, плануйте наступне й дивіться підсумки року.',
     loginTitle: 'Вхід до MediaShell',
     loginSubtitle: 'З поверненням! Ваша бібліотека чекає.',
     registerTitle: 'Створіть акаунт',
