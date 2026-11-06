@@ -11,6 +11,7 @@ import { Field, PasswordInput } from '@/components/ui/input'
 import { useI18n, type MessageKey } from '@/i18n'
 import { api, ApiError } from '@/lib/api'
 import { keys } from '@/lib/queries'
+import { ExternalImportButton, ExternalImportHelp } from './ExternalImport'
 import { Group, Row, SectionHeading } from './layout'
 
 /** Mirrors the server's body limit for /me/import. */
@@ -243,6 +244,13 @@ export function DataSection({ user }: { user: User }) {
             description={t('settings.importText')}
             action={<ImportButton />}
           />
+          <Row
+            title={t('externalImport.title')}
+            description={t('externalImport.text')}
+            action={<ExternalImportButton />}
+          >
+            <ExternalImportHelp />
+          </Row>
         </Group>
         <Group>
           <Row

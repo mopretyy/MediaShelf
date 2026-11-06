@@ -16,8 +16,16 @@ import {
 import { COVER_MAX_BYTES, decodeImageDataUrl, deleteCover, setCover } from '../auth/covers.ts'
 import { deleteSteamKey, getSteamKey, keyHint, setSteamKey } from '../auth/steam-keys.ts'
 import { deleteUser, findUserByEmail, findUserById, toUser, updateUser } from '../auth/users.ts'
-import { limit, requireUser, type AppDeps, type AppEnv } from '../context.ts'
+import {
+  limit,
+  requestLocale,
+  requestRegion,
+  requireUser,
+  type AppDeps,
+  type AppEnv,
+} from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
+import { enrichImportedTitles } from '../library/enrich.ts'
 import { exportLibrary, importLibrary } from '../library/transfer.ts'
 import { fetchOwnedGames, fetchRecentAppIds, importSteamLibrary } from '../library/steam-import.ts'
 import { claimSteamSync, deferSteamSync, markSteamSynced } from '../library/steam-sync.ts'
@@ -122,6 +130,8 @@ export function meRoutes(deps: AppDeps) {
       "SELECT title_id FROM entries WHERE user_id = ? AND kind IN ('series', 'anime')",
     ).all(user.id) as { title_id: string }[]
     for (const { title_id } of ids) refreshEpisodeCounters(db, user.id, title_id)
+    // Files from other services bring stubs: fetch the full records in the background.
+    void enrichImportedTitles(deps, user.id, requestLocale(c), requestRegion(c))
     return c.json(result)
   })
 
