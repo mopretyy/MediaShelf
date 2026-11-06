@@ -834,6 +834,8 @@ export const ru = {
       taken: 'Уже используется',
       wrong_password: 'Неверный пароль',
       before_start: 'Раньше даты начала',
+      in_future: 'Позже сегодняшнего дня',
+      after_finish: 'Позже даты завершения',
     },
     notFoundTitle: 'Страница не найдена',
     notFoundText: 'Такой страницы нет. Возможно, ссылка устарела.',

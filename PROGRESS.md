@@ -24,20 +24,25 @@ Branch `tembo/make-it-better` (from `main` @ `49cbe1e`). Finding ids refer to `d
 - [x] Item 10, `bugs-client-hotkeys-ru-layout`: `matchesHotkey` uses the physical key as a fallback (ЙЦУКЕН works; Dvorak and Colemak letters win), ignores IME composition and Alt chords, with unit tests. (wave 1, package `wp-nav`; checks: typecheck, lint, prettier, 249 unit tests, 19/19 e2e incl. new `tests/e2e/navigation.spec.ts`).
 - [x] Item 16, `bugs-client-recent-titles-cross-account`: recent titles are stored per account (`mediashelf:recent-titles:<user|guest>`); the guest list is cleared on sign-in or out, and the legacy shared key is removed. (wave 1, package `wp-nav`; checks: typecheck, lint, prettier, 249 unit tests, 19/19 e2e incl. new `tests/e2e/navigation.spec.ts`).
 - [x] **Wave 2** (was `docs/handoff/pending/wave2-palette-mobile-shuffle.patch`, applied 2026-11-06 19:45 UTC): closing the command palette returns focus to whatever opened it (`mobile-a11y-i18n-palette-focus-loss`); toasts, the back-to-top button and the page bottom padding sit above the mobile tab bar via `--tabbar-h` (home indicator included, 0 from `md` up; toasts also on 601–767 px, where Sonner already uses its desktop offset) (`mobile-a11y-i18n-toast-over-tabbar`); `SectionHeader` wraps instead of widening the page (`mobile-a11y-i18n-sectionheader-nowrap`); Shuffle defaults to your plans when there are any and Home links to `/shuffle?source=library` (`ux-visual-shuffle-default-ignores-plans`). Checks: typecheck, lint, prettier, 249 unit tests, 22/22 e2e incl. 3 new (palette focus return, Shuffle from plans, toasts above the tab bar at 412 and 700 px; the toast test fails without the fix).
+- [x] Item 1, `bugs-client-notes-autosave-wrong-title` (P0, was `docs/handoff/pending/wp-title-unfinished.patch`, finished 2026-11-06 ~20:55 UTC): the title page content is keyed by id (`<TitleContent key={id}>`; the header stays outside, so focus on the back arrow survives title-to-title Back), NotesEditor is keyed by title and saves by `titleId`, a dirty draft is flushed on unmount and sent with a `keepalive` request on `pagehide` (tab closed or reloaded, Back to another site), and `actions.patch` uses `mutateAsync` so a save started on the way out still reports errors. A library refetch that was read before a write can no longer put the old entry back: `invalidateDerived` restarts an in-flight `GET /library` after every write.
+- [x] Item 2, `bugs-client-stale-next-episode` (P0): EpisodesSection derives watched / total / percent / next from the loaded list and marks (`src/pages/title/episode-progress.ts`, same rules as the server's `recomputeEpisodes`); the saved entry is re-read after an episode list arrives (`refreshEntry`), a series added without "next episode" prefetches its list, adding a series as watched refetches its marks, and the airing feed and the library refresh each other after a server-side recount (`src/lib/airing.ts`, `refreshEntry`). Card progress keeps two formats on purpose: «S2 · E5» for a series in progress with a known next episode, «48/73» otherwise.
+- [x] Item 11, `bugs-client-back-arrow-leaves-app` (P3): the header back arrow uses the router's `history.state.idx`; on the first app page it replaces with the parent page, which now opens at the top (scroll memory only keeps the position for same-page replaces), and the skip link moves focus without adding a `#main` history entry.
+- [x] Item 12, `bugs-client-date-reject-stale` (P3): `parseDateDraft` (`src/pages/title/dates.ts`) refuses impossible days, days after today, a finish before the start and a start after the finish, with the reason in a toast; the inputs carry matching `min`/`max`; a refused date rolls back. The server names the edited field (`startedAt: after_finish` / `finishedAt: before_start`), checks the order only when dates or the status change (old out-of-order data no longer blocks notes or ratings), and completing an entry whose start is in the future moves the start back to the finish.
+- [x] Review of the patch before committing (3 reviewers + a verifier per finding, workflow `review-step3-title-fixes`): 9 findings, all fixed with tests (add-as-watched marks, airing ↔ library recount, refetch-after-write race, unload flush, scroll after replace, skip-link history entry, back-arrow focus, future dates, field-specific server error). Checks: typecheck, lint, prettier, 264 unit/API tests (new: `episode-progress.test.ts`, `dates.test.ts`, server date tests in `server/review-fixes.test.ts`), 32/32 e2e incl. `tests/e2e/title.spec.ts` (10 tests; the new ones were confirmed to fail without their fix).
 
 ## IN PROGRESS
 
-Nothing is running; all agents are stopped. Pending work is saved as patches. See «ГДЕ ОСТАНОВИЛИСЬ» in `HANDOFF.md`.
+See «ГДЕ ОСТАНОВИЛИСЬ» in `HANDOFF.md`.
 
-- [ ] `docs/handoff/pending/wp-title-unfinished.patch`: TODO items 1, 2, 11 and 12, unfinished. Apply with `--3way`, resolve conflicts, finish, check, commit.
+- [ ] Step 4 (UX, mobile, a11y, i18n from `docs/handoff/audit-*-partial.md`) is being implemented in four VM-local worktrees (`/workspace/wt/wp-title2`, `wp-lists`, `wp-shell`, `wp-i18n`); patches land in `/workspace/tools/patches/`. If they are gone, redo the items listed under «Что сделать дальше» in `HANDOFF.md`.
 - [ ] Audit: UX and mobile/a11y/i18n are partial (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never run.
 
 ## TODO (ordered by priority)
 
 ### P0: user data and correctness
 
-1. [ ] `bugs-client-notes-autosave-wrong-title`: key the title page content by id (`<TitleContent key={id} />`) and bind the NotesEditor draft to the title it was typed for. Flush pending drafts on unmount. Add an e2e test.
-2. [ ] `bugs-client-stale-next-episode`: derive watched/next/caught-up in `EpisodesSection` from the loaded list and marks. Refresh the library entry after the episode list loads (or return the refreshed entry from `/titles/:id/episodes`). Use one progress format for cards.
+1. [x] ~~done~~ (see COMPLETED)
+2. [x] ~~done~~ (see COMPLETED)
 
 ### P1: broken flows
 
@@ -55,8 +60,8 @@ Nothing is running; all agents are stopped. Pending work is saved as patches. Se
 
 ### P3
 
-11. [ ] `bugs-client-back-arrow-leaves-app`: use the router history index for the back button.
-12. [ ] `bugs-client-date-reject-stale`: reset the date on error, show the field error, and add min/max on the date inputs.
+11. [x] ~~done~~ (see COMPLETED)
+12. [x] ~~done~~ (see COMPLETED)
 13. [x] ~~done~~ (see COMPLETED)
 14. [x] ~~done~~ (see COMPLETED)
 15. [x] ~~done~~ (see COMPLETED)

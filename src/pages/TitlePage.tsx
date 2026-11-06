@@ -239,6 +239,34 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
 
 export default function TitlePage() {
   const { id = '' } = useParams()
+  // A fresh page per title. The route reuses one TitlePage for every id, and whatever was
+  // typed, picked or opened here (a note being written, a season, "show more", a dialog)
+  // belongs to this title only: it must neither carry over nor be saved into the next one.
+  // The header stays outside, so Back from one title to another keeps focus on its arrow.
+  return (
+    <>
+      <TitleHeader id={id} />
+      <TitleContent key={id} id={id} />
+    </>
+  )
+}
+
+function TitleHeader({ id }: { id: string }) {
+  const { t, locale } = useI18n()
+  const query = useTitle(id, Boolean(parseTitleId(id)))
+  const entry = useEntry(id)
+  const title = query.data ?? (entry ? entry.title : undefined)
+  return (
+    <PageHeader
+      back
+      parent={{ label: t('nav.discover'), to: '/discover' }}
+      title={title ? titleName(title.names, locale) : null}
+      revealTitle
+    />
+  )
+}
+
+function TitleContent({ id }: { id: string }) {
   const { t, locale } = useI18n()
   const valid = Boolean(parseTitleId(id))
   const query = useTitle(id, valid)
@@ -269,12 +297,6 @@ export default function TitlePage() {
 
   return (
     <>
-      <PageHeader
-        back
-        parent={{ label: t('nav.discover'), to: '/discover' }}
-        title={name}
-        revealTitle
-      />
       <PageBody className="pt-1">
         {notFound && !entry ? (
           <EmptyState

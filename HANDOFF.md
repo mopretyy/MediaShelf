@@ -1,39 +1,34 @@
 # MediaShell — handoff
 
-## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 19:45 UTC) — читать первым
+## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 20:55 UTC) — читать первым
 
 Работа продолжается в новом чате, возможно на другой машине. Всё нужное лежит в репозитории, на ветке `tembo/make-it-better`. Локальные пути `/workspace/tools/...` и `/workspace/wt/...` могут уже не существовать, не рассчитывайте на них.
 
 ### Состояние ветки
 
-- **Запушено и проверено** (249 unit-тестов и 22/22 e2e на последнем коммите):
+- **Запушено и проверено** (264 unit/API-теста и 32/32 e2e на последнем коммите):
   - handoff-документы;
   - фиксы данных: Undo восстанавливает запись целиком, ссылка подтверждения почты, обложка без 404, статистика серий, демо-seed;
   - «Новые серии» и «Скоро выйдет» на Главной, значок новых серий;
   - импорт из MyAnimeList, Шикимори и IMDb;
   - пакет `wp-nav`: палитра Ctrl+K, горячие клавиши на русской раскладке, поиск, фильтры Discover, недавние тайтлы по аккаунтам;
   - README;
-  - **wave 2** (бывший `wave2-palette-mobile-shuffle.patch`, применён и проверен 19:45 UTC): фокус возвращается туда, откуда открыли палитру; тосты, кнопка «наверх» и нижний отступ страниц над мобильной панелью вкладок (CSS-переменная `--tabbar-h`, на `md+` равна 0; тосты подняты и на 601–767 px, где у sonner уже «десктоп», а панель ещё видна); `SectionHeader` переносится, а не расширяет страницу; Shuffle по умолчанию берёт планы из библиотеки, кнопка на Главной ведёт на `/shuffle?source=library`. Новые e2e: возврат фокуса из палитры, Shuffle из планов, тосты над панелью на 412 и 700 px.
-- **Не применено, лежит патчем** в `docs/handoff/pending/`:
-  1. `wp-title-unfinished.patch` (база: `5863ec7`, старее HEAD). Незаконченная работа агента по P0-багам страницы тайтла: ключ страницы по id и привязка черновика заметки к тайтлу, вычисление следующей серии из списка и отметок, плюс P3 (кнопка «Назад», сброс даты при ошибке). Новые файлы: `src/pages/title/dates.ts`, `src/pages/title/episode-progress.ts` (с тестами), `tests/e2e/title.spec.ts`. Агент остановлен до финальной проверки. Конфликты при применении ожидаются в `src/lib/queries.ts`, `src/components/library-actions.tsx`, `server/routes/library.ts`, `server/api.test.ts`, `src/pages/TitlePage.tsx`.
+  - **wave 2** (коммит `14a5344`): фокус возвращается туда, откуда открыли палитру; тосты, кнопка «наверх» и нижний отступ страниц над мобильной панелью вкладок (`--tabbar-h`, на `md+` равна 0; тосты подняты и на 601–767 px); `SectionHeader` переносится; Shuffle по умолчанию берёт планы, кнопка на Главной ведёт на `/shuffle?source=library`;
+  - **страница тайтла, P0 и P3** (бывший `wp-title-unfinished.patch`, доделан и проверен 20:55 UTC): заметка больше не попадает в чужой тайтл (страница пересоздаётся по id, черновик привязан к тайтлу, сохраняется при уходе со страницы и при закрытии вкладки); «Следующая серия», «Просмотрено X из Y» и процент считаются из списка серий и отметок, запись перечитывается после загрузки списка, лента «Новые серии» и библиотека обновляют друг друга; стрелка «Назад» не уводит из приложения; даты проверяются (не позже сегодня, порядок начала и конца, понятная причина отказа, сервер называет поле). Перед коммитом было независимое ревью (9 находок, все исправлены, на каждую тест). Подробности в `PROGRESS.md`.
+- **Не применённых патчей нет**: `docs/handoff/pending/` пуст.
 
 ### Что сделать дальше, по порядку
 
 1. `git fetch origin && git checkout tembo/make-it-better && npm ci` (Node 24).
-2. ~~Применить `wave2-palette-mobile-shuffle.patch`~~ — сделано (см. «Состояние ветки»).
-3. `git apply --3way docs/handoff/pending/wp-title-unfinished.patch`, разрешить конфликты (сохранить и логику из HEAD: `restoreRemovedEntry`, `holdLibrary`, `setEntry` с переносом вперёд, `invalidateDerived` с `airing`; и логику патча). Довести P0 (`bugs-client-notes-autosave-wrong-title`, `bugs-client-stale-next-episode`) и P3 (`bugs-client-back-arrow-leaves-app`, `bugs-client-date-reject-stale`), прогнать проверки и e2e (`tests/e2e/title.spec.ts`), закоммитить, удалить патч.
-4. UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md` (аудит прерван, это частичные списки). Главное:
-   - ряд кнопок героя на странице тайтла не переносится на 320–360 px, меню «…» недоступно;
-   - дублирующиеся кнопки статуса, оценки и избранного на странице тайтла;
-   - статус обрезается на карточках библиотеки («П…»);
-   - ряды топ-10 в Discover тратят место на цифру и обрезают названия;
-   - в профиле время в «Последних действиях» повторяется дважды;
-   - подсказка «Фон избранного» неверна, если у первого избранного нет фона;
-   - пять заглушек «Скоро» в настройках игр;
-   - частичные языки (uk/de/es/fr/ro, около 40%) показаны как полные.
-   - Уже закрыто wave 2: `mobile-a11y-i18n-toast-over-tabbar`, `mobile-a11y-i18n-palette-focus-loss`, `mobile-a11y-i18n-sectionheader-nowrap` (общая часть; короткая подпись «Добавить» для прохождений ещё не сделана), `ux-visual-shuffle-default-ignores-plans`.
+2. ~~Применить `wave2-palette-mobile-shuffle.patch`~~ — сделано, `14a5344`.
+3. ~~Применить и доделать `wp-title-unfinished.patch`~~ — сделано (см. «Состояние ветки»).
+4. **В работе:** UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md`. Делается четырьмя пакетами в локальных worktree (`/workspace/wt/<пакет>`, патчи в `/workspace/tools/patches/<пакет>.patch`); если их уже нет, делать заново по этому списку:
+   - `wp-title2`: ряд кнопок героя переносится на 320–360 px (трейлер иконкой на телефоне), без дублей статуса, оценки и избранного (панель справа: прогресс, даты, заметки, удаление), шкала оценки 5×2 с целями 44 px и без сброса повторным нажатием, вся строка серии отмечает её, меню серии «Ещё: S1 · E3», короткая подпись «Добавить» у прохождений; e2e-проверка переполнения сравнивает с шириной экрана (с `isMobile` старая проверка его не видела);
+   - `wp-lists`: статус не обрезается на карточках библиотеки, топ-10 в Discover (постер поверх цифры, названия в две строки), невидимый «+» на планшетах, время в «Последних действиях» профиля, «Фон избранного» берёт первое избранное с фоном (клиент и сервер), одна строка «Скоро: …» вместо пяти карточек в настройках игр, пустой Shuffle без наложения на рамку и с кнопкой «Бросить по популярному»;
+   - `wp-shell`: новые аккаунты попадают на /welcome, история года как настоящий модальный диалог (фокус, inert, h2), подпись области уведомлений по-русски, видимый фокус у полей ввода, контраст `--fg-3` в светлой теме, цели касания 40–44 px на телефонах;
+   - `wp-i18n`: русский текст без «ты» и мужского рода, выбор языка в палитре вместо переключателя ru↔en, тест паритета ключей, полные переводы uk/de/es/fr/ro.
 5. Не проверены совсем: серверные баги, производительность (замеры LCP и так далее), предложения новых функций. При желании провести эти аудиты заново.
-6. В конце: полная регрессия, скриншоты «до и после», обновить README и этот файл.
+6. В конце: полная регрессия, скриншоты «до и после» (снимки «до» сделаны скриптом `/workspace/tools/shots/shoot.mjs`, он сидирует библиотеку на fixtures-сервере), обновить README и этот файл.
 
 ### Важно
 
@@ -58,9 +53,9 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 19:45 UTC. The detailed status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
-- **Committed:** `wp-data`, the airing feed, external imports, `wp-nav` and wave 2 (palette focus return, tab-bar offsets, header wrap, Shuffle default). Checks green on the latest commit: typecheck, lint, prettier, 249 unit/API tests, 22/22 e2e.
-- **Next step:** apply and finish `docs/handoff/pending/wp-title-unfinished.patch` (PROGRESS items 1, 2, 11, 12), then the UX/mobile findings from the partial audits.
+- **Last updated:** 2026-11-06 20:55 UTC. The detailed status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
+- **Committed:** `wp-data`, the airing feed, external imports, `wp-nav`, wave 2 (palette focus return, tab-bar offsets, header wrap, Shuffle default) and the title-page P0/P3 fixes (PROGRESS items 1, 2, 11, 12) with their review fixes. Checks green on the latest commit: typecheck, lint, prettier, 264 unit/API tests, 32/32 e2e.
+- **Next step:** finish and merge the four step-4 packages (UX, mobile, a11y, i18n), then decide on the server/performance/features audits, then the final regression.
 - **Audit:** the client-bug audit is complete (`docs/handoff/AUDIT.md`); UX/visual and mobile/a11y/i18n are partial lists (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never audited.
 
 ## Baseline (verified on `49cbe1e`, Node 24.11.1)
@@ -170,7 +165,7 @@ Full details with evidence and fix proposals: `docs/handoff/AUDIT.md`. Headline 
 | wave 1 `wp-nav`: `src/lib/hotkeys.ts` (+ test), `src/lib/hooks.ts`, `src/app/AppShell.tsx`, `src/app/shell-context.tsx`, `src/app/CommandPalette.tsx`, `src/lib/recent.ts` (+ test), `src/pages/DiscoverPage.tsx`, `src/pages/LibraryPage.tsx`, `src/pages/YearPage.tsx`, `src/pages/TitlePage.tsx`, `src/pages/settings/DataSection.tsx`, `tests/e2e/navigation.spec.ts` | palette freshness, RU-layout hotkeys, year-story hotkey lock, URL-synced search fields, Discover filter reset and empty state, per-account recent titles |
 
 | wave 2: `src/app/App.tsx`, `src/app/AppShell.tsx`, `src/app/CommandPalette.tsx`, `src/app/PageHeader.tsx`, `src/components/ui/misc.tsx`, `src/pages/HomePage.tsx`, `src/pages/ShufflePage.tsx`, `src/styles/index.css`, `tests/e2e/{navigation,library,mobile}.spec.ts` | palette focus return, `--tabbar-h` offsets for toasts / back-to-top / page padding, wrapping `SectionHeader`, Shuffle defaults to your plans; e2e for all three |
-| `docs/handoff/pending/wp-title-unfinished.patch` | not-yet-applied work: unfinished `wp-title` (PROGRESS items 1, 2, 11, 12) |
+| title page P0/P3: `src/pages/TitlePage.tsx`, `src/pages/title/{EntryPanel,EpisodesSection}.tsx`, `src/pages/title/{dates,episode-progress}.ts` (+ tests), `src/app/{PageHeader,AppShell}.tsx`, `src/components/library-actions.tsx`, `src/lib/{queries,airing}.ts`, `server/library/entries.ts`, `server/review-fixes.test.ts`, `src/i18n/{ru,en}.ts`, `tests/e2e/title.spec.ts` | notes keyed to their title (unmount and `pagehide` flush), episode progress from list + marks, entry re-read after a list or a recount, refetch-after-write race, back arrow by router index, scroll after replace, skip link without history entry, date validation on client and server |
 | `docs/handoff/audit-ux-visual-partial.md`, `docs/handoff/audit-mobile-a11y-i18n-partial.md` | partial findings of the interrupted second audit |
 
 Keep this table current.

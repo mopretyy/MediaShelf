@@ -15,6 +15,7 @@ function useScrollMemory(ref: React.RefObject<HTMLDivElement | null>) {
   const type = useNavigationType()
   const positions = useRef(new Map<string, number>())
   const current = useRef(location.key)
+  const path = useRef(location.pathname)
 
   useEffect(() => {
     const element = ref.current
@@ -33,9 +34,12 @@ function useScrollMemory(ref: React.RefObject<HTMLDivElement | null>) {
 
   useLayoutEffect(() => {
     current.current = location.key
+    const samePage = path.current === location.pathname
+    path.current = location.pathname
     const top = type === 'POP' ? (positions.current.get(location.key) ?? 0) : 0
-    // Search-param changes on the same page (filters) keep the position.
-    if (type === 'REPLACE') return
+    // Search-param changes on the same page (filters) keep the position; a replace that lands
+    // on another page (the back arrow's way out of a shared link) starts at the top.
+    if (type === 'REPLACE' && samePage) return
     ref.current?.scrollTo({ top })
     window.scrollTo({ top })
   }, [location.key, location.pathname, type, ref])
@@ -189,6 +193,12 @@ export function AppShell() {
     <ShellContext.Provider value={context}>
       <a
         href="#main"
+        // Focus only: a #main history entry would carry no router state, and the back arrow
+        // would take it for the first page of the app.
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById('main')?.focus()
+        }}
         className="sr-only z-50 rounded-md bg-fg px-3 py-2 text-panel focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         {t('nav.skipToContent')}

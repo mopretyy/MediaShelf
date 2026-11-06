@@ -188,6 +188,9 @@ function applyStatus(row: EntryRow, to: Status, now: number) {
   if (to === 'completed') {
     row.finished_at = from === 'completed' && row.finished_at ? row.finished_at : now
     row.started_at ??= row.finished_at
+    // A start saved in the future (older versions allowed one) must not end up after the
+    // finish: every later edit of the entry would then be refused.
+    if (row.started_at > row.finished_at) row.started_at = row.finished_at
   } else if (to === 'planned') {
     row.started_at = null
     row.finished_at = null
@@ -625,9 +628,17 @@ export function updateEntry(
     }
     if (patch.startedAt !== undefined) row.started_at = toMs(patch.startedAt)
     if (patch.finishedAt !== undefined) row.finished_at = toMs(patch.finishedAt)
-    if (row.started_at && row.finished_at && row.started_at > row.finished_at)
+    // Only an edit of the dates (or a status that sets them) is checked: dates that are already
+    // out of order must not block a note, a rating or a board move.
+    const datesTouched = patch.startedAt !== undefined || patch.finishedAt !== undefined || target
+    if (datesTouched && row.started_at && row.finished_at && row.started_at > row.finished_at)
       throw new ApiError(400, 'VALIDATION', 'Start date is after finish date', {
-        fields: { finishedAt: 'before_start' },
+        // Name the field that was edited: a new start is "after the finish", a new finish
+        // "before the start".
+        fields:
+          patch.startedAt !== undefined && patch.finishedAt === undefined
+            ? { startedAt: 'after_finish' }
+            : { finishedAt: 'before_start' },
       })
     if ((row.kind === 'series' || row.kind === 'anime') && target) {
       if (target === 'completed') markAllAired(db, row, now)

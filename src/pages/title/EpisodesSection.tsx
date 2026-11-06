@@ -15,6 +15,7 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { useEpisodeList, useEpisodeMarks, useEpisodeNote, useMarkEpisodes } from '@/lib/queries'
 import { episodeCode, localToday, statusLabelKey, titleName } from '@/lib/titles'
+import { episodeProgress } from './episode-progress'
 
 const key = (e: { season: number; number: number }) => `${e.season}:${e.number}`
 const PAGE = 100
@@ -112,8 +113,22 @@ export function EpisodesSection({
     () => seasons.filter((s) => s.number > 0).flatMap((s) => s.episodes),
     [seasons],
   )
+  // Count from the list and the marks shown here: the saved entry can lag behind both (the
+  // server recounts when a list arrives), and the page must not contradict its own checkboxes.
+  const counted = useMemo(
+    () => (list.data && marksQuery.data ? episodeProgress(list.data, marksQuery.data) : null),
+    [list.data, marksQuery.data],
+  )
+  const progress = entry && counted
+  // The entry only stands in while the marks load; its "nothing next" may be stale till then.
+  const next = progress ? progress.next : (entry?.nextEpisode ?? null)
+  const unsure = Boolean(entry) && !progress && marksQuery.isPending
+  const watchedCount = progress ? progress.watched : (entry?.watchedEpisodes ?? 0)
+  const totalCount = progress ? progress.total : (entry?.totalEpisodes ?? null)
+  const percent =
+    entry?.status === 'completed' ? 100 : progress ? progress.percent : (entry?.progress ?? 0)
 
-  const defaultSeason = entry?.nextEpisode?.season ?? seasons[0]?.number ?? 1
+  const defaultSeason = next?.season ?? seasons[0]?.number ?? 1
   // A season picked on another title may not exist here: fall back instead of an empty list.
   const seasonNumber =
     chosenSeason !== null && seasons.some((s) => s.number === chosenSeason)
@@ -154,7 +169,7 @@ export function EpisodesSection({
     )
   }
 
-  const aired = (e: Episode) => !e.airdate || e.airdate <= today
+  const aired = (e: { airdate: string | null }) => !e.airdate || e.airdate <= today
 
   if (list.isLoading)
     return (
@@ -189,7 +204,6 @@ export function EpisodesSection({
   const seasonEpisodes = season?.episodes ?? []
   const seasonAired = seasonEpisodes.filter(aired)
   const seasonDone = seasonAired.length > 0 && seasonAired.every(watched)
-  const next = entry?.nextEpisode
 
   return (
     <section aria-labelledby="episodes-heading">
@@ -197,12 +211,9 @@ export function EpisodesSection({
         id="episodes-heading"
         title={t('title.episodes')}
         action={
-          entry && entry.totalEpisodes ? (
+          entry && totalCount ? (
             <span className="tabular text-sm text-fg-2">
-              {t('episodes.watchedOf', {
-                watched: entry.watchedEpisodes,
-                total: entry.totalEpisodes,
-              })}
+              {t('episodes.watchedOf', { watched: watchedCount, total: totalCount })}
             </span>
           ) : (
             <span className="text-sm text-fg-3">
@@ -214,9 +225,11 @@ export function EpisodesSection({
 
       {entry ? (
         <div className="mb-4 rounded-xl bg-raised p-4 ring-1 ring-line ring-inset">
-          <ProgressBar value={entry.progress} label={t('title.progress')} />
+          <ProgressBar value={percent} label={t('title.progress')} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-            {next ? (
+            {unsure && !next ? (
+              <Skeleton className="h-5 w-48" />
+            ) : next ? (
               <div className="min-w-0">
                 <p className="text-xs font-medium text-fg-3">{t('episodes.next')}</p>
                 <p className="truncate text-base">
@@ -236,7 +249,7 @@ export function EpisodesSection({
                 {list.data?.ended === false ? t('episodes.waiting') : t('episodes.allWatched')}
               </p>
             )}
-            {next && (!next.airdate || next.airdate <= today) ? (
+            {next && aired(next) ? (
               <Button
                 variant="primary"
                 size="sm"

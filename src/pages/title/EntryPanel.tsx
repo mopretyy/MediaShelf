@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { STATUSES_BY_KIND } from '@shared/status.ts'
 import type { LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { StatusIcon } from '@/components/StatusIcon'
@@ -11,45 +12,50 @@ import { ProgressBar } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { statusLabelKey } from '@/lib/titles'
+import { parseDateDraft, toDateInput } from './dates'
 
-const toDateInput = (iso: string | null) => {
-  if (!iso) return ''
-  const date = new Date(iso)
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 10)
-}
-const fromDateInput = (value: string) =>
-  value ? new Date(`${value}T12:00:00`).toISOString() : null
-
-/** Date input that saves on blur/Enter, so partially typed years are never sent. */
+/**
+ * Date input that saves on blur/Enter, so partially typed years are never sent. The start may
+ * not come after the finish: the picker only offers the days in between, and a typed day
+ * outside them is refused on the spot with the reason.
+ */
 function DateField({
   value,
+  start,
+  finish,
   onCommit,
 }: {
   value: string | null
+  /** The saved start date, for the finish field. */
+  start?: string | null
+  /** The saved finish date, for the start field. */
+  finish?: string | null
   onCommit(value: string | null): void
 }) {
+  const { t } = useI18n()
   const [draft, setDraft] = useState(toDateInput(value))
+  // Follow the saved date, including a refused one rolling back.
   const [prev, setPrev] = useState(value)
   if (prev !== value) {
     setPrev(value)
     setDraft(toDateInput(value))
   }
+  const today = toDateInput(new Date().toISOString())
+  const lastDay = finish ? toDateInput(finish) : ''
   const commit = () => {
     const current = toDateInput(value)
     if (draft === current) return
-    if (!draft) return onCommit(null)
-    const year = Number(draft.slice(0, 4))
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft) || year < 1900 || year > new Date().getFullYear() + 1)
-      return setDraft(current)
-    onCommit(fromDateInput(draft))
+    const result = parseDateDraft(draft, { start, finish }, today)
+    if ('value' in result) return onCommit(result.value)
+    if (result.problem !== 'invalid') toast.error(t(`errors.fields.${result.problem}`))
+    setDraft(current)
   }
   return (
     <input
       type="date"
       value={draft}
-      min="1900-01-01"
-      max={toDateInput(new Date().toISOString())}
+      min={toDateInput(start ?? null) || '1900-01-01'}
+      max={lastDay && lastDay < today ? lastDay : today}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => event.key === 'Enter' && commit()}
@@ -75,9 +81,16 @@ function Row({
   )
 }
 
+/**
+ * Notes save themselves 0.9 s after the last keystroke, on blur, when the editor goes away
+ * (another title, browser Back, removal) and when the page itself goes away (tab closed or
+ * reloaded, Back to another site). EntryPanel keys it by title, so a draft belongs to the title
+ * it was typed for: it is only ever saved there and never shown on another entry.
+ */
 function NotesEditor({ entry }: { entry: LibraryEntry }) {
   const { t } = useI18n()
   const actions = useLibraryActions()
+  const { titleId } = entry
   const [value, setValue] = useState(entry.notes)
   // 'dirty' covers unsaved and failed edits: the draft is never replaced while it is dirty.
   const [state, setState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle')
@@ -91,20 +104,28 @@ function NotesEditor({ entry }: { entry: LibraryEntry }) {
     setPrevNotes(entry.notes)
     if (state === 'idle' || state === 'saved') setValue(entry.notes)
   }
+  // Only the latest save moves the indicator: an earlier one may finish after it.
+  const saves = useRef(0)
   const save = (text: string) => {
     if (text === latest.current.notes) {
       if (state === 'dirty') setState('idle')
       return
     }
+    const attempt = ++saves.current
     setState('saving')
     actions.patch(
-      latest.current,
+      { titleId },
       { notes: text },
       {
         silent: true,
         // The user may have typed again while this save was in flight: keep that draft dirty.
-        onSuccess: () => setState((current) => (current === 'saving' ? 'saved' : current)),
-        onError: () => setState('dirty'),
+        onSuccess: () => {
+          if (attempt === saves.current)
+            setState((current) => (current === 'saving' ? 'saved' : current))
+        },
+        onError: () => {
+          if (attempt === saves.current) setState('dirty')
+        },
       },
     )
   }
@@ -114,6 +135,30 @@ function NotesEditor({ entry }: { entry: LibraryEntry }) {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, state])
+  // Leaving mid-sentence still saves the draft (the timer above dies with the editor).
+  const flush = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    flush.current = state === 'dirty' ? () => save(value) : null
+  })
+  useEffect(() => () => flush.current?.(), [])
+  // Leaving the app altogether (closing or reloading the tab, Back to another site) runs no
+  // React cleanup, so a draft still waiting for its timer goes out with a request that outlives
+  // the page.
+  useEffect(() => {
+    if (state !== 'dirty') return
+    const send = () => {
+      if (value === latest.current.notes) return
+      void fetch(`/api/library/${encodeURIComponent(titleId)}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        keepalive: true,
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: value }),
+      }).catch(() => undefined)
+    }
+    window.addEventListener('pagehide', send)
+    return () => window.removeEventListener('pagehide', send)
+  }, [state, value, titleId])
   return (
     <div className="grid gap-1.5">
       <Textarea
@@ -188,6 +233,7 @@ export function EntryPanel({ entry, onRemove }: { entry: LibraryEntry; onRemove(
               {t('title.started')}
               <DateField
                 value={entry.startedAt}
+                finish={entry.finishedAt}
                 onCommit={(startedAt) => actions.patch(entry, { startedAt }, { silent: true })}
               />
             </label>
@@ -196,6 +242,7 @@ export function EntryPanel({ entry, onRemove }: { entry: LibraryEntry; onRemove(
                 {t('title.finished')}
                 <DateField
                   value={entry.finishedAt}
+                  start={entry.startedAt}
                   onCommit={(finishedAt) => actions.patch(entry, { finishedAt }, { silent: true })}
                 />
               </label>
@@ -204,7 +251,7 @@ export function EntryPanel({ entry, onRemove }: { entry: LibraryEntry; onRemove(
         </Row>
       ) : null}
       <Row label={t('title.notes')}>
-        <NotesEditor entry={entry} />
+        <NotesEditor key={entry.titleId} entry={entry} />
       </Row>
       <div className="border-t border-line-subtle px-2 py-2">
         <Button variant="danger-ghost" size="sm" onClick={onRemove}>

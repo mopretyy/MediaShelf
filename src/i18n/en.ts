@@ -768,6 +768,8 @@ export const en: Messages = {
       taken: 'Already in use',
       wrong_password: 'Wrong password',
       before_start: 'Earlier than the start date',
+      in_future: 'Later than today',
+      after_finish: 'Later than the finish date',
     },
     notFoundTitle: 'Page not found',
     notFoundText: "This page doesn't exist. The link may be outdated.",

@@ -1,5 +1,6 @@
 import {
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -22,6 +23,7 @@ import type {
   Kind,
   LibraryEntry,
   LibraryStats,
+  Locale,
   SearchResult,
   SessionInfo,
   Status,
@@ -231,6 +233,36 @@ export function setEntry(client: QueryClient, entry: LibraryEntry) {
   })
 }
 
+/**
+ * Reads a saved entry again once its episode list has arrived. Storing a list makes the server
+ * recount the entry (episode counters, "next episode") on its own, and no mutation response
+ * carries that.
+ */
+async function refreshEntry(client: QueryClient, titleId: string) {
+  const cached = () =>
+    client.getQueryData<LibraryEntry[]>(keys.library)?.find((entry) => entry.titleId === titleId)
+  if (!cached()) return
+  try {
+    const { entry } = await get<{ entry: LibraryEntry }>(`/library/${titleId}`)
+    const current = cached()
+    // An edit or mark that landed meanwhile has a later updatedAt and wins (a removal leaves
+    // nothing to update). The recount leaves updatedAt alone and this answer was read after
+    // it, so on a tie this one is the fresher.
+    if (current && Date.parse(entry.updatedAt) >= Date.parse(current.updatedAt)) {
+      setEntry(client, entry)
+      // The recount may have found new episodes: «Новые серии» on Home is built from them too.
+      if (
+        entry.watchedEpisodes !== current.watchedEpisodes ||
+        entry.totalEpisodes !== current.totalEpisodes ||
+        JSON.stringify(entry.nextEpisode) !== JSON.stringify(current.nextEpisode)
+      )
+        void client.invalidateQueries({ queryKey: ['airing'] })
+    }
+  } catch {
+    // Best effort: the next library refetch brings the same numbers.
+  }
+}
+
 function patchEntry(client: QueryClient, titleId: string, patch: Partial<LibraryEntry>) {
   const current = client
     .getQueryData<LibraryEntry[]>(keys.library)
@@ -263,6 +295,11 @@ function restoreEntry(client: QueryClient, titleId: string, previous: LibraryEnt
 }
 
 export function invalidateDerived(client: QueryClient) {
+  // Called after every write. A library request still in flight may have been read on the
+  // server before the write (one sent after the mutation began, e.g. by the next page when a
+  // note is saved on the way out) and would put the old entry back when it lands. Restart it.
+  if (client.isFetching({ queryKey: keys.library, exact: true }))
+    void client.refetchQueries({ queryKey: keys.library, exact: true })
   void client.invalidateQueries({ queryKey: keys.stats })
   void client.invalidateQueries({ queryKey: keys.activity })
   // Profiles show favourites, stats and recent activity too (your own one included).
@@ -310,6 +347,7 @@ function provisionalEntry(title: TitleRecord, status: Status): LibraryEntry {
 
 export function useAddEntry() {
   const client = useQueryClient()
+  const { locale } = useI18n()
   return useMutation({
     mutationFn: ({
       title,
@@ -337,6 +375,15 @@ export function useAddEntry() {
     onSuccess: ({ entry }) => {
       setEntry(client, entry)
       invalidateDerived(client)
+      // Adding as watched marks every aired episode on the server (and re-adding may clear the
+      // automatic marks): the marks the page loaded meanwhile are out of date.
+      if (entry.kind === 'series' || entry.kind === 'anime')
+        void client.invalidateQueries({ queryKey: keys.marks(entry.titleId) })
+      // A series added before anyone loaded its episode list comes back without "next episode":
+      // the server only starts loading the list after answering. Load it here too (the request
+      // joins the server's own), which re-reads the entry once the list is in.
+      if ((entry.kind === 'series' || entry.kind === 'anime') && !entry.nextEpisode)
+        void client.prefetchQuery(episodeListQuery(client, entry.titleId, locale))
     },
     onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
@@ -363,6 +410,9 @@ export function useUpdateEntry() {
         'store',
         'hours',
         'position',
+        // Dates too: a refused date then rolls back, so the date field shows the saved one again.
+        'startedAt',
+        'finishedAt',
       ] as const)
         if (patch[key] !== undefined) Object.assign(optimistic, { [key]: patch[key] })
       patchEntry(client, titleId, optimistic)
@@ -661,18 +711,29 @@ export function useTitle(id: string, enabled = true) {
   })
 }
 
-export function useEpisodeList(id: string, enabled: boolean) {
-  const { locale } = useI18n()
-  return useQuery({
+function episodeListQuery(client: QueryClient, id: string, locale: Locale) {
+  return queryOptions({
     queryKey: keys.episodes(id, locale),
-    queryFn: ({ signal }) =>
-      get<{ list: EpisodeList | null }>(
+    // No abort signal: leaving the page must not cancel the request, whose arrival is what
+    // brings a freshly added series its "next episode" (see below).
+    queryFn: async () => {
+      const { list } = await get<{ list: EpisodeList | null }>(
         `/titles/${id}/episodes${query({ lang: locale })}`,
-        signal,
-      ).then((d) => d.list),
-    enabled,
+      )
+      // Loading a list can make the server recount the title's episodes (the first load, or a
+      // refresh that brought new ones). Re-read the saved entry, if there is one, so the
+      // sidebar, Home and the entry panel agree with the episode list.
+      if (list) void refreshEntry(client, id)
+      return list
+    },
     staleTime: 30 * 60_000,
   })
+}
+
+export function useEpisodeList(id: string, enabled: boolean) {
+  const { locale } = useI18n()
+  const client = useQueryClient()
+  return useQuery({ ...episodeListQuery(client, id, locale), enabled })
 }
 
 export function useOffers(id: string, enabled: boolean) {

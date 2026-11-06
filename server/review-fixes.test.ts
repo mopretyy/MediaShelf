@@ -211,3 +211,48 @@ describe('session lifetime', () => {
     expect((await t.request('GET', '/api/library')).status).toBe(401)
   })
 })
+
+describe('start and finish dates', () => {
+  const id = 'movie-tt0816692'
+  const path = `/api/library/${id}`
+
+  it('names the edited field when the dates would be out of order', async () => {
+    const t = await signedIn()
+    await t.request('POST', '/api/library', { titleId: id, status: 'completed' })
+    await t.request('PATCH', path, {
+      startedAt: '2026-03-10T12:00:00.000Z',
+      finishedAt: '2026-03-20T12:00:00.000Z',
+    })
+    const lateStart = await t.request('PATCH', path, { startedAt: '2026-03-25T12:00:00.000Z' })
+    expect(lateStart.status).toBe(400)
+    expect(lateStart.body.error.fields).toEqual({ startedAt: 'after_finish' })
+    const earlyFinish = await t.request('PATCH', path, { finishedAt: '2026-03-01T12:00:00.000Z' })
+    expect(earlyFinish.status).toBe(400)
+    expect(earlyFinish.body.error.fields).toEqual({ finishedAt: 'before_start' })
+  })
+
+  it('never blocks other edits of an entry whose saved dates are out of order', async () => {
+    const t = await signedIn()
+    await t.request('POST', '/api/library', { titleId: id, status: 'completed' })
+    // Written by an older version that let a start be saved in the future.
+    t.db
+      .prepare('UPDATE entries SET started_at = ?, finished_at = ? WHERE title_id = ?')
+      .run(Date.parse('2026-03-20T12:00:00Z'), Date.parse('2026-03-10T12:00:00Z'), id)
+    const notes = await t.request('PATCH', path, { notes: 'still editable', rating: 8 })
+    expect(notes.status).toBe(200)
+    expect(notes.body.entry.notes).toBe('still editable')
+  })
+
+  it('completing an entry whose start is in the future moves the start back to the finish', async () => {
+    const t = await signedIn()
+    // Movies are only planned or watched: a series can be in progress.
+    const series = 'series-tt0903747'
+    await t.request('POST', '/api/library', { titleId: series, status: 'in_progress' })
+    const future = Date.now() + 30 * 86_400_000
+    t.db.prepare('UPDATE entries SET started_at = ? WHERE title_id = ?').run(future, series)
+    const done = await t.request('PATCH', `/api/library/${series}`, { status: 'completed' })
+    expect(done.status).toBe(200)
+    const { startedAt, finishedAt } = done.body.entry
+    expect(Date.parse(startedAt)).toBeLessThanOrEqual(Date.parse(finishedAt))
+  })
+})

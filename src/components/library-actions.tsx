@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router'
 import { toast } from 'sonner'
 import type { EntryPatch } from '@shared/schemas.ts'
 import type { LibraryEntry, Status, TitleRecord } from '@shared/types.ts'
-import { useI18n } from '@/i18n'
+import { useI18n, type MessageKey } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import {
   restoreRemovedEntry,
@@ -27,6 +27,15 @@ export function useErrorMessage() {
   return (error: unknown) => {
     if (error instanceof ApiError) {
       if (error.code === 'NETWORK') return t('errors.network')
+      // Name the problem ("Earlier than the start date") rather than "check your input" when
+      // the server says what is wrong with a field and there are words for it.
+      if (error.code === 'VALIDATION')
+        for (const code of Object.values(error.fields)) {
+          if (code === 'invalid') continue // says no more than the generic message
+          const key = `errors.fields.${code}`
+          const text = t(key as MessageKey)
+          if (text !== key) return text // an unknown code comes back as the bare key
+        }
       return t(`errors.${error.code}` as never)
     }
     return t('errors.generic')
@@ -127,7 +136,7 @@ export function useLibraryActions() {
       )
     },
     patch(
-      entry: LibraryEntry,
+      entry: Pick<LibraryEntry, 'titleId'>,
       patch: EntryPatch,
       options: {
         silent?: boolean
@@ -136,18 +145,17 @@ export function useLibraryActions() {
         onError?: () => void
       } = {},
     ) {
-      update.mutate(
-        { titleId: entry.titleId, patch },
-        {
-          onSuccess: (change) => {
-            if (options.success) toast(options.success)
-            if (!options.silent) announce(change)
-            options.onSuccess?.()
-          },
-          onError: (error) => {
-            toast.error(message(error))
-            options.onError?.()
-          },
+      // mutateAsync rather than mutate's per-call callbacks: those only run while the caller is
+      // mounted, and a note saved on the way out of a title must still report a failure.
+      void update.mutateAsync({ titleId: entry.titleId, patch }).then(
+        (change) => {
+          if (options.success) toast(options.success)
+          if (!options.silent) announce(change)
+          options.onSuccess?.()
+        },
+        (error: unknown) => {
+          toast.error(message(error))
+          options.onError?.()
         },
       )
     },
