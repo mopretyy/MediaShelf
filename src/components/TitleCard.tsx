@@ -18,6 +18,7 @@ import { StatusIcon } from './StatusIcon'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/misc'
 import { Tooltip } from './ui/tooltip'
+import { showsProgress } from '@/pages/library/card-meta'
 import { useLibraryActions } from './library-actions'
 
 interface TitleCardProps {
@@ -86,8 +87,9 @@ export function TitleCard({
   const opening = useViewTransitionState(href)
   const rating = title.ratings[0]
   const year = yearRange(title)
+  // A paused title keeps its bar too: it shows how far it got before being put aside.
   const progress =
-    saved && saved.status === 'in_progress' && saved.progress > 0 && saved.progress < 100
+    saved && showsProgress(saved.status) && saved.progress > 0 && saved.progress < 100
       ? saved.progress
       : null
 

@@ -15,7 +15,7 @@ import { mergeActivity } from '@/lib/activity'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle } from '@/lib/hooks'
 import { useActivity, useCharts, useLibrary, useSession } from '@/lib/queries'
-import { titleHref, titleName } from '@/lib/titles'
+import { entryProgressText, titleHref, titleName } from '@/lib/titles'
 import { AiringSections } from './home/AiringSections'
 import { canMarkNext, useContinueSubtitle, useMarkNextWithToast } from './home/continue'
 import { HomeHero, HomeHeroSkeleton } from './home/HomeHero'
@@ -189,6 +189,52 @@ function Trending() {
   )
 }
 
+/**
+ * What was put aside, with where it stopped («S2 · E5», «45 %»), so picking it up again is one
+ * tap from Home instead of a trip through the Library filters.
+ */
+function PausedShelf({ entries }: { entries: LibraryEntry[] }) {
+  const { t } = useI18n()
+  return (
+    <section className="mt-12" aria-labelledby="paused-heading">
+      <SectionHeader
+        id="paused-heading"
+        title={t('status.paused')}
+        action={
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/library?status=paused">
+              {t('common.seeAll')}
+              <ArrowRight />
+            </Link>
+          </Button>
+        }
+      />
+      <Shelf label={t('status.paused')}>
+        {entries.map((entry) => {
+          const progress = entryProgressText(entry, t)
+          return (
+            <TitleCard
+              key={entry.titleId}
+              title={entry.title}
+              entry={entry}
+              meta={[
+                <span key="kind" className="truncate">
+                  {t(`kind.${entry.kind}`)}
+                </span>,
+                progress ? (
+                  <span key="progress" className="tabular">
+                    {progress}
+                  </span>
+                ) : null,
+              ]}
+            />
+          )
+        })}
+      </Shelf>
+    </section>
+  )
+}
+
 function Dashboard({ name }: { name: string }) {
   const { t } = useI18n()
   const library = useLibrary()
@@ -201,6 +247,7 @@ function Dashboard({ name }: { name: string }) {
   const entries = useMemo(() => library.data ?? [], [library.data])
   const active = entries.filter((entry) => entry.status === 'in_progress')
   const planned = entries.filter((entry) => entry.status === 'planned').slice(0, 20)
+  const paused = entries.filter((entry) => entry.status === 'paused').slice(0, 20)
   const completed = entries.filter((entry) => entry.status === 'completed').length
   const hour = new Date().getHours()
   const failed = library.isError && !library.data
@@ -294,6 +341,8 @@ function Dashboard({ name }: { name: string }) {
           </Shelf>
         </section>
       ) : null}
+
+      {failed ? null : paused.length ? <PausedShelf entries={paused} /> : null}
 
       {failed || library.isLoading || entries.length ? null : (
         <section className="mt-12 rounded-xl bg-raised p-8 text-center ring-1 ring-line ring-inset sm:p-10">

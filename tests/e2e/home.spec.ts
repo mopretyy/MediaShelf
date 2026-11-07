@@ -88,3 +88,29 @@ test('an empty library shows a fan of popular posters above its invitation', asy
     .first()
   await expect(fan.locator('img')).toHaveCount(5)
 })
+
+test('Home keeps what was put aside on its own shelf, with where it stopped', async ({ page }) => {
+  await register(page)
+  await page.goto('/')
+  // Nothing paused yet: no shelf.
+  await expect(page.getByTestId('home-hero')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Отложено' })).toHaveCount(0)
+
+  expect(
+    (await api(page, 'POST', '/library', { titleId: 'steam-1086940', status: 'paused' })).status,
+  ).toBe(201)
+  expect((await api(page, 'PATCH', '/library/steam-1086940', { progress: 40 })).status).toBe(200)
+  await page.goto('/')
+  const shelf = page.locator('section', {
+    has: page.getByRole('heading', { name: 'Отложено' }),
+  })
+  await expect(shelf).toBeVisible()
+  const card = shelf.getByRole('link', { name: /Baldur/ })
+  await expect(card).toHaveAttribute('href', '/title/steam-1086940')
+  // The caption says how far it got: kind · progress (the dot is a separate span).
+  await expect(shelf).toContainText(/Игра\s*·\s*40 %/)
+  await expect(shelf.getByRole('link', { name: /Все/ })).toHaveAttribute(
+    'href',
+    '/library?status=paused',
+  )
+})
