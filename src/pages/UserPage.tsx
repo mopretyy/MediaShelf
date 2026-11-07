@@ -373,17 +373,96 @@ function NowRow({ entry }: { entry: PublicEntry }) {
   )
 }
 
+/**
+ * The title touched last, large: its frame (or the poster blurred into a wash of its colours),
+ * the poster, the name, the status and how far along it is. The profile's answer to «what is
+ * this person into right now», the way the Home hero answers it for the owner. Always the dark
+ * palette over the picture, like the other heroes.
+ */
+function NowHero({ entry }: { entry: PublicEntry }) {
+  const { t, locale, fmt } = useI18n()
+  const progress = progressOf(entry)
+  const name = titleName(entry.title.names, locale)
+  const detail =
+    entry.kind === 'game'
+      ? entry.hours
+        ? fmt.hours(entry.hours)
+        : null
+      : entry.totalEpisodes
+        ? `${entry.watchedEpisodes}/${entry.totalEpisodes}`
+        : null
+  return (
+    <Link
+      to={titleHref(entry.titleId)}
+      data-testid="profile-now-hero"
+      className="group/now dark relative isolate block overflow-hidden rounded-xl bg-black text-fg ring-1 ring-line ring-inset outline-offset-4"
+    >
+      {entry.title.backdrop ? (
+        <Backdrop
+          src={entry.title.backdrop}
+          className="absolute inset-0 -z-20 size-full object-[center_25%] transition-transform duration-700 ease-out group-hover/now:scale-[1.03]"
+        />
+      ) : entry.title.poster ? (
+        <img
+          src={entry.title.poster}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 -z-20 size-full scale-125 object-cover opacity-80 blur-3xl"
+        />
+      ) : null}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/90 via-black/40 to-black/5" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/60 to-transparent" />
+      <div className="flex min-h-[220px] items-end gap-4 p-4 sm:min-h-[260px] sm:gap-5 sm:p-5">
+        <Poster
+          src={entry.title.poster}
+          alt=""
+          kind={entry.kind}
+          rounded="rounded-lg"
+          className="w-[76px] shrink-0 shadow-poster sm:w-[104px]"
+        />
+        <div className="min-w-0 flex-1 text-white">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-white/70">
+            <StatusIcon status={entry.status} className="size-3.5 shrink-0 [--panel:#000]" />
+            <span className="truncate">
+              {t(statusLabelKey(entry.kind, entry.status))}
+              {detail ? ` · ${detail}` : ''}
+            </span>
+          </p>
+          <p className="display mt-1 line-clamp-2 text-2xl break-words sm:text-3xl">{name}</p>
+          {progress !== null ? (
+            <div className="mt-3 flex items-center gap-3">
+              <span className="block h-1 flex-1 overflow-hidden rounded-full bg-white/25">
+                <span
+                  className="block h-full rounded-full bg-white"
+                  style={{ width: `${progress}%` }}
+                />
+              </span>
+              <span className="shrink-0 text-sm text-white/75 tabular-nums">{progress}%</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 function NowSection({ entries }: { entries: PublicEntry[] }) {
   const { t } = useI18n()
   if (!entries.length) return null
+  const [first, ...rest] = entries
   return (
     <section className="mt-8">
       <SectionHeader title={t('profile.now')} />
-      <ul className="divide-y divide-line overflow-hidden rounded-xl bg-raised ring-1 ring-line ring-inset">
-        {entries.map((entry) => (
-          <NowRow key={entry.titleId} entry={entry} />
-        ))}
-      </ul>
+      <NowHero entry={first} />
+      {rest.length ? (
+        <ul className="mt-3 divide-y divide-line overflow-hidden rounded-xl bg-raised ring-1 ring-line ring-inset">
+          {rest.map((entry) => (
+            <NowRow key={entry.titleId} entry={entry} />
+          ))}
+        </ul>
+      ) : null}
     </section>
   )
 }

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { LibraryEntry, UserProfile } from '../../shared/types.ts'
-import { api, register, signUp } from './helpers.ts'
+import { api, expectNoHorizontalOverflow, register, signUp } from './helpers.ts'
 
 const BACKDROP = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9"><rect width="16" height="9" fill="#345"/></svg>',
@@ -99,5 +99,28 @@ test('games settings: one card per connectable store, one line for the rest', as
     await expect(page.getByRole('button', { name: 'Войти через Steam' })).toBeVisible()
     await expect(page.getByText(later, { exact: true })).toBeVisible()
     await expect(page.getByText('Скоро', { exact: true })).toHaveCount(0)
+  }
+})
+
+test('the profile shows the title touched last as a large card, the rest as rows', async ({
+  page,
+}) => {
+  await register(page)
+  for (const titleId of ['steam-1086940', 'series-tt0903747'])
+    expect((await api(page, 'POST', '/library', { titleId, status: 'in_progress' })).status).toBe(
+      201,
+    )
+  await page.goto(`/users/${await myId(page)}`)
+  const hero = page.getByTestId('profile-now-hero')
+  // Most recently touched first: the series added last leads.
+  await expect(hero).toContainText('Во все тяжкие')
+  await expect(hero).toContainText('Смотрю')
+  await expect(hero).toHaveAttribute('href', '/title/series-tt0903747')
+  const section = page.locator('section', { has: page.getByRole('heading', { name: 'Сейчас' }) })
+  await expect(section.getByRole('listitem')).toHaveCount(1)
+  await expect(section.getByRole('listitem')).toContainText("Baldur's Gate 3")
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expectNoHorizontalOverflow(page)
   }
 })
