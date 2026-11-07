@@ -554,6 +554,7 @@ export const es: DeepPartial<Messages> = {
     },
   },
   shuffle: {
+    sound: 'Sonido y vibración',
     title: 'Al azar',
     subtitle: '¿No sabes qué elegir? Que lo decida el azar.',
     source: 'De dónde se elige',

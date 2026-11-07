@@ -599,6 +599,7 @@ export const uk: Messages = {
     },
   },
   shuffle: {
+    sound: 'Звук і вібрація',
     title: 'Жереб',
     subtitle: 'Не знаєте, що обрати? Хай вирішить випадок.',
     source: 'Звідки обирати',

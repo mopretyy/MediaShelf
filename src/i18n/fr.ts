@@ -563,6 +563,7 @@ export const fr: DeepPartial<Messages> = {
     },
   },
   shuffle: {
+    sound: 'Son et vibration',
     title: 'Hasard',
     subtitle: 'Vous ne savez pas quoi choisir ? Laissez faire le hasard.',
     source: 'Source du tirage',

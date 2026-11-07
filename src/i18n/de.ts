@@ -564,6 +564,7 @@ export const de: DeepPartial<Messages> = {
     },
   },
   shuffle: {
+    sound: 'Ton und Vibration',
     title: 'Zufallswahl',
     subtitle: 'Keine Idee, was Sie wählen sollen? Der Zufall entscheidet.',
     source: 'Woraus gewählt wird',

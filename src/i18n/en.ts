@@ -397,6 +397,7 @@ export const en: Messages = {
     },
   },
   shuffle: {
+    sound: 'Sound and vibration',
     title: 'Shuffle',
     subtitle: "Can't decide what to pick? Let chance choose.",
     source: 'Pick from',

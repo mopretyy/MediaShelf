@@ -18,7 +18,7 @@ import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
-import { Chip, EmptyIcon, EmptyState, Kbd, Skeleton } from '@/components/ui/misc'
+import { Chip, EmptyIcon, EmptyState, Kbd, Skeleton, Switch } from '@/components/ui/misc'
 import { PosterFan } from '@/components/PosterFan'
 import { Segmented } from '@/components/ui/segmented'
 import { useI18n } from '@/i18n'
@@ -34,6 +34,12 @@ import {
   titleName,
   yearRange,
 } from '@/lib/titles'
+import {
+  cardUnderFrame,
+  createReelSound,
+  readSoundSetting,
+  writeSoundSetting,
+} from './shuffle-sound'
 import { buildStrip } from './shuffle-reel'
 
 type Source = 'library' | 'catalog'
@@ -131,6 +137,8 @@ export default function ShufflePage() {
   const [reel, setReel] = useState<TitleRecord[]>([])
   const [rolling, setRolling] = useState(false)
   const [result, setResult] = useState<TitleRecord | null>(null)
+  // Clicks of the reel and a buzz on the result: off unless turned on (kept on this device).
+  const [sound, setSound] = useState(readSoundSetting)
   const [history, setHistory] = useState<HistoryItem[]>(readHistory)
   // «Бросить по популярному» switches the source, then rolls once those titles are in.
   const [rollWhenReady, setRollWhenReady] = useState(false)
@@ -197,19 +205,40 @@ export default function ShufflePage() {
     await new Promise((resolve) => requestAnimationFrame(resolve))
     const width = viewport.current?.clientWidth ?? 0
     const itemWidth = (scope.current?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 156
-    const target = -(WINNER_INDEX * step()) + width / 2 - itemWidth / 2
+    const cardStep = step()
+    const target = -(WINNER_INDEX * cardStep) + width / 2 - itemWidth / 2
+    // Made here, inside the click or key press, where browsers let a page start sound.
+    const audio = sound ? createReelSound() : null
     if (reduceMotion) {
       await animate(scope.current, { x: target }, { duration: 0 })
     } else {
+      const start = width / 2 - itemWidth / 2
+      let frame = 0
+      let card = 0
+      // A click each time a card passes the frame: read the reel's offset every frame.
+      const listen = () => {
+        const element = scope.current
+        if (!element || !audio) return
+        const x = new DOMMatrixReadOnly(getComputedStyle(element).transform).m41
+        const now = cardUnderFrame(start, x, cardStep)
+        if (now !== card) {
+          card = now
+          audio.tick()
+        }
+        frame = requestAnimationFrame(listen)
+      }
+      if (audio) frame = requestAnimationFrame(listen)
       await animate(
         scope.current,
-        { x: [width / 2 - itemWidth / 2, target] },
+        { x: [start, target] },
         { duration: 2.6, ease: [0.12, 0.72, 0.12, 1] },
       )
+      cancelAnimationFrame(frame)
     }
     setRolling(false)
     // The pool changed while spinning: this winner no longer belongs to it.
     if (rollId.current !== id) return
+    audio?.land()
     setResult(winner)
     const item: HistoryItem = {
       id: winner.id,
@@ -411,6 +440,19 @@ export default function ShufflePage() {
                 </Chip>
               ))}
             </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label htmlFor="shuffle-sound" className="text-sm font-medium text-fg-2">
+              {t('shuffle.sound')}
+            </label>
+            <Switch
+              id="shuffle-sound"
+              checked={sound}
+              onCheckedChange={(on) => {
+                setSound(on)
+                writeSoundSetting(on)
+              }}
+            />
           </div>
           {source === 'library' ? (
             <div className="flex flex-wrap items-center justify-between gap-3">

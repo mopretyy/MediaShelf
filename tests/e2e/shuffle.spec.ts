@@ -88,3 +88,77 @@ test('shuffle waits for the session and library instead of flashing «nothing to
   await release()
   await expect(page.getByText(/^В жребии/)).toHaveText(/^В жребии 2 тайтла/)
 })
+
+test('sound and vibration are off until turned on; then the reel clicks and the result buzzes', async ({
+  page,
+}) => {
+  // Count what the page asks of the audio and vibration APIs instead of making noise.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __sound: { blips: number; vibrations: number } }
+    w.__sound = { blips: 0, vibrations: 0 }
+    const param = () => ({
+      setValueAtTime() {},
+      exponentialRampToValueAtTime() {},
+    })
+    class FakeContext {
+      destination = {}
+      // Audio time runs like the real one, so the 28 ms spacing between clicks applies.
+      get currentTime() {
+        return performance.now() / 1000
+      }
+      resume() {
+        return Promise.resolve()
+      }
+      createOscillator() {
+        w.__sound.blips++
+        return {
+          type: 'sine',
+          frequency: param(),
+          connect: (next: unknown) => next,
+          start() {},
+          stop() {},
+        }
+      }
+      createGain() {
+        return { gain: param(), connect: (next: unknown) => next }
+      }
+    }
+    Object.defineProperty(window, 'AudioContext', { value: FakeContext, configurable: true })
+    Object.defineProperty(navigator, 'vibrate', {
+      value: () => {
+        w.__sound.vibrations++
+        return true
+      },
+      configurable: true,
+    })
+  })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await register(page)
+  await page.goto('/shuffle?source=catalog')
+  const roll = page.getByTestId('shuffle-roll')
+  const counts = () =>
+    page.evaluate(() => (window as unknown as { __sound: object }).__sound) as Promise<{
+      blips: number
+      vibrations: number
+    }>
+
+  const toggle = page.getByRole('switch', { name: 'Звук и вибрация' })
+  await expect(toggle).not.toBeChecked()
+  await roll.click()
+  await expect(page.getByRole('button', { name: 'В планы' })).toBeVisible({ timeout: 10_000 })
+  expect(await counts()).toEqual({ blips: 0, vibrations: 0 })
+
+  await toggle.click()
+  await expect(toggle).toBeChecked()
+  expect(await page.evaluate(() => localStorage.getItem('mediashelf:shuffle-sound'))).toBe('1')
+  await roll.click()
+  await expect(page.getByRole('button', { name: 'В планы' })).toBeVisible({ timeout: 10_000 })
+  const after = await counts()
+  // Several clicks while it spins, then the two-note chime, and one buzz.
+  expect(after.blips).toBeGreaterThan(4)
+  expect(after.vibrations).toBe(1)
+
+  // Kept on this device.
+  await page.reload()
+  await expect(page.getByRole('switch', { name: 'Звук и вибрация' })).toBeChecked()
+})

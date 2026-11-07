@@ -562,6 +562,7 @@ export const ro: DeepPartial<Messages> = {
     },
   },
   shuffle: {
+    sound: 'Sunet și vibrație',
     title: 'Noroc',
     subtitle: 'Nu știi ce să alegi? Lasă norocul să decidă.',
     source: 'De unde se alege',
