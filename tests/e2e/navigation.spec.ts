@@ -225,3 +225,12 @@ test('closing the palette puts focus back where it was', async ({ page }) => {
   await expect(page.getByPlaceholder(SEARCH_PLACEHOLDER)).toHaveCount(0)
   await expect(discoverSearch).toBeFocused()
 })
+
+test('a wrong address says so and offers the way on', async ({ page }) => {
+  await register(page)
+  await page.goto('/no-such-page')
+  await expect(page.getByRole('heading', { level: 1, name: 'Страница не найдена' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/')
+  await page.getByRole('main').getByRole('link', { name: 'Обзор' }).click()
+  await expect(page).toHaveURL(/\/discover$/)
+})
