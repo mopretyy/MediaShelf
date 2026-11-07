@@ -433,3 +433,29 @@
 [data-sonner-toast][data-type='error'] [data-icon] {
   color: var(--danger);
 }
+
+/* Sign-in showcase: endless poster drift. Lists are rendered twice, so -50% loops seamlessly. */
+@keyframes auth-drift-y {
+  to {
+    transform: translateY(-50%);
+  }
+}
+@keyframes auth-drift-x {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.auth-drift {
+  animation: auth-drift-y var(--drift-duration, 80s) linear infinite;
+  will-change: transform;
+}
+.auth-drift-x {
+  animation: auth-drift-x var(--drift-duration, 60s) linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-drift,
+  .auth-drift-x {
+    animation: none !important;
+  }
+}

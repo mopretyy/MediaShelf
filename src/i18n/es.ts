@@ -209,10 +209,11 @@ export const es: DeepPartial<Messages> = {
     loginForLibrary: 'Inicia sesión para elegir de tu biblioteca.',
   },
   auth: {
-    loginTitle: 'Iniciar sesión en MediaShell',
-    loginSubtitle: '¡Bienvenido de nuevo! Tu biblioteca te espera.',
+    loginTitle: 'Hola de nuevo',
+    loginSubtitle: 'Inicia sesión para seguir donde lo dejaste.',
     registerTitle: 'Crea una cuenta',
-    registerSubtitle: 'La biblioteca se guardará en este servidor MediaShell.',
+    registerSubtitle:
+      'Unos pocos campos y tu biblioteca de juegos, películas, series y anime estará lista.',
     name: 'Nombre',
     namePlaceholder: 'Cómo te llamamos',
     email: 'Correo',
@@ -226,6 +227,18 @@ export const es: DeepPartial<Messages> = {
     haveAccount: '¿Ya tienes cuenta?',
     closed: 'El registro en este servidor está cerrado.',
     welcome: '¡Bienvenido, {name}!',
+    tabsLabel: 'Iniciar sesión o registrarse',
+    tabLogin: 'Iniciar sesión',
+    tabRegister: 'Registrarse',
+    localNote: 'Tus datos se quedan en este servidor',
+    showcase: {
+      badge: 'Popular ahora',
+      title: 'Todo lo que juegas y ves, en un solo lugar',
+      text: 'Los catálogos de Steam, IMDb, Shikimori y AniList ya están integrados. Nada que configurar.',
+      kinds: 'Juegos, películas, series y anime',
+      progress: 'Estados, episodios, partidas y valoraciones',
+      stats: 'Resumen del año y estadísticas personales',
+    },
     signedOut: 'Has cerrado la sesión',
   },
   settings: {
