@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { isTypingTarget, matchesHotkey, type HotkeySpec } from './hotkeys.ts'
+import {
+  isHelpKey,
+  isPlainKey,
+  isTypingTarget,
+  latinLetter,
+  matchesHotkey,
+  type HotkeySpec,
+} from './hotkeys.ts'
 
 const press = (init: Partial<KeyboardEvent>) => ({
   key: '',
@@ -102,5 +109,50 @@ describe('isTypingTarget', () => {
       isTypingTarget({ tagName: 'BODY', isContentEditable: false } as unknown as EventTarget),
     ).toBe(false)
     expect(isTypingTarget({} as EventTarget)).toBe(false)
+  })
+})
+
+describe('latinLetter', () => {
+  it('takes the typed Latin letter, whatever the physical key', () => {
+    expect(latinLetter(press({ key: 'g', code: 'KeyG' }))).toBe('g')
+    expect(latinLetter(press({ key: 'H', code: 'KeyH' }))).toBe('h')
+    // Dvorak: the key labelled J on QWERTY types «h».
+    expect(latinLetter(press({ key: 'h', code: 'KeyJ' }))).toBe('h')
+  })
+
+  it('falls back to the physical letter for a non-Latin layout', () => {
+    expect(latinLetter(press({ key: 'п', code: 'KeyG' }))).toBe('g')
+    expect(latinLetter(press({ key: 'р', code: 'KeyH' }))).toBe('h')
+  })
+
+  it('is null for keys that are not letters', () => {
+    expect(latinLetter(press({ key: '1', code: 'Digit1' }))).toBeNull()
+    expect(latinLetter(press({ key: 'Enter', code: 'Enter' }))).toBeNull()
+    expect(latinLetter(press({ key: '.', code: 'Slash' }))).toBeNull()
+  })
+})
+
+describe('isHelpKey', () => {
+  it('answers to «?» on Latin and Russian layouts', () => {
+    expect(isHelpKey(press({ key: '?', code: 'Slash', shiftKey: true }))).toBe(true)
+    // ЙЦУКЕН: «?» is Shift+7, and Shift+/ (physical) types «,».
+    expect(isHelpKey(press({ key: '?', code: 'Digit7', shiftKey: true }))).toBe(true)
+    expect(isHelpKey(press({ key: ',', code: 'Slash', shiftKey: true }))).toBe(true)
+  })
+
+  it('leaves «/» and modified keys alone', () => {
+    expect(isHelpKey(press({ key: '/', code: 'Slash' }))).toBe(false)
+    expect(isHelpKey(press({ key: '?', code: 'Slash', shiftKey: true, ctrlKey: true }))).toBe(false)
+    expect(isHelpKey(press({ key: '?', code: 'Slash', isComposing: true }))).toBe(false)
+  })
+})
+
+describe('isPlainKey', () => {
+  it('refuses modifiers and composition', () => {
+    expect(isPlainKey(press({ key: 'g' }))).toBe(true)
+    expect(isPlainKey(press({ key: 'g', ctrlKey: true }))).toBe(false)
+    expect(isPlainKey(press({ key: 'g', metaKey: true }))).toBe(false)
+    expect(isPlainKey(press({ key: 'g', altKey: true }))).toBe(false)
+    expect(isPlainKey(press({ key: 'g', isComposing: true }))).toBe(false)
   })
 })

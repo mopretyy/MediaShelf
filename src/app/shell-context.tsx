@@ -3,6 +3,8 @@ import { createContext, useContext, useEffect, useState, type RefObject } from '
 interface ShellContextValue {
   scrollRef: RefObject<HTMLDivElement | null>
   openPalette(mode?: 'search' | 'add'): void
+  /** Opens the list of keyboard shortcuts («?»). */
+  openShortcuts(): void
   /** Turns the shell's keyboard shortcuts off until the returned function is called. */
   suspendHotkeys(): () => void
 }

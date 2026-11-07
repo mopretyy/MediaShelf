@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
-import { Outlet, useLocation, useNavigationType } from 'react-router'
+import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useI18n } from '@/i18n'
 import { useHotkey } from '@/lib/hooks'
+import { CHORD_TIMEOUT, isHelpKey, isPlainKey, isTypingTarget, latinLetter } from '@/lib/hotkeys'
 import { useSteamAutoSync } from '@/lib/steam-sync'
 import { CommandPalette } from './CommandPalette'
 import { ShellContext } from './shell-context'
-import { MobileTabBar, Sidebar } from './Sidebar'
+import { ShortcutsDialog } from './ShortcutsDialog'
+import { MobileTabBar, Sidebar, NAV_ITEMS } from './Sidebar'
 
 const COLLAPSE_KEY = 'mediashelf:sidebar-collapsed'
 
@@ -108,6 +110,54 @@ function BackToTop({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | 
   )
 }
 
+/** Layers whose own keys must not double as shell shortcuts (menu typeahead, select lists). */
+const OWN_KEYS = '[role="menu"], [role="menubar"], [role="listbox"], [role="slider"], [role="grid"]'
+
+/**
+ * «?» opens the shortcut list, and «G, then H / D / L / R / S» goes to Home, Discover, Library,
+ * Shuffle or Stats, the way Linear and GitHub do it. Letters are read from the physical key when
+ * the layout is not Latin, so the chords work with ЙЦУКЕН. Quiet in text fields and menus.
+ */
+function useShellKeys(enabled: boolean, openShortcuts: () => void) {
+  const navigate = useNavigate()
+  const pending = useRef(0)
+  useEffect(() => {
+    if (!enabled) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat) return
+      const target = event.target
+      if (
+        isTypingTarget(target) ||
+        (target instanceof Element && target.closest(OWN_KEYS)) ||
+        !isPlainKey(event)
+      ) {
+        pending.current = 0
+        return
+      }
+      if (isHelpKey(event)) {
+        event.preventDefault()
+        pending.current = 0
+        openShortcuts()
+        return
+      }
+      const letter = latinLetter(event)
+      const waiting = pending.current && Date.now() - pending.current < CHORD_TIMEOUT
+      pending.current = 0
+      if (waiting) {
+        const item = NAV_ITEMS.find((nav) => nav.chord === letter)
+        if (item) {
+          event.preventDefault()
+          navigate(item.to)
+        }
+        return
+      }
+      if (letter === 'g' && !event.shiftKey) pending.current = Date.now()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [enabled, navigate, openShortcuts])
+}
+
 export function AppShell() {
   const { t } = useI18n()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -160,6 +210,9 @@ export function AppShell() {
     }
   }, [])
   const hotkeys = hotkeyLocks === 0
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), [])
+  useShellKeys(hotkeys, openShortcuts)
   useHotkey(
     'k',
     (event) => {
@@ -185,8 +238,8 @@ export function AppShell() {
   )
 
   const context = useMemo(
-    () => ({ scrollRef, openPalette, suspendHotkeys }),
-    [openPalette, suspendHotkeys],
+    () => ({ scrollRef, openPalette, openShortcuts, suspendHotkeys }),
+    [openPalette, openShortcuts, suspendHotkeys],
   )
 
   return (
@@ -225,7 +278,9 @@ export function AppShell() {
           if (target?.isConnected) target.focus()
           else document.getElementById('main')?.focus()
         }}
+        onShowShortcuts={openShortcuts}
       />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </ShellContext.Provider>
   )
 }

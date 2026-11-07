@@ -1,5 +1,6 @@
 import {
   ChevronsUpDown,
+  Keyboard,
   Languages,
   LogIn,
   LogOut,
@@ -9,10 +10,12 @@ import {
   Sun,
   User as UserIcon,
 } from 'lucide-react'
+import { useContext } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import type { Locale, ThemePreference } from '@shared/types.ts'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/misc'
 import {
   Menu,
   MenuContent,
@@ -30,6 +33,7 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { useLogout, useUpdateProfile, useUser } from '@/lib/queries'
 import { useTheme } from '@/lib/theme'
+import { ShellContext } from './shell-context'
 
 /** Applies locale/theme locally and persists them to the account when signed in. */
 export function usePreferenceSetters() {
@@ -56,6 +60,7 @@ function MenuBody() {
   const user = useUser()
   const logout = useLogout()
   const navigate = useNavigate()
+  const openShortcuts = useContext(ShellContext)?.openShortcuts
   return (
     <>
       {user ? (
@@ -122,6 +127,14 @@ function MenuBody() {
           </MenuRadioGroup>
         </MenuSubContent>
       </MenuSub>
+      {openShortcuts ? (
+        // Phones and tablets without a keyboard have no use for the list.
+        <MenuItem onSelect={openShortcuts} className="pointer-coarse:hidden">
+          <Keyboard />
+          {t('shortcuts.title')}
+          <Kbd className="ml-auto">?</Kbd>
+        </MenuItem>
+      ) : null}
       <MenuSeparator />
       {user ? (
         <MenuItem

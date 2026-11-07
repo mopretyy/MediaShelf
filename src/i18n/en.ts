@@ -1,6 +1,7 @@
 import { profileLookEn } from './sections/profile-look.ts'
 import { airingEn } from './sections/airing.ts'
 import { externalImportEn } from './sections/external-import.ts'
+import { shortcutsEn } from './sections/shortcuts.ts'
 import { steamConnectEn } from './sections/steam-connect.ts'
 import type { Messages } from './ru.ts'
 
@@ -11,6 +12,7 @@ export const en: Messages = {
   steamConnect: steamConnectEn,
   airing: airingEn,
   externalImport: externalImportEn,
+  shortcuts: shortcutsEn,
   app: {
     name: 'MediaShell',
     tagline: 'Games, movies, series and anime — one library',

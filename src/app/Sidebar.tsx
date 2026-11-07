@@ -21,12 +21,14 @@ export const NAV_ITEMS: {
   label: MessageKey
   icon: ComponentType<{ className?: string }>
   end?: boolean
+  /** The second key of its «G, then …» chord (the Latin letter on the key). */
+  chord: string
 }[] = [
-  { to: '/', label: 'nav.home', icon: House, end: true },
-  { to: '/discover', label: 'nav.discover', icon: Compass },
-  { to: '/library', label: 'nav.library', icon: LibraryBig },
-  { to: '/shuffle', label: 'nav.shuffle', icon: Dices },
-  { to: '/stats', label: 'nav.stats', icon: BarChart3 },
+  { to: '/', label: 'nav.home', icon: House, end: true, chord: 'h' },
+  { to: '/discover', label: 'nav.discover', icon: Compass, chord: 'd' },
+  { to: '/library', label: 'nav.library', icon: LibraryBig, chord: 'l' },
+  { to: '/shuffle', label: 'nav.shuffle', icon: Dices, chord: 'r' },
+  { to: '/stats', label: 'nav.stats', icon: BarChart3, chord: 's' },
 ]
 
 function RecentEntries() {

@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CornerDownLeft,
+  Keyboard,
   Languages,
   LogOut,
   Monitor,
@@ -61,12 +62,15 @@ export function CommandPalette({
   mode,
   onOpenChange,
   returnFocus,
+  onShowShortcuts,
 }: {
   open: boolean
   mode: 'search' | 'add'
   onOpenChange(open: boolean): void
   /** Puts focus back where it was before opening (the palette has no trigger of its own). */
   returnFocus?(): void
+  /** Opens the keyboard shortcut list. */
+  onShowShortcuts?(): void
 }) {
   const { t, locale } = useI18n()
   const navigate = useNavigate()
@@ -183,6 +187,12 @@ export function CommandPalette({
       id: item.to,
       label: t(item.label),
       icon: <item.icon />,
+      detail: (
+        <>
+          <Kbd>G</Kbd>
+          <Kbd>{item.chord.toUpperCase()}</Kbd>
+        </>
+      ),
       run: run(() => navigate(item.to)),
     })),
   ]
@@ -218,6 +228,17 @@ export function CommandPalette({
       ),
       run: openLanguages,
     },
+    ...(onShowShortcuts
+      ? [
+          {
+            id: 'shortcuts',
+            label: t('shortcuts.title'),
+            icon: <Keyboard />,
+            detail: <Kbd>?</Kbd>,
+            run: run(onShowShortcuts),
+          },
+        ]
+      : []),
     ...(user
       ? [
           {
@@ -439,6 +460,11 @@ export function CommandPalette({
                             >
                               <span className="text-fg-2">{item.icon}</span>
                               {item.label}
+                              {item.detail ? (
+                                <span className="ml-auto flex items-center gap-1 pl-2 max-md:hidden">
+                                  {item.detail}
+                                </span>
+                              ) : null}
                             </Command.Item>
                           ))}
                       </Command.Group>

@@ -1,0 +1,46 @@
+// Copy for the keyboard shortcut list («?») and the «G, then …» page chords.
+// ru is the source of truth; every locale provides exactly the same keys (parity.test.ts).
+
+export const shortcutsRu = {
+  title: 'Сочетания клавиш',
+  description: 'Одиночные клавиши работают, когда курсор не в поле ввода.',
+  general: 'Везде',
+  search: 'Поиск и команды',
+  quickSearch: 'Поиск',
+  help: 'Эта подсказка',
+  close: 'Закрыть окно, меню или поиск',
+  goTo: 'Переходы',
+  then: 'затем',
+  inSearch: 'В поиске',
+  move: 'Выбрать строку',
+  run: 'Открыть или выполнить',
+  roll: 'Бросить жребий',
+  yearStory: 'Итоги года',
+  flip: 'Листать',
+  board: 'Доска статусов',
+  pickUp: 'Взять или положить карточку',
+  drag: 'Перенести карточку',
+  space: 'Пробел',
+}
+
+export const shortcutsEn: typeof shortcutsRu = {
+  title: 'Keyboard shortcuts',
+  description: 'Single keys work while the cursor is not in a text field.',
+  general: 'Everywhere',
+  search: 'Search and commands',
+  quickSearch: 'Search',
+  help: 'This list',
+  close: 'Close a dialog, menu or search',
+  goTo: 'Go to',
+  then: 'then',
+  inSearch: 'In search',
+  move: 'Select a row',
+  run: 'Open or run',
+  roll: 'Roll',
+  yearStory: 'Year in review',
+  flip: 'Flip through',
+  board: 'Status board',
+  pickUp: 'Pick up or drop a card',
+  drag: 'Move a card',
+  space: 'Space',
+}

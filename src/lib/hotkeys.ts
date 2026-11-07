@@ -41,3 +41,31 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   if (element.isContentEditable) return true
   return typeof element.tagName === 'string' && TEXT_TAGS.has(element.tagName)
 }
+
+/**
+ * The Latin letter a key stands for: the typed one, or, with a non-Latin layout, the letter
+ * printed on the physical key (ЙЦУКЕН «р» is KeyH). Dvorak and Colemak type Latin letters
+ * themselves, so theirs win, as in `matchesHotkey`. Null for anything that is not a letter.
+ */
+export function latinLetter(event: Pick<KeyboardEvent, 'key' | 'code'>): string | null {
+  if (typeof event.key === 'string' && /^[a-z]$/i.test(event.key)) return event.key.toLowerCase()
+  const physical = /^Key([A-Z])$/.exec(event.code ?? '')
+  return physical ? physical[1].toLowerCase() : null
+}
+
+/** How long the second key of a «G, then H» chord may wait after the first. */
+export const CHORD_TIMEOUT = 1200
+
+/**
+ * The «?» that opens the shortcut list: Shift+/ on Latin layouts, and the «?» key wherever the
+ * layout keeps it (Shift+7 on ЙЦУКЕН reports `key: '?'` too).
+ */
+export function isHelpKey(event: KeyInfo): boolean {
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return false
+  return event.key === '?' || (event.code === 'Slash' && event.shiftKey)
+}
+
+/** A key that may take part in a chord: no modifiers, not mid-composition. */
+export function isPlainKey(event: KeyInfo): boolean {
+  return !event.isComposing && !event.altKey && !event.ctrlKey && !event.metaKey
+}
