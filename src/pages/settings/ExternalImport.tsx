@@ -100,7 +100,7 @@ export function ExternalImportHelp() {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-1 rounded-sm text-sm text-fg-2 hover:text-fg"
+        className="inline-flex items-center gap-1 rounded-sm text-sm text-fg-2 hover:text-fg pointer-coarse:-my-2.5 pointer-coarse:min-h-10"
       >
         {t('externalImport.howTo')}
         <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />

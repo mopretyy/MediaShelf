@@ -2,6 +2,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { Select as S } from 'radix-ui'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { focusRing } from './button'
 
 export interface SelectOption<T extends string> {
   value: T
@@ -38,7 +39,8 @@ export function Select<T extends string>({
         aria-label={rest['aria-label']}
         className={cn(
           'inline-flex items-center justify-between gap-2 rounded-lg bg-raised text-fg ring-1 ring-line ring-inset',
-          'transition-colors outline-none hover:ring-line-strong focus-visible:ring-line-strong focus-visible:shadow-[0_0_0_4px_var(--active)]',
+          'transition-colors hover:ring-line-strong focus-visible:ring-line-strong focus-visible:shadow-[0_0_0_4px_var(--active)]',
+          focusRing,
           'data-[placeholder]:text-fg-3 [&_svg]:size-4',
           size === 'sm' ? 'h-8 px-2.5 text-sm' : 'h-9 px-3 text-base',
           className,

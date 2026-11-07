@@ -11,16 +11,26 @@ const variants = {
   'danger-ghost': 'text-danger hover:bg-danger/10',
 } as const
 
+// The compact sizes grow on touch screens (coarse pointers), so a thumb can hit them; mouse and
+// trackpad layouts keep the compact boxes.
 const sizes = {
-  xs: 'h-7 gap-1.5 rounded-md px-2 text-xs',
-  sm: 'h-8 gap-1.5 rounded-md px-3 text-sm',
+  xs: 'h-7 gap-1.5 rounded-md px-2 text-xs pointer-coarse:h-10 pointer-coarse:px-3 pointer-coarse:text-sm',
+  sm: 'h-8 gap-1.5 rounded-md px-3 text-sm pointer-coarse:h-10',
   md: 'h-9 gap-2 rounded-lg px-3.5 text-base',
   lg: 'h-11 gap-2 rounded-lg px-5 text-md',
-  'icon-xs': 'size-7 rounded-md',
-  'icon-sm': 'size-8 rounded-md',
+  'icon-xs': 'size-7 rounded-md pointer-coarse:size-10',
+  'icon-sm': 'size-8 rounded-md pointer-coarse:size-10',
   icon: 'size-9 rounded-lg',
   'icon-lg': 'size-11 rounded-lg',
 } as const
+
+/**
+ * The keyboard focus indicator every control shares: a 2 px --fg outline, over 3:1 on any
+ * surface in both themes (and kept in forced-colors mode, unlike a box-shadow). Text fields match
+ * :focus-visible on every focus, so they show it for mouse and touch too.
+ */
+export const focusRing =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants
@@ -54,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         'relative inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap',
         'transition-[background-color,color,box-shadow,opacity,transform] duration-150 ease-out',
         'active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg',
+        focusRing,
         '[&_svg]:size-4 [&_svg]:shrink-0',
         variants[variant],
         sizes[size],

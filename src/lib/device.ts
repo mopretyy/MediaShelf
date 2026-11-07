@@ -26,6 +26,33 @@ export function isOnboarded(userId: string): boolean {
 
 export function markOnboarded(userId: string) {
   write(onboardedKey(userId), '1')
+  try {
+    sessionStorage.removeItem(registeredKey(userId))
+  } catch {
+    /* ignore */
+  }
+}
+
+const registeredKey = (userId: string) => `mediashelf:just-registered:${userId}`
+
+/**
+ * Set by the sign-up form right before it signs the new account in: onboarding is for accounts
+ * created here, not for an existing one that happens to open /register on a new device.
+ */
+export function markJustRegistered(userId: string) {
+  try {
+    sessionStorage.setItem(registeredKey(userId), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isJustRegistered(userId: string): boolean {
+  try {
+    return sessionStorage.getItem(registeredKey(userId)) === '1'
+  } catch {
+    return false
+  }
 }
 
 /** Custom uploaded avatar as a data URL, or null. */

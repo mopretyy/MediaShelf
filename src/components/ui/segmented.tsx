@@ -45,6 +45,8 @@ export function Segmented<T extends string>({
       aria-label={rest['aria-label']}
       className={cn(
         'inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-raised p-1 ring-1 ring-line ring-inset no-scrollbar',
+        // Touch screens: 40 px segments in a tighter 2 px frame, 44 px overall.
+        'pointer-coarse:p-0.5',
         className,
       )}
       onKeyDown={(event) => {
@@ -70,6 +72,7 @@ export function Segmented<T extends string>({
               'relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors duration-150',
               '[&_svg]:size-4',
               size === 'sm' ? 'h-7 px-2.5 text-sm' : 'h-8 px-3 text-base',
+              'pointer-coarse:h-10 pointer-coarse:min-w-10',
               active ? 'text-fg' : 'text-fg-3 hover:text-fg',
             )}
           >

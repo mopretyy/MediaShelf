@@ -141,8 +141,8 @@ export function useRegisterResend() {
 
 /**
  * The caller applies the session itself via the returned `signIn`, once its success animation
- * is done. Setting it here would let the guest-only route guard redirect to "/" first and the
- * page's own delayed navigate('/welcome') would then yank the user away from wherever they went.
+ * is done: the moment the session lands, the guest-only route guard leaves the form (for a new
+ * account, to onboarding), so setting it here would cut the animation short.
  */
 export function useRegisterVerify() {
   const client = useQueryClient()

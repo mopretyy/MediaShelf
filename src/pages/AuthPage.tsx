@@ -10,6 +10,7 @@ import { Field, Input, PasswordInput } from '@/components/ui/input'
 import { useI18n, type MessageKey } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
+import { markJustRegistered } from '@/lib/device'
 import { useDocumentTitle } from '@/lib/hooks'
 import {
   useLogin,
@@ -124,10 +125,9 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           setCodeStatus('success')
           setTimeout(() => {
             toast(t('auth.welcome', { name: user.name }))
-            const fresh =
-              next && next.startsWith('/') && !next.startsWith('//') ? target : '/welcome'
-            // Navigate first, then sign in: the route change wins over the guest-only guard.
-            navigate(fresh, { replace: true })
+            // No navigate here: a second redirect would race the guest-only guard, which already
+            // sends the new account to `?next=` or to onboarding (see GuestOnly in App.tsx).
+            markJustRegistered(user.id)
             verify.signIn(user)
           }, 550)
         },

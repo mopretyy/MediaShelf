@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useI18n } from '@/i18n'
 import { ApiError } from '@/lib/api'
+import { isJustRegistered, isOnboarded } from '@/lib/device'
 import { keys, resetUserData, useSession } from '@/lib/queries'
 import { ThemeProvider, useTheme } from '@/lib/theme'
 import { AppShell } from './AppShell'
@@ -89,8 +90,14 @@ function GuestOnly({ children }: { children: ReactNode }) {
   if (isLoading) return null
   if (user) {
     const next = new URLSearchParams(location.search).get('next')
+    // The guard is the only redirect after sign-up (the form just signs in), so nothing races it:
+    // an account created on this form goes through onboarding before Home.
+    const fallback = isJustRegistered(user.id) && !isOnboarded(user.id) ? '/welcome' : '/'
     return (
-      <Navigate to={next && next.startsWith('/') && !next.startsWith('//') ? next : '/'} replace />
+      <Navigate
+        to={next && next.startsWith('/') && !next.startsWith('//') ? next : fallback}
+        replace
+      />
     )
   }
   return children
@@ -190,10 +197,13 @@ const router = createBrowserRouter([
 ])
 
 function Toasts() {
+  const { t } = useI18n()
   const { resolved } = useTheme()
   return (
     <Toaster
       theme={resolved}
+      // Sonner appends the hotkey itself: «Уведомления alt+T».
+      containerAriaLabel={t('common.notifications')}
       position="bottom-center"
       // Above the tab bar, home indicator included (see --tabbar-h in index.css). Sonner's
       // "mobile" ends at 600 px but the tab bar stays up to 768 px, so both offsets need it.

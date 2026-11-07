@@ -42,6 +42,7 @@ export const ru = {
     optional: 'необязательно',
     confirm: 'Подтвердить',
     undo: 'Вернуть',
+    notifications: 'Уведомления',
     or: 'или',
     copy: 'Копировать',
     dash: '—',
@@ -617,6 +618,7 @@ export const ru = {
   welcome: {
     title: 'Настройка профиля',
     back: 'Назад',
+    skip: 'Пропустить',
     next: 'Далее',
     finish: 'Готово',
     avatarTitle: 'Выберите аватар',

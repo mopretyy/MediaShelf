@@ -2,6 +2,9 @@
 // which has no path aliases.
 import { KINDS, type Kind, type LibraryEntry, type LibraryStats } from '../../../shared/types.ts'
 
+/** The Stats page link that opens the story: focus goes back to it when the story closes. */
+export const YEAR_STORY_ENTRY_ID = 'year-story-entry'
+
 /**
  * Everything the year story shows, computed only from what really belongs to the year:
  * titles finished this calendar year (local time), the months of this year, titles added

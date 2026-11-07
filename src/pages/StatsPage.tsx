@@ -16,6 +16,7 @@ import { MonthlyChart } from './stats/MonthlyChart'
 import { RatingsChart } from './stats/RatingsChart'
 import { StatCard } from './stats/StatCard'
 import { StatsSkeleton } from './stats/StatsSkeleton'
+import { YEAR_STORY_ENTRY_ID } from './year/story'
 
 function Facts({ stats }: { stats: LibraryStats }) {
   const { t } = useI18n()
@@ -98,6 +99,7 @@ export default function StatsPage() {
           {data && !empty ? (
             <Link
               to="/stats/year"
+              id={YEAR_STORY_ENTRY_ID}
               className="group/year mt-6 flex items-center gap-4 rounded-xl bg-raised p-4 ring-1 ring-line ring-inset transition-colors hover:bg-hover sm:p-5"
             >
               <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-fg text-panel">

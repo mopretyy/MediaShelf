@@ -7,7 +7,7 @@ import { PageBody, PageHeader } from '@/app/PageHeader'
 import { BrandIcon } from '@/components/BrandIcon'
 import { StatusIcon } from '@/components/StatusIcon'
 import { TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
-import { Button } from '@/components/ui/button'
+import { Button, focusRing } from '@/components/ui/button'
 import { Chip, EmptyState, Skeleton } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
@@ -201,7 +201,7 @@ export default function LibraryPage() {
                 onChange={(event) => search.setText(event.target.value)}
                 placeholder={t('library.searchPlaceholder')}
                 aria-label={t('library.searchPlaceholder')}
-                className="h-9 w-full rounded-lg bg-raised pr-8 pl-9 text-base ring-1 ring-line outline-none ring-inset placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
+                className={`h-9 w-full rounded-lg bg-raised pr-8 pl-9 text-base ring-1 ring-line ring-inset placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${focusRing}`}
               />
               {search.text ? (
                 <button

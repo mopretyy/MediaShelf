@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { LibraryEntry, UserProfile } from '../../shared/types.ts'
-import { api, register } from './helpers.ts'
+import { api, register, signUp } from './helpers.ts'
 
 const BACKDROP = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9"><rect width="16" height="9" fill="#345"/></svg>',
@@ -91,9 +91,10 @@ test('cover picker: the favourite tile uses a favourite with a backdrop or says 
 })
 
 test('games settings: one card per connectable store, one line for the rest', async ({ page }) => {
-  await register(page)
+  // The onboarding's store step first: a skipped onboarding is not offered again.
+  await signUp(page)
   const later = 'Скоро: GOG, Epic Games Store, Microsoft Store, PlayStation Store и Nintendo eShop'
-  for (const path of ['/settings/games', '/welcome?step=stores']) {
+  for (const path of ['/welcome?step=stores', '/settings/games']) {
     await page.goto(path)
     await expect(page.getByRole('button', { name: 'Войти через Steam' })).toBeVisible()
     await expect(page.getByText(later, { exact: true })).toBeVisible()

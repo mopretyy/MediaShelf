@@ -41,7 +41,8 @@ function HomeSearch() {
   }
   return (
     <form onSubmit={submit} className="mt-7 max-w-2xl">
-      <div className="flex items-center gap-2 rounded-xl bg-raised p-1.5 pl-4 ring-1 ring-line ring-inset transition-shadow focus-within:shadow-[0_0_0_4px_var(--active)] focus-within:ring-line-strong">
+      {/* The box shows the field's focus (the outline stays off while only the button is focused). */}
+      <div className="flex items-center gap-2 rounded-xl bg-raised p-1.5 pl-4 ring-1 ring-line ring-inset transition-shadow focus-within:shadow-[0_0_0_4px_var(--active)] focus-within:ring-line-strong has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-fg">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
