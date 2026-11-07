@@ -115,3 +115,24 @@ test('the palette picks the interface language from a list of languages named in
   await expect(page.getByRole('navigation').getByRole('link', { name: 'Библиотека' })).toBeVisible()
   await expect.poll(() => savedLocale(page)).toBe('ru')
 })
+
+test('a first visit opens in the browser’s language when the interface has it', async ({
+  browser,
+}) => {
+  for (const [locale, title] of [
+    ['uk-UA', 'З поверненням'],
+    ['de-DE', 'Willkommen zurück'],
+    ['ro-RO', 'Bine ai revenit'],
+    ['pt-BR', 'Welcome back'],
+  ] as const) {
+    const context = await browser.newContext({ locale })
+    const page = await context.newPage()
+    await page.goto('/login')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title)
+    await expect(page.locator('html')).toHaveAttribute(
+      'lang',
+      locale.slice(0, 2) === 'pt' ? 'en' : locale.slice(0, 2),
+    )
+    await context.close()
+  }
+})
