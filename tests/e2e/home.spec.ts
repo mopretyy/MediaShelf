@@ -55,3 +55,15 @@ test('with nothing in progress the hero shows something popular to open', async 
   await expect(title.getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', /^\/title\//)
   await expect(title.getByRole('link', { name: 'Обзор' })).toHaveAttribute('href', '/discover')
 })
+
+test('Stats opens on the year banner, which leads into the year story', async ({ page }) => {
+  await register(page)
+  await api(page, 'POST', '/library', { titleId: 'movie-tt1375666', status: 'completed' })
+  await page.goto('/stats')
+  const banner = page.getByTestId('year-banner')
+  await expect(banner).toBeVisible()
+  await expect(banner).toHaveAttribute('href', '/stats/year')
+  await expect(banner).toContainText(/Ваш \d{4} в MediaShell/)
+  await banner.click()
+  await expect(page.getByRole('dialog', { name: /Итоги \d{4}/ })).toBeVisible()
+})
