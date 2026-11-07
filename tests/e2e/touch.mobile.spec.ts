@@ -27,11 +27,14 @@ test('touch screens get thumb-sized targets in the title bar, chips, segments an
   for (const target of [
     header.getByRole('link', { name: 'Главная' }),
     header.getByRole('button', { name: 'Поиск' }),
-    header.getByRole('button', { name: 'Аккаунт' }),
+    header.getByRole('button', { name: /^Аккаунт/ }),
   ])
     expect(await size(target)).toEqual({ width: 44, height: 44 })
   // The bigger boxes don't move the icons: the avatar still ends 14 px from the edge.
-  const avatar = header.getByRole('button', { name: 'Аккаунт' }).locator('span').first()
+  const avatar = header
+    .getByRole('button', { name: /^Аккаунт/ })
+    .locator('span')
+    .first()
   const avatarBox = (await avatar.boundingBox())!
   expect(Math.round(page.viewportSize()!.width - (avatarBox.x + avatarBox.width))).toBe(14)
 

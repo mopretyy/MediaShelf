@@ -183,7 +183,9 @@ export function UserMenu({ collapsed }: { collapsed?: boolean }) {
       <MenuTrigger asChild>
         <button
           type="button"
-          aria-label={t('nav.account')}
+          // Collapsed it shows only the avatar, so it needs a name; open, its name is what it
+          // shows (WCAG 2.5.3, the label in the name), after a hidden «Аккаунт:».
+          aria-label={collapsed ? t('nav.account') : undefined}
           className={cn(
             'flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-hover data-[state=open]:bg-hover',
             collapsed && 'justify-center',
@@ -192,6 +194,7 @@ export function UserMenu({ collapsed }: { collapsed?: boolean }) {
           <UserAvatar user={user} />
           {!collapsed ? (
             <>
+              <span className="sr-only">{`${t('nav.account')}: `}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{user.name}</span>
                 <span className="block truncate text-xs text-fg-3">{user.email}</span>

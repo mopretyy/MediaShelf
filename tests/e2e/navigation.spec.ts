@@ -196,7 +196,7 @@ test('palette recents stay with the account that opened them', async ({ page }) 
   await expect(page.getByRole('group', { name: 'Недавние' })).toContainText('Начало')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Аккаунт' }).click()
+  await page.getByRole('button', { name: /^Аккаунт/ }).click()
   await page.getByRole('menuitem', { name: 'Выйти' }).click()
   await expect(page.getByRole('link', { name: 'Войти' }).first()).toBeVisible()
   await register(page, 'Борис')

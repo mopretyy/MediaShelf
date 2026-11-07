@@ -64,7 +64,7 @@ test('the palette and the account menu open the shortcut list', async ({ page })
   await expect(page.getByRole('option', { name: /Библиотека/ })).toContainText('GL')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Аккаунт' }).click()
+  await page.getByRole('button', { name: /^Аккаунт/ }).click()
   await page.getByRole('menuitem', { name: /Сочетания клавиш/ }).click()
   await expect(page.getByRole('dialog', { name: 'Сочетания клавиш' })).toBeVisible()
 })

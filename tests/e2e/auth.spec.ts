@@ -17,7 +17,7 @@ test('registration validates input and signs the user in', async ({ page }) => {
 
 test('sign out, wrong password, sign in and return to the requested page', async ({ page }) => {
   const { email, password } = await register(page)
-  await page.getByRole('button', { name: 'Аккаунт' }).click()
+  await page.getByRole('button', { name: /^Аккаунт/ }).click()
   await page.getByRole('menuitem', { name: 'Выйти' }).click()
   await expect(page.getByRole('link', { name: 'Войти' }).first()).toBeVisible()
 

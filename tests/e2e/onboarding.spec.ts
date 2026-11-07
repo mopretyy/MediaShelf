@@ -45,7 +45,7 @@ test('skipping onboarding is remembered, and a sign-up with a destination goes t
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('heading', { level: 1, name: /Дмитрий/ })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Аккаунт' }).click()
+  await page.getByRole('button', { name: /^Аккаунт/ }).click()
   await page.getByRole('menuitem', { name: 'Выйти' }).click()
   await expect(page.getByRole('link', { name: 'Войти' }).first()).toBeVisible()
   // A guest sent to sign up from a protected page gets that page, not the setup.

@@ -4,7 +4,7 @@ import { api, register } from './helpers.ts'
 
 test('language and theme persist to the account', async ({ page }) => {
   await register(page)
-  await page.getByRole('button', { name: 'Аккаунт' }).click()
+  await page.getByRole('button', { name: /^Аккаунт/ }).click()
   await page.getByRole('menuitem', { name: 'Язык' }).hover()
   await page.getByRole('menuitemradio', { name: 'English' }).click()
   await expect(page.getByRole('link', { name: 'Library' })).toBeVisible()
