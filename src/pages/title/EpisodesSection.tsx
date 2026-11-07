@@ -1,5 +1,5 @@
 import { Check, MessageSquareText, MoreHorizontal, Plus } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import type { Episode, EpisodeMark, LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { useErrorMessage, useLibraryActions } from '@/components/library-actions'
@@ -13,9 +13,9 @@ import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
-import { useEpisodeList, useEpisodeMarks, useEpisodeNote, useMarkEpisodes } from '@/lib/queries'
+import { useEpisodeNote, useMarkEpisodes } from '@/lib/queries'
 import { episodeCode, localToday, statusLabelKey, titleName } from '@/lib/titles'
-import { episodeProgress } from './episode-progress'
+import { useEpisodeProgress } from './use-episode-progress'
 
 const key = (e: { season: number; number: number }) => `${e.season}:${e.number}`
 const PAGE = 100
@@ -56,9 +56,19 @@ function NoteDialog({
         >
           <div className="grid gap-2">
             <p className="text-sm font-medium">{t('episodes.ratingLabel')}</p>
-            <div className="overflow-x-auto no-scrollbar">
-              <RatingScale label={t('episodes.ratingLabel')} value={rating} onChange={setRating} />
-            </div>
+            <RatingScale label={t('episodes.ratingLabel')} value={rating} onChange={setRating} />
+            {/* Picking the current score again keeps it: clearing is this explicit action, after
+                the scale so that it never takes the dialog's first focus. */}
+            {rating !== null ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-3 w-fit text-fg-3 max-sm:h-11"
+                onClick={() => setRating(null)}
+              >
+                {t('title.clearRating')}
+              </Button>
+            ) : null}
           </div>
           <Textarea
             value={note}
@@ -90,14 +100,17 @@ export function EpisodesSection({
   entry: LibraryEntry | null
 }) {
   const { t, fmt, locale } = useI18n()
-  const list = useEpisodeList(title.id, true)
-  const marksQuery = useEpisodeMarks(title.id, Boolean(entry))
+  // The same numbers as the entry panel: both count from the list and the marks.
+  const progress = useEpisodeProgress(title.id, entry)
+  const { list, next, unsure, percent } = progress
+  const marksQuery = progress.marks
   const mark = useMarkEpisodes()
   const actions = useLibraryActions()
   const message = useErrorMessage()
   const [chosenSeason, setChosenSeason] = useState<number | null>(null)
   const [limit, setLimit] = useState(PAGE)
   const [noteFor, setNoteFor] = useState<Episode | null>(null)
+  const rowIds = useId()
   const today = localToday()
 
   const seasons = useMemo(() => {
@@ -113,20 +126,6 @@ export function EpisodesSection({
     () => seasons.filter((s) => s.number > 0).flatMap((s) => s.episodes),
     [seasons],
   )
-  // Count from the list and the marks shown here: the saved entry can lag behind both (the
-  // server recounts when a list arrives), and the page must not contradict its own checkboxes.
-  const counted = useMemo(
-    () => (list.data && marksQuery.data ? episodeProgress(list.data, marksQuery.data) : null),
-    [list.data, marksQuery.data],
-  )
-  const progress = entry && counted
-  // The entry only stands in while the marks load; its "nothing next" may be stale till then.
-  const next = progress ? progress.next : (entry?.nextEpisode ?? null)
-  const unsure = Boolean(entry) && !progress && marksQuery.isPending
-  const watchedCount = progress ? progress.watched : (entry?.watchedEpisodes ?? 0)
-  const totalCount = progress ? progress.total : (entry?.totalEpisodes ?? null)
-  const percent =
-    entry?.status === 'completed' ? 100 : progress ? progress.percent : (entry?.progress ?? 0)
 
   const defaultSeason = next?.season ?? seasons[0]?.number ?? 1
   // A season picked on another title may not exist here: fall back instead of an empty list.
@@ -211,9 +210,9 @@ export function EpisodesSection({
         id="episodes-heading"
         title={t('title.episodes')}
         action={
-          entry && totalCount ? (
+          entry && progress.total ? (
             <span className="tabular text-sm text-fg-2">
-              {t('episodes.watchedOf', { watched: watchedCount, total: totalCount })}
+              {t('episodes.watchedOf', { watched: progress.watched, total: progress.total })}
             </span>
           ) : (
             <span className="text-sm text-fg-3">
@@ -333,92 +332,118 @@ export function EpisodesSection({
           const future = !aired(episode)
           const note = marks.get(key(episode))
           const code = t('episodes.code', episodeCode(episode.season, episode.number))
+          const date = episode.airdate
+            ? future
+              ? t('episodes.airsOn', { date: fmt.date(episode.airdate) })
+              : fmt.date(episode.airdate)
+            : null
+          // The checkbox is named by the code and the name; the rest of the row describes it
+          // (a checkbox's content is not read on its own).
+          const details = [
+            date,
+            note?.rating ? t('title.ratingOption', { rating: note.rating }) : null,
+            note?.note ? t('episodes.note') : null,
+          ]
+            .filter(Boolean)
+            .join(', ')
+          const detailsId = `${rowIds}-${episode.season}-${episode.number}`
           return (
-            <li
-              key={key(episode)}
-              className={cn(
-                'group flex items-center gap-3 bg-raised/60 px-3 py-2.5',
-                future && 'opacity-60',
-              )}
-            >
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={done}
-                aria-label={`${code}${episode.name ? `, ${episode.name}` : ''}`}
-                disabled={future}
-                onClick={() => run([episode], !done)}
+            <li key={key(episode)} className={cn('bg-raised/60', future && 'opacity-60')}>
+              {/* The whole row marks the episode, the circle only pictures it. The menu stays a
+                  separate control next to it, never inside; the row lights up as one while the
+                  checkbox part is under the pointer. */}
+              <div
                 className={cn(
-                  'grid size-6 shrink-0 place-items-center rounded-full transition-colors duration-150',
-                  done
-                    ? 'bg-fg text-panel'
-                    : 'text-transparent ring-1 ring-line-strong ring-inset hover:text-fg-3',
+                  'group flex items-center transition-colors duration-150',
+                  !future && 'has-[[role=checkbox]:hover]:bg-hover',
                 )}
               >
-                <Check className="size-3.5" strokeWidth={3} />
-              </button>
-              <span className="tabular w-8 shrink-0 text-sm text-fg-3">{episode.number}</span>
-              <div className="min-w-0 flex-1">
-                <p className={cn('truncate text-base', done && 'text-fg-2')}>
-                  {episode.name || t('episodes.episode', { number: episode.number })}
-                </p>
-                {episode.airdate ? (
-                  <p className="text-xs text-fg-3">
-                    {future
-                      ? t('episodes.airsOn', { date: fmt.date(episode.airdate) })
-                      : fmt.date(episode.airdate)}
-                  </p>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={done}
+                  aria-label={`${code}${episode.name ? `, ${episode.name}` : ''}`}
+                  aria-describedby={details ? detailsId : undefined}
+                  disabled={future}
+                  onClick={() => run([episode], !done)}
+                  className="group/episode flex min-w-0 flex-1 items-center gap-2.5 self-stretch py-2.5 pr-3 pl-3 text-left focus-visible:-outline-offset-2 sm:gap-3"
+                >
+                  <span
+                    className={cn(
+                      'grid size-6 shrink-0 place-items-center rounded-full transition-colors duration-150',
+                      done
+                        ? 'bg-fg text-panel'
+                        : 'text-transparent ring-1 ring-line-strong ring-inset',
+                      !done && !future && 'group-hover/episode:text-fg-3',
+                    )}
+                  >
+                    <Check className="size-3.5" strokeWidth={3} />
+                  </span>
+                  <span className="tabular min-w-6 shrink-0 text-sm text-fg-3 sm:w-8">
+                    {episode.number}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block truncate text-base', done && 'text-fg-2')}>
+                      {episode.name || t('episodes.episode', { number: episode.number })}
+                    </span>
+                    {date ? <span className="block truncate text-xs text-fg-3">{date}</span> : null}
+                  </span>
+                  {note?.rating ? (
+                    <span className="tabular shrink-0 text-xs font-medium text-fg-2">
+                      {note.rating}/10
+                    </span>
+                  ) : null}
+                  {note?.note ? <MessageSquareText className="size-4 shrink-0 text-fg-3" /> : null}
+                  {details ? (
+                    <span id={detailsId} className="sr-only">
+                      {details}
+                    </span>
+                  ) : null}
+                </button>
+                {entry ? (
+                  <Menu>
+                    <MenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t('episodes.moreFor', { code })}
+                        className="mr-2 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:size-9 pointer-coarse:opacity-100"
+                      >
+                        <MoreHorizontal />
+                      </Button>
+                    </MenuTrigger>
+                    <MenuContent align="end">
+                      <MenuItem onSelect={() => run([episode], !done)} disabled={future}>
+                        <Check />
+                        {done ? t('episodes.markUnwatched') : t('episodes.markWatched')}
+                      </MenuItem>
+                      {episode.season > 0 ? (
+                        <MenuItem
+                          disabled={future}
+                          onSelect={() =>
+                            run(
+                              regular.filter(
+                                (e) =>
+                                  aired(e) &&
+                                  (e.season < episode.season ||
+                                    (e.season === episode.season && e.number <= episode.number)),
+                              ),
+                              true,
+                            )
+                          }
+                        >
+                          <Check />
+                          {t('episodes.markUpTo')}
+                        </MenuItem>
+                      ) : null}
+                      <MenuItem onSelect={() => setNoteFor(episode)}>
+                        <MessageSquareText />
+                        {t('episodes.note')}
+                      </MenuItem>
+                    </MenuContent>
+                  </Menu>
                 ) : null}
               </div>
-              {note?.rating ? (
-                <span className="tabular text-xs font-medium text-fg-2">{note.rating}/10</span>
-              ) : null}
-              {note?.note ? (
-                <MessageSquareText className="size-4 text-fg-3" aria-label={t('episodes.note')} />
-              ) : null}
-              {entry ? (
-                <Menu>
-                  <MenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={t('common.more')}
-                      className="opacity-60 group-hover:opacity-100"
-                    >
-                      <MoreHorizontal />
-                    </Button>
-                  </MenuTrigger>
-                  <MenuContent align="end">
-                    <MenuItem onSelect={() => run([episode], !done)} disabled={future}>
-                      <Check />
-                      {done ? t('episodes.markUnwatched') : t('episodes.markWatched')}
-                    </MenuItem>
-                    {episode.season > 0 ? (
-                      <MenuItem
-                        disabled={future}
-                        onSelect={() =>
-                          run(
-                            regular.filter(
-                              (e) =>
-                                aired(e) &&
-                                (e.season < episode.season ||
-                                  (e.season === episode.season && e.number <= episode.number)),
-                            ),
-                            true,
-                          )
-                        }
-                      >
-                        <Check />
-                        {t('episodes.markUpTo')}
-                      </MenuItem>
-                    ) : null}
-                    <MenuItem onSelect={() => setNoteFor(episode)}>
-                      <MessageSquareText />
-                      {t('episodes.note')}
-                    </MenuItem>
-                  </MenuContent>
-                </Menu>
-              ) : null}
             </li>
           )
         })}

@@ -305,7 +305,11 @@ export function PlaythroughsSection({ entry }: { entry: LibraryEntry }) {
             }
           >
             <Plus />
-            {t('playthroughs.add')}
+            {/* A phone shows just "Add"; the button keeps its full name for screen readers. */}
+            <span aria-hidden="true" className="sm:hidden">
+              {t('common.add')}
+            </span>
+            <span className="max-sm:sr-only">{t('playthroughs.add')}</span>
           </Button>
         }
       />

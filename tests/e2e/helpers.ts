@@ -47,10 +47,16 @@ export async function api<T = Record<string, never>>(
   )
 }
 
-/** No element may push the page wider than the viewport. */
+/**
+ * No element may push the page wider than the viewport. Compared with the configured width, not
+ * with innerWidth: with mobile emulation the layout viewport grows to fit wide content, so
+ * innerWidth grows with the overflow and would hide it.
+ */
 export async function expectNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth,
+  const width = page.viewportSize()?.width
+  if (!width) throw new Error('expectNoHorizontalOverflow: the page has no fixed viewport')
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  expect(scrollWidth, `page is ${scrollWidth - width}px wider than ${width}px`).toBeLessThanOrEqual(
+    width + 1,
   )
-  expect(overflow).toBeLessThanOrEqual(1)
 }

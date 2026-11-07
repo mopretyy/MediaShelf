@@ -310,6 +310,7 @@ export const en: Messages = {
     markUpTo: 'Mark all up to here',
     markWatched: 'Mark as watched',
     markUnwatched: 'Mark as unwatched',
+    moreFor: 'More: {code}',
     airsOn: 'Airs {date}',
     allWatched: "You've watched every released episode",
     waiting: 'Waiting for new episodes',

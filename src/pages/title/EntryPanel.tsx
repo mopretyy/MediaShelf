@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { STATUSES_BY_KIND } from '@shared/status.ts'
 import type { LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { StatusIcon } from '@/components/StatusIcon'
-import { FavoriteButton, RatingScale, StatusPicker } from '@/components/StatusControls'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
 import { fieldBase, Textarea } from '@/components/ui/input'
@@ -13,6 +12,7 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { statusLabelKey } from '@/lib/titles'
 import { parseDateDraft, toDateInput } from './dates'
+import { useEpisodeProgress } from './use-episode-progress'
 
 /**
  * Date input that saves on blur/Enter, so partially typed years are never sent. The start may
@@ -185,6 +185,27 @@ function NotesEditor({ entry }: { entry: LibraryEntry }) {
   )
 }
 
+/** Series progress, counted exactly as the episode list next to it counts it. */
+function EpisodeProgressRow({ entry }: { entry: LibraryEntry }) {
+  const { t } = useI18n()
+  const { watched, total, percent } = useEpisodeProgress(entry.titleId, entry)
+  return (
+    <Row label={t('title.progress')}>
+      <div className="flex items-center gap-3">
+        <ProgressBar value={percent} className="flex-1" label={t('title.progress')} />
+        <span className="tabular text-sm text-fg-2">
+          {total ? `${watched}/${total}` : t('home.percent', { value: percent })}
+        </span>
+      </div>
+    </Row>
+  )
+}
+
+/**
+ * The rail card holds only what the hero's action bar can't: series progress, dates, notes and
+ * removal. Status, favourite and rating live in the hero alone, one control each, and it wraps
+ * on phones, so nothing here repeats them.
+ */
 export function EntryPanel({ entry, onRemove }: { entry: LibraryEntry; onRemove(): void }) {
   const { t } = useI18n()
   const actions = useLibraryActions()
@@ -194,38 +215,12 @@ export function EntryPanel({ entry, onRemove }: { entry: LibraryEntry; onRemove(
       aria-labelledby="entry-heading"
       className="rounded-xl bg-raised ring-1 ring-line ring-inset"
     >
-      <div className="flex items-center justify-between gap-3 px-4 pt-3.5 pb-3">
-        <h2 id="entry-heading" className="text-md font-semibold">
-          {t('title.inLibrary')}
-        </h2>
-        <FavoriteButton entry={entry} size="icon-sm" />
-      </div>
-      <Row label={t('playthroughs.status')}>
-        <StatusPicker entry={entry} className="-ml-2 w-fit" />
-      </Row>
-      <Row label={t('title.yourRating')}>
-        <div className="overflow-x-auto no-scrollbar">
-          <RatingScale
-            label={t('title.yourRating')}
-            value={entry.rating}
-            onChange={(rating) => actions.rate(entry, rating)}
-          />
-        </div>
-      </Row>
-      {/* Games show and edit progress in the main playthrough panel right above; a second,
-          read-only bar here only repeated it. */}
-      {episodic ? (
-        <Row label={t('title.progress')}>
-          <div className="flex items-center gap-3">
-            <ProgressBar value={entry.progress} className="flex-1" label={t('title.progress')} />
-            <span className="tabular text-sm text-fg-2">
-              {episodic && entry.totalEpisodes
-                ? `${entry.watchedEpisodes}/${entry.totalEpisodes}`
-                : t('home.percent', { value: entry.progress })}
-            </span>
-          </div>
-        </Row>
-      ) : null}
+      <h2 id="entry-heading" className="px-4 pt-3.5 pb-3 text-md font-semibold">
+        {t('title.inLibrary')}
+      </h2>
+      {/* Games show and edit progress in the main playthrough panel; a second, read-only bar
+          here only repeated it. */}
+      {episodic ? <EpisodeProgressRow entry={entry} /> : null}
       {entry.status !== 'planned' ? (
         <Row label={t('title.dates')}>
           <div className="grid grid-cols-2 gap-2">

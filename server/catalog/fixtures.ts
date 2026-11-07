@@ -1,5 +1,5 @@
 // Deterministic offline catalog for e2e tests (CATALOG_MODE=fixtures). Ids, names, years,
-// genres and ratings are real; episode lists and prices are synthetic but stable.
+// genres and ratings are real; episode lists, prices and trailers are synthetic but stable.
 import type {
   ChartList,
   ChartPage,
@@ -9,6 +9,7 @@ import type {
   SearchResult,
   StoreOffer,
   TitleRecord,
+  Trailer,
 } from '../../shared/types.ts'
 import { parseTitleId } from '../../shared/ids.ts'
 import { isRegion } from '../../shared/regions.ts'
@@ -29,6 +30,8 @@ interface FixtureTitle {
   descriptions: { ru: string; en: string }
   /** Games: USD cents for Steam and GOG. */
   prices?: { steam: [number, number]; gog: [number, number]; gogId: string; gogSlug: string }
+  /** One title of each kind has one, so tests cover the title page's trailer button. */
+  trailer?: Trailer
 }
 
 const imdb = (value: number, votes?: number): ExternalRating => ({
@@ -46,6 +49,11 @@ const steam = (value: number, votes: number): ExternalRating => ({
 const metacritic = (value: number): ExternalRating => ({ source: 'metacritic', value, max: 100 })
 const shikimori = (value: number): ExternalRating => ({ source: 'shikimori', value, max: 10 })
 const anilist = (value: number): ExternalRating => ({ source: 'anilist', value, max: 100 })
+// Never played offline: example.com is reserved, nothing real sits behind these.
+const trailer = (slug: string): Trailer => ({
+  type: 'video',
+  url: `https://example.com/trailers/${slug}.mp4`,
+})
 
 const TITLES: readonly FixtureTitle[] = [
   // Games
@@ -58,6 +66,7 @@ const TITLES: readonly FixtureTitle[] = [
     ratings: [steam(96, 824153), metacritic(93)],
     runtime: 0,
     creators: ['CD PROJEKT RED'],
+    trailer: trailer('the-witcher-3'),
     descriptions: {
       en: 'Geralt of Rivia, a monster slayer for hire, searches a war-torn open world for the child of prophecy.',
       ru: 'Геральт из Ривии, наёмный охотник на чудовищ, ищет дитя предназначения в охваченном войной открытом мире.',
@@ -221,6 +230,7 @@ const TITLES: readonly FixtureTitle[] = [
     ratings: [imdb(8.8, 2700000)],
     runtime: 148,
     creators: ['Christopher Nolan'],
+    trailer: trailer('inception'),
     descriptions: {
       en: 'A thief who steals secrets through dream-sharing technology is offered a chance to plant an idea instead.',
       ru: 'Вору, крадущему секреты из снов, предлагают обратную задачу — внедрить идею в сознание человека.',
@@ -265,6 +275,7 @@ const TITLES: readonly FixtureTitle[] = [
     ratings: [imdb(9.5, 2400000)],
     runtime: 49,
     creators: ['Vince Gilligan'],
+    trailer: trailer('breaking-bad'),
     descriptions: {
       en: 'A chemistry teacher diagnosed with cancer turns to manufacturing methamphetamine to secure his family’s future.',
       ru: 'Учитель химии, узнав о раке, начинает варить метамфетамин, чтобы обеспечить будущее семьи.',
@@ -357,6 +368,7 @@ const TITLES: readonly FixtureTitle[] = [
     ratings: [shikimori(9.25), anilist(91)],
     runtime: 24,
     creators: ['Madhouse'],
+    trailer: trailer('frieren'),
     descriptions: {
       en: 'After the demon king falls, the elf mage Frieren sets out to understand the humans she once travelled with.',
       ru: 'После победы над королём демонов эльфийка-волшебница Фрирен отправляется в путь, чтобы понять людей.',
@@ -506,7 +518,7 @@ function detailed(title: FixtureTitle): TitleRecord {
       ? { platforms: ['pc', 'steam-deck'], companies: title.creators }
       : { cast: [] }),
     screenshots: [],
-    trailer: null,
+    trailer: title.trailer ?? null,
     detailed: true,
   }
 }

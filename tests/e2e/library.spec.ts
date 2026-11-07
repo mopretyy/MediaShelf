@@ -41,11 +41,11 @@ test('movies: watched, rating, favourite, notes and removal', async ({ page }) =
   await page.keyboard.press('Escape')
 
   await page.getByTestId('rating-button').click()
-  await page.getByRole('radio', { name: '9 из 10', exact: true }).first().click()
+  await page.getByRole('radio', { name: '9 из 10', exact: true }).click()
   await expect(page.getByTestId('rating-button')).toContainText('9/10')
 
-  await page.getByRole('button', { name: 'В избранное' }).first().click()
-  await expect(page.getByRole('button', { name: 'Убрать из избранного' }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'В избранное' }).click()
+  await expect(page.getByRole('button', { name: 'Убрать из избранного' })).toBeVisible()
 
   await page.getByRole('textbox', { name: 'Заметки' }).fill('Пересмотреть в IMAX')
   await page.getByRole('textbox', { name: 'Заметки' }).blur()

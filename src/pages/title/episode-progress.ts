@@ -1,6 +1,6 @@
 // Relative import (not @shared): unit tests type-check this file under tsconfig.node.json,
 // which has no path aliases.
-import type { EpisodeList, EpisodeMark, NextEpisode } from '../../../shared/types.ts'
+import type { EpisodeList, EpisodeMark, LibraryEntry, NextEpisode } from '../../../shared/types.ts'
 
 export interface EpisodeProgress {
   /** Regular episodes (season 1 and later) marked as watched. */
@@ -45,5 +45,41 @@ export function episodeProgress(
           airdate: upcoming.airdate,
         }
       : null,
+  }
+}
+
+export interface ShownEpisodeProgress {
+  watched: number
+  /** Null when neither the list nor the saved entry knows how many episodes there are. */
+  total: number | null
+  percent: number
+  next: NextEpisode | null
+  /** The saved entry is standing in while the marks load: its "nothing next" may be stale. */
+  unsure: boolean
+}
+
+type SavedCounters = Pick<
+  LibraryEntry,
+  'status' | 'progress' | 'watchedEpisodes' | 'totalEpisodes' | 'nextEpisode'
+>
+
+/**
+ * The one set of numbers a title page shows for a series, wherever it shows them: counted from
+ * the list and the marks once both are in (`counted`), the saved entry's counters until then.
+ * A completed entry reads 100 % even if the source has since added episodes. Nothing is
+ * watched without an entry.
+ */
+export function shownEpisodeProgress(
+  entry: SavedCounters | null,
+  counted: EpisodeProgress | null,
+  marksLoading: boolean,
+): ShownEpisodeProgress {
+  const live = entry && counted
+  return {
+    watched: live ? live.watched : (entry?.watchedEpisodes ?? 0),
+    total: live ? live.total : (entry?.totalEpisodes ?? null),
+    percent: entry?.status === 'completed' ? 100 : live ? live.percent : (entry?.progress ?? 0),
+    next: live ? live.next : (entry?.nextEpisode ?? null),
+    unsure: Boolean(entry) && !live && marksLoading,
   }
 }

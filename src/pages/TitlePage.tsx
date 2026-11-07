@@ -68,9 +68,9 @@ function Description({ title }: { title: TitleRecord }) {
 
 function HeroSkeleton() {
   return (
-    <div className="dark relative overflow-hidden rounded-2xl bg-black p-5 sm:p-8 md:p-10">
-      <div className="flex flex-col gap-6 md:min-h-[360px] md:flex-row md:items-end">
-        <Skeleton className="aspect-[2/3] w-32 rounded-md sm:w-44 md:w-52" />
+    <div className="dark @container relative overflow-hidden rounded-2xl bg-black">
+      <div className="flex flex-col gap-6 p-5 sm:p-8 @2xl:min-h-[360px] @2xl:flex-row @2xl:items-end @2xl:p-10">
+        <Skeleton className="aspect-[2/3] w-32 rounded-md sm:w-44 @2xl:w-52" />
         <div className="grid flex-1 gap-3">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-10 w-3/4" />
@@ -104,7 +104,12 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
   ].filter(Boolean)
   const links = title.links ?? []
   return (
-    <div className="dark relative isolate overflow-hidden rounded-2xl bg-black text-fg">
+    // The poster sits beside the text only when the hero itself is wide enough (a container
+    // query, not the viewport: at 768 px the sidebar leaves the page about 450 px).
+    <div
+      data-testid="title-hero"
+      className="dark @container relative isolate overflow-hidden rounded-2xl bg-black text-fg"
+    >
       {title.backdrop ? (
         <Backdrop src={title.backdrop} className="absolute inset-0 -z-10 size-full opacity-60" />
       ) : title.poster ? (
@@ -118,14 +123,14 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
       ) : null}
       <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black via-black/55 to-black/10" />
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/75 via-black/20 to-transparent" />
-      <div className="flex flex-col gap-6 p-5 sm:p-8 md:min-h-[440px] md:flex-row md:items-end md:p-10">
+      <div className="flex flex-col gap-6 p-5 sm:p-8 @2xl:min-h-[440px] @2xl:flex-row @2xl:items-end @2xl:p-10">
         <Poster
           src={title.poster}
           alt={name}
           kind={title.kind}
           eager
           sizes="lg"
-          className="w-32 shrink-0 shadow-poster sm:w-44 md:w-52"
+          className="w-32 shrink-0 shadow-poster sm:w-44 @2xl:w-52"
         />
         <div className="min-w-0 flex-1 animate-rise">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-2">
@@ -141,7 +146,7 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
               </span>
             ))}
           </p>
-          <h1 className="display mt-2 text-3xl text-white sm:text-4xl lg:text-[52px] lg:leading-[56px]">
+          <h1 className="display mt-2 text-3xl break-words text-white sm:text-4xl lg:text-[52px] lg:leading-[56px]">
             {name}
           </h1>
           {secondary ? <p className="mt-1.5 text-md text-fg-2">{secondary}</p> : null}
@@ -174,22 +179,25 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
               ))}
             </div>
           ) : null}
-          {/* On a phone the row doesn't fit: the status button takes the first line and the icon
-              buttons wrap together onto the second, instead of leaving "…" alone on a line. */}
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <LibraryButton
-              title={title}
-              size="lg"
-              onRemove={onRemove}
-              className="max-sm:flex-1 max-sm:justify-center"
-            />
-            <div className="flex items-center gap-2">
+          {/* The single action bar: status, favourite, rating, trailer, more. On a phone the status
+              button takes the first line and the icon buttons share the second, the trailer as an
+              icon. The bar is a container: at its narrowest (a 320 px phone) the rating and "Add"
+              labels shorten too, so nothing wraps onto a third line. */}
+          <div className="@container mt-6 flex flex-wrap items-center gap-2">
+            <LibraryButton title={title} size="lg" onRemove={onRemove} className="max-sm:flex-1" />
+            <div className="flex flex-wrap items-center gap-2">
               {entry ? <FavoriteButton entry={entry} size="icon-lg" /> : null}
-              {entry ? <RatingButton entry={entry} /> : null}
+              {entry ? <RatingButton entry={entry} size="lg" /> : null}
               {title.trailer ? (
-                <Button variant="secondary" size="lg" onClick={() => setTrailer(true)}>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  aria-label={t('title.trailer')}
+                  className="max-sm:w-11 max-sm:px-0"
+                  onClick={() => setTrailer(true)}
+                >
                   <Play className="fill-current" />
-                  {t('title.trailer')}
+                  <span className="max-sm:sr-only">{t('title.trailer')}</span>
                 </Button>
               ) : null}
               {links.length || entry ? (
