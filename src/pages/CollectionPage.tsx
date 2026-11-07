@@ -1,4 +1,4 @@
-import { Compass, Pencil, Trash2, X } from 'lucide-react'
+import { Compass, Dices, Pencil, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
@@ -85,6 +85,14 @@ export default function CollectionPage() {
           </div>
           {own ? (
             <div className="flex gap-2">
+              {data?.count ? (
+                <Button asChild variant="secondary">
+                  <Link to={`/shuffle?source=collection&collection=${data.id}`}>
+                    <Dices />
+                    {t('nav.shuffle')}
+                  </Link>
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil />
                 {t('common.edit')}

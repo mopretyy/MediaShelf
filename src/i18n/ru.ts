@@ -449,6 +449,7 @@ export const ru = {
     source: 'Откуда выбирать',
     fromLibrary: 'Моя библиотека',
     fromCatalog: 'Популярное',
+    fromCollection: 'Подборка',
     kinds: 'Что выбираем',
     statuses: 'Статусы',
     pool: {

@@ -588,6 +588,7 @@ export const es: DeepPartial<Messages> = {
     source: 'De dónde se elige',
     fromLibrary: 'Mi biblioteca',
     fromCatalog: 'Popular',
+    fromCollection: 'Colección',
     kinds: 'Qué se elige',
     statuses: 'Estados',
     pool: p('{count} título en el bombo', '{count} títulos en el bombo'),

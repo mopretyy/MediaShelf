@@ -2,6 +2,7 @@ import {
   CloudOff,
   Dices,
   ExternalLink,
+  Layers,
   LibraryBig,
   ListFilter,
   LogIn,
@@ -19,6 +20,7 @@ import { StatusIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
 import { Chip, EmptyIcon, EmptyState, Kbd, Skeleton, Switch } from '@/components/ui/misc'
+import { Select } from '@/components/ui/select'
 import { PosterFan } from '@/components/PosterFan'
 import { Segmented } from '@/components/ui/segmented'
 import { useI18n } from '@/i18n'
@@ -40,9 +42,13 @@ import {
   readSoundSetting,
   writeSoundSetting,
 } from './shuffle-sound'
+import { useCollection, useCollections } from '@/lib/collections'
 import { buildStrip } from './shuffle-reel'
 
-type Source = 'library' | 'catalog'
+type Source = 'library' | 'catalog' | 'collection'
+
+const isSource = (value: unknown): value is Source =>
+  value === 'library' || value === 'catalog' || value === 'collection'
 const LIBRARY_STATUSES: Status[] = ['planned', 'paused', 'in_progress']
 const HISTORY_KEY = 'mediashelf:shuffle-history'
 const PREFS_KEY = 'mediashelf:shuffle-prefs'
@@ -64,7 +70,12 @@ function readHistory(): HistoryItem[] {
   }
 }
 
-function readPrefs(): { source: Source | null; kinds: Kind[]; statuses: Status[] } {
+function readPrefs(): {
+  source: Source | null
+  kinds: Kind[]
+  statuses: Status[]
+  collection: string | null
+} {
   try {
     const value = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}')
     const kinds = Array.isArray(value.kinds)
@@ -75,15 +86,15 @@ function readPrefs(): { source: Source | null; kinds: Kind[]; statuses: Status[]
           LIBRARY_STATUSES.includes(s as Status),
         )
       : ['planned']
-    const source: Source | null =
-      value.source === 'library' || value.source === 'catalog' ? value.source : null
+    const source: Source | null = isSource(value.source) ? value.source : null
     return {
       source,
       kinds: kinds.length ? kinds : [...KINDS],
       statuses: statuses.length ? statuses : ['planned'],
+      collection: typeof value.collection === 'string' ? value.collection : null,
     }
   } catch {
-    return { source: null, kinds: [...KINDS], statuses: ['planned'] }
+    return { source: null, kinds: [...KINDS], statuses: ['planned'], collection: null }
   }
 }
 
@@ -118,8 +129,17 @@ export default function ShufflePage() {
   // A link may ask for a source (Home's «from your plans» card); otherwise the last choice.
   const [sourceChoice, setSource] = useState<Source | null>(() => {
     const requested = params.get('source')
-    return requested === 'library' || requested === 'catalog' ? requested : prefs.source
+    return isSource(requested) ? requested : prefs.source
   })
+  // Which collection to pick from: one a link asks for (a collection's «Shuffle» button), the
+  // last one used, or the most recently changed with titles in it.
+  const [collectionChoice, setCollectionChoice] = useState<string | null>(
+    () => params.get('collection') ?? prefs.collection,
+  )
+  const collections = useCollections()
+  const filledCollections = (collections.data ?? []).filter((item) => item.count > 0)
+  const collectionId =
+    filledCollections.find((item) => item.id === collectionChoice)?.id ?? filledCollections[0]?.id
   const [kinds, setKinds] = useState<Kind[]>(prefs.kinds)
   const [statuses, setStatuses] = useState<Status[]>(prefs.statuses)
   // With no choice made yet: your own plans when there are any to pick from (that is what the
@@ -145,27 +165,41 @@ export default function ShufflePage() {
   // Bumped whenever a spin becomes obsolete (e.g. the source changed mid-spin).
   const rollId = useRef(0)
 
-  // Remember the setup so coming back keeps source, kinds and statuses.
+  // Remember the setup so coming back keeps source, kinds, statuses and collection.
   useEffect(() => {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ source: sourceChoice, kinds, statuses }))
+      localStorage.setItem(
+        PREFS_KEY,
+        JSON.stringify({ source: sourceChoice, kinds, statuses, collection: collectionChoice }),
+      )
     } catch {
       /* ignore */
     }
-  }, [sourceChoice, kinds, statuses])
+  }, [sourceChoice, kinds, statuses, collectionChoice])
 
   const catalog = useCatalogPool(kinds, source === 'catalog')
+  const collection = useCollection(source === 'collection' ? collectionId : undefined)
   const pool = useMemo(() => {
     if (source === 'catalog') {
       const seen = new Set<string>()
       return catalog.items.filter((item) => !seen.has(item.id) && seen.add(item.id))
     }
+    if (source === 'collection')
+      return (collection.data?.items ?? [])
+        .map((item) => item.title)
+        .filter((title) => kinds.includes(title.kind))
     return (library.data ?? [])
       .filter((entry) => kinds.includes(entry.kind) && statuses.includes(entry.status))
       .map((entry) => entry.title)
-  }, [source, catalog.items, library.data, kinds, statuses])
+  }, [source, catalog.items, collection.data, library.data, kinds, statuses])
 
-  const poolLoading = deciding || (source === 'library' ? libraryLoading : catalog.loading)
+  const poolLoading =
+    deciding ||
+    (source === 'library'
+      ? libraryLoading
+      : source === 'collection'
+        ? collections.isLoading || (Boolean(collectionId) && collection.isLoading)
+        : catalog.loading)
 
   const toggle = <T,>(list: T[], value: T) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
@@ -327,7 +361,32 @@ export default function ShufflePage() {
     </Button>
   )
   const emptyState =
-    source === 'catalog' ? (
+    source === 'collection' ? (
+      filledCollections.length ? (
+        <EmptyState
+          className="py-6"
+          icon={<ListFilter />}
+          title={t('shuffle.emptyPool')}
+          text={t('shuffle.emptyKinds')}
+          action={clearFilters}
+        />
+      ) : (
+        <EmptyState
+          className="py-6"
+          icon={<Layers />}
+          title={t('collections.empty')}
+          text={t('collections.emptyText')}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {rollPopular}
+              <Button asChild variant="secondary">
+                <Link to="/collections">{t('collections.title')}</Link>
+              </Button>
+            </div>
+          }
+        />
+      )
+    ) : source === 'catalog' ? (
       kinds.length ? (
         // Categories are chosen and still nothing: the catalog did not answer.
         <EmptyState
@@ -414,19 +473,41 @@ export default function ShufflePage() {
               aria-label={t('shuffle.source')}
               value={source}
               onChange={switchSource}
-              options={
-                hasLibrary
+              options={[
+                ...(hasLibrary
                   ? [
-                      { value: 'library', label: t('shuffle.fromLibrary') },
-                      { value: 'catalog', label: t('shuffle.fromCatalog') },
+                      { value: 'library' as const, label: t('shuffle.fromLibrary') },
+                      { value: 'catalog' as const, label: t('shuffle.fromCatalog') },
                     ]
                   : [
-                      { value: 'catalog', label: t('shuffle.fromCatalog') },
-                      { value: 'library', label: t('shuffle.fromLibrary') },
-                    ]
-              }
+                      { value: 'catalog' as const, label: t('shuffle.fromCatalog') },
+                      { value: 'library' as const, label: t('shuffle.fromLibrary') },
+                    ]),
+                // Only with a collection that has something in it to pick from.
+                ...(filledCollections.length || source === 'collection'
+                  ? [{ value: 'collection' as const, label: t('shuffle.fromCollection') }]
+                  : []),
+              ]}
             />
           </div>
+          {source === 'collection' && filledCollections.length ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-medium text-fg-2">{t('shuffle.fromCollection')}</span>
+              <Select
+                size="sm"
+                aria-label={t('shuffle.fromCollection')}
+                value={collectionId ?? ''}
+                onValueChange={(value) => {
+                  rollId.current++
+                  setCollectionChoice(value)
+                  setReel([])
+                  setResult(null)
+                }}
+                options={filledCollections.map((item) => ({ value: item.id, label: item.name }))}
+                className="max-w-[60vw] min-w-40"
+              />
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-sm font-medium text-fg-2">{t('shuffle.kinds')}</span>
             <div className="flex flex-wrap gap-1.5">

@@ -596,6 +596,7 @@ export const ro: DeepPartial<Messages> = {
     source: 'De unde se alege',
     fromLibrary: 'Biblioteca mea',
     fromCatalog: 'Popular',
+    fromCollection: 'Colecție',
     kinds: 'Ce se alege',
     statuses: 'Stări',
     pool: {

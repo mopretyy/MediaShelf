@@ -633,6 +633,7 @@ export const uk: Messages = {
     source: 'Звідки обирати',
     fromLibrary: 'Моя бібліотека',
     fromCatalog: 'Популярне',
+    fromCollection: 'Добірка',
     kinds: 'Що обираємо',
     statuses: 'Статуси',
     pool: {

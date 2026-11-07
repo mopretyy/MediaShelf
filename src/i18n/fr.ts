@@ -597,6 +597,7 @@ export const fr: DeepPartial<Messages> = {
     source: 'Source du tirage',
     fromLibrary: 'Ma bibliothèque',
     fromCatalog: 'Populaire',
+    fromCollection: 'Collection',
     kinds: 'Catégories',
     statuses: 'Statuts',
     pool: {

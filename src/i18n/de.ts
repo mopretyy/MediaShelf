@@ -598,6 +598,7 @@ export const de: DeepPartial<Messages> = {
     source: 'Woraus gewählt wird',
     fromLibrary: 'Meine Bibliothek',
     fromCatalog: 'Beliebt',
+    fromCollection: 'Sammlung',
     kinds: 'Was gewählt wird',
     statuses: 'Status',
     pool: {

@@ -162,3 +162,21 @@ test('sound and vibration are off until turned on; then the reel clicks and the 
   await page.reload()
   await expect(page.getByRole('switch', { name: 'Звук и вибрация' })).toBeChecked()
 })
+
+test('shuffle picks from a collection, opened from the collection itself', async ({ page }) => {
+  await register(page)
+  const { body } = await api<{ collection: { id: string } }>(page, 'POST', '/collections', {
+    name: 'На выходные',
+  })
+  for (const titleId of ['movie-tt1375666', 'movie-tt0816692'])
+    await api(page, 'POST', `/collections/${body.collection.id}/items`, { titleId })
+  await page.goto(`/collections/${body.collection.id}`)
+  await page.getByRole('main').getByRole('link', { name: 'Жребий' }).click()
+  await expect(page).toHaveURL(/source=collection/)
+  const source = page.getByRole('radiogroup', { name: 'Откуда выбирать' })
+  await expect(source.getByRole('radio', { name: 'Подборка' })).toBeChecked()
+  await expect(page.getByRole('combobox', { name: 'Подборка' })).toHaveText(/На выходные/)
+  await expect(page.getByText(/^В жребии/)).toHaveText(/^В жребии 2 тайтла/)
+  await page.getByTestId('shuffle-roll').click()
+  await expect(page.getByRole('heading', { level: 2, name: /Начало|Интерстеллар/ })).toBeVisible()
+})

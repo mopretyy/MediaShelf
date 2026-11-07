@@ -407,6 +407,7 @@ export const en: Messages = {
     source: 'Pick from',
     fromLibrary: 'My library',
     fromCatalog: 'Popular',
+    fromCollection: 'Collection',
     kinds: 'What to pick',
     statuses: 'Statuses',
     pool: p('{count} title in the pool', '{count} titles in the pool'),
