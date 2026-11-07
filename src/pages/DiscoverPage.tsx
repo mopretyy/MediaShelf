@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router'
 import { CHART_LISTS, KINDS, type ChartList, type Kind, type TitleRecord } from '@shared/types.ts'
 import { genreLabel } from '@shared/genres.ts'
 import { PageBody, PageHeader } from '@/app/PageHeader'
+import { Showcase } from './discover/Showcase'
 import { Shelf, TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
 import { Button, focusRing, Spinner } from '@/components/ui/button'
 import { EmptyState, Switch } from '@/components/ui/misc'
@@ -396,6 +397,9 @@ export default function DiscoverPage() {
             ) : null}
           </div>
         </div>
+
+        {/* The showcase leads browsing; a search shows its results straight away. */}
+        {query ? null : <Showcase kind={kind} />}
 
         {query ? (
           <SearchResults
