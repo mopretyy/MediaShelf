@@ -1,6 +1,6 @@
 import { Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { isValidElement, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useViewTransitionState } from 'react-router'
 import type { LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
@@ -62,6 +62,9 @@ function MetaLine({ id, items }: { id?: string; items: ReactNode[] }) {
   )
 }
 
+/** The view-transition name a card's poster shares with the title hero's poster. */
+export const TITLE_POSTER = 'title-poster'
+
 export function TitleCard({
   title,
   entry,
@@ -77,6 +80,10 @@ export function TitleCard({
   const saved = entry ?? library.get(title.id) ?? null
   const actions = useLibraryActions()
   const name = titleName(title.names, locale)
+  const href = titleHref(title.id)
+  // While the browser animates the way to this title, the poster carries the shared name and
+  // grows into the poster of the title hero (View Transitions; a plain switch elsewhere).
+  const opening = useViewTransitionState(href)
   const rating = title.ratings[0]
   const year = yearRange(title)
   const progress =
@@ -87,7 +94,8 @@ export function TitleCard({
   const card = (
     <div className={cn('group/card relative min-w-0', className)}>
       <Link
-        to={titleHref(title.id)}
+        to={href}
+        viewTransition
         className="block rounded-md outline-offset-4"
         aria-label={[name, year, t(`kind.${title.kind}`)].filter(Boolean).join(', ')}
         aria-describedby={meta ? metaId : undefined}
@@ -100,6 +108,7 @@ export function TitleCard({
             alt={name}
             kind={title.kind}
             eager={eager}
+            style={opening ? { viewTransitionName: TITLE_POSTER } : undefined}
             className={cn(
               'shadow-poster transition-[box-shadow] duration-300 group-hover/card:ring-line-strong',
               '[&_img]:transition-[opacity,transform] [&_img]:duration-500 group-hover/card:[&_img]:scale-[1.03]',

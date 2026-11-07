@@ -6,6 +6,7 @@ import type { TitleRecord } from '@shared/types.ts'
 import { PageBody, PageHeader } from '@/app/PageHeader'
 import { BrandIcon } from '@/components/BrandIcon'
 import { Backdrop, Poster } from '@/components/Poster'
+import { TITLE_POSTER } from '@/components/TitleCard'
 import { FavoriteButton, LibraryButton, RatingButton } from '@/components/StatusControls'
 import { KindIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
@@ -136,6 +137,7 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
           kind={title.kind}
           eager
           sizes="lg"
+          style={{ viewTransitionName: TITLE_POSTER }}
           className="w-32 shrink-0 shadow-poster sm:w-44 @2xl:w-52"
         />
         <div className="min-w-0 flex-1 animate-rise">

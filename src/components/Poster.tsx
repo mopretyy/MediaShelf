@@ -11,6 +11,7 @@ interface PosterProps {
   sizes?: 'sm' | 'md' | 'lg'
   eager?: boolean
   rounded?: string
+  style?: CSSProperties
 }
 
 /** 2:3 poster with a quiet fade-in and a typographic fallback. */
@@ -22,6 +23,7 @@ export function Poster({
   sizes = 'md',
   eager,
   rounded = 'rounded-md',
+  style,
 }: PosterProps) {
   const [state, setState] = useState<'loading' | 'loaded' | 'error'>(src ? 'loading' : 'error')
   const [prevSrc, setPrevSrc] = useState(src)
@@ -31,6 +33,7 @@ export function Poster({
   }
   return (
     <div
+      style={style}
       className={cn(
         'relative aspect-[2/3] w-full overflow-hidden bg-raised ring-1 ring-line-subtle ring-inset',
         rounded,
