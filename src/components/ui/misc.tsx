@@ -81,14 +81,26 @@ export function ProgressBar({
   )
 }
 
+/** The icon tile at the top of an empty state. */
+export function EmptyIcon({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-4 grid size-11 place-items-center rounded-xl bg-raised text-fg-2 ring-1 ring-line ring-inset [&_svg]:size-5">
+      {children}
+    </div>
+  )
+}
+
 export function EmptyState({
   icon,
+  art,
   title,
   text,
   action,
   className,
 }: {
   icon?: ReactNode
+  /** Larger artwork in place of the icon, e.g. a PosterFan (which falls back to an icon). */
+  art?: ReactNode
   title: ReactNode
   text?: ReactNode
   action?: ReactNode
@@ -101,11 +113,7 @@ export function EmptyState({
         className,
       )}
     >
-      {icon ? (
-        <div className="mb-4 grid size-11 place-items-center rounded-xl bg-raised text-fg-2 ring-1 ring-line ring-inset [&_svg]:size-5">
-          {icon}
-        </div>
-      ) : null}
+      {art ?? (icon ? <EmptyIcon>{icon}</EmptyIcon> : null)}
       <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
       {text ? <p className="mt-1.5 text-base text-fg-2">{text}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
