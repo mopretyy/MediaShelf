@@ -17,7 +17,7 @@ export const LANGUAGE_NAMES: Record<Locale, string> = {
  * Fully translated locales: parity.test.ts fails when one of them lacks a key that ru.ts has.
  * The others are partial and fall back to English. Add a locale once its translation is done.
  */
-export const COMPLETE_LOCALES: readonly Locale[] = ['ru', 'en']
+export const COMPLETE_LOCALES: readonly Locale[] = ['ru', 'en', 'uk', 'de', 'es', 'fr', 'ro']
 
 /** Lower case, ё as е and no accents: «francais» finds Français, «romana» finds Română. */
 export function foldForSearch(value: string) {
