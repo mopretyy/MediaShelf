@@ -193,6 +193,10 @@ export interface CollectionSummary {
   count: number
   /** Up to four posters, the latest added first. */
   posters: string[]
+  /** The frame that heads the collection: the owner's pick, else the latest title with one. */
+  cover: { titleId: string; backdrop: string | null; poster: string | null } | null
+  /** The owner's pick for `cover`, if any. */
+  coverTitleId: string | null
   updatedAt: string
   /** Only when asked about a title (`?titleId=`): whether it is in this collection. */
   contains?: boolean

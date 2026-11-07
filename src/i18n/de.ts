@@ -171,6 +171,9 @@ export const de: DeepPartial<Messages> = {
     by: 'Von {name}',
     yours: 'Ihre Sammlungen',
     notFound: 'Sammlung nicht gefunden',
+    makeCover: 'Als Titelbild',
+    isCover: 'Titelbild der Sammlung',
+    coverChanged: 'Titelbild aktualisiert',
   },
   airing: {
     freshTitle: 'Neue Folgen',

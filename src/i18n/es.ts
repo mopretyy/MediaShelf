@@ -172,6 +172,9 @@ export const es: DeepPartial<Messages> = {
     by: 'De {name}',
     yours: 'Tus colecciones',
     notFound: 'Colección no encontrada',
+    makeCover: 'Usar como portada',
+    isCover: 'Portada de la colección',
+    coverChanged: 'Portada actualizada',
   },
   airing: {
     freshTitle: 'Nuevos episodios',

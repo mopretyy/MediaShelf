@@ -26,6 +26,9 @@ export const collectionsRu = {
   by: 'Автор: {name}',
   yours: 'Ваши подборки',
   notFound: 'Подборка не найдена',
+  makeCover: 'Сделать обложкой',
+  isCover: 'Обложка подборки',
+  coverChanged: 'Обложка подборки обновлена',
 }
 
 export const collectionsEn: typeof collectionsRu = {
@@ -53,4 +56,7 @@ export const collectionsEn: typeof collectionsRu = {
   by: 'By {name}',
   yours: 'Your collections',
   notFound: 'Collection not found',
+  makeCover: 'Make the cover',
+  isCover: 'The collection’s cover',
+  coverChanged: 'Collection cover updated',
 }

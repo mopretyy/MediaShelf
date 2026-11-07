@@ -173,6 +173,9 @@ export const uk: Messages = {
     by: 'Автор: {name}',
     yours: 'Ваші добірки',
     notFound: 'Добірку не знайдено',
+    makeCover: 'Зробити обкладинкою',
+    isCover: 'Обкладинка добірки',
+    coverChanged: 'Обкладинку добірки оновлено',
   },
   airing: {
     freshTitle: 'Нові серії',

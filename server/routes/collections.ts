@@ -24,8 +24,17 @@ const name = z.string().trim().min(1).max(80)
 const description = z.string().trim().max(500)
 const createSchema = z.object({ name, description: description.optional() })
 const updateSchema = z
-  .object({ name: name.optional(), description: description.optional() })
-  .refine((value) => value.name !== undefined || value.description !== undefined)
+  .object({
+    name: name.optional(),
+    description: description.optional(),
+    coverTitleId: titleIdSchema.nullable().optional(),
+  })
+  .refine(
+    (value) =>
+      value.name !== undefined ||
+      value.description !== undefined ||
+      value.coverTitleId !== undefined,
+  )
 const itemSchema = z.object({ titleId: titleIdSchema })
 
 /** /api/collections: the signed-in user's collections; anyone signed in may look at one. */

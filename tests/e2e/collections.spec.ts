@@ -93,3 +93,43 @@ test('someone else’s collection is read-only', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Изменить' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Убрать из подборки/ })).toHaveCount(0)
 })
+
+test('a collection opens on a frame, and its owner picks which title gives it', async ({
+  page,
+}) => {
+  await register(page)
+  const { body } = await api<{ collection: { id: string } }>(page, 'POST', '/collections', {
+    name: 'Ночью',
+  })
+  for (const titleId of ['movie-tt1375666', 'movie-tt0816692'])
+    await api(page, 'POST', `/collections/${body.collection.id}/items`, { titleId })
+  // The offline catalog has no pictures: give the titles a poster.
+  const poster = `data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><rect width="2" height="3" fill="#345"/></svg>',
+  )}`
+  await page.route(`**/api/collections/${body.collection.id}`, async (route) => {
+    if (route.request().method() !== 'GET') return route.continue()
+    const response = await route.fetch()
+    const json = (await response.json()) as {
+      collection: { items: { title: { poster: string | null } }[] }
+    }
+    for (const item of json.collection.items) item.title.poster = poster
+    await route.fulfill({ response, json })
+  })
+  await page.goto(`/collections/${body.collection.id}`)
+  const hero = page.getByTestId('collection-hero')
+  await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Ночью')
+  await expect(hero).toContainText('2 тайтла')
+
+  const pick = page.getByRole('button', { name: 'Сделать обложкой: Интерстеллар' })
+  await expect(pick).toHaveAttribute('aria-pressed', 'false')
+  await pick.click()
+  await expect(page.getByText('Обложка подборки обновлена')).toBeVisible()
+  await expect(pick).toHaveAttribute('aria-pressed', 'true')
+  const { body: saved } = await api<{ collection: { coverTitleId: string | null } }>(
+    page,
+    'GET',
+    `/collections/${body.collection.id}`,
+  )
+  expect(saved.collection.coverTitleId).toBe('movie-tt0816692')
+})

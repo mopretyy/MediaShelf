@@ -179,6 +179,10 @@ const MIGRATIONS: string[] = [
   ) STRICT;
   CREATE INDEX collection_items_order ON collection_items(collection_id, added_at DESC);
   `,
+  // v8: the title whose frame heads a collection, picked by its owner (else the latest with one).
+  `
+  ALTER TABLE collections ADD COLUMN cover_title_id TEXT;
+  `,
 ]
 
 export function migrate(db: DatabaseSync) {

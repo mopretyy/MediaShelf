@@ -168,6 +168,9 @@ export const ro: DeepPartial<Messages> = {
     by: 'De {name}',
     yours: 'Colecțiile tale',
     notFound: 'Colecția nu a fost găsită',
+    makeCover: 'Folosește drept copertă',
+    isCover: 'Coperta colecției',
+    coverChanged: 'Coperta a fost actualizată',
   },
   airing: {
     freshTitle: 'Episoade noi',

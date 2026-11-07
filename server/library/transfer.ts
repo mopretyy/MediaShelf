@@ -126,6 +126,7 @@ const entrySchema = z.object({
 const collectionSchema = z.object({
   name: text(80).trim().min(1),
   description: text(500).catch(''),
+  cover: z.string().refine(isTitleId).nullable().optional().catch(null),
   items: z
     .array(z.object({ titleId: z.string().refine(isTitleId), addedAt: iso, title: titleSchema }))
     .max(MAX_COLLECTION_ITEMS)
@@ -204,11 +205,17 @@ export type EntrySnapshot = ReturnType<typeof exportEntry>
 function exportCollections(db: DB, userId: string) {
   const rows = sql(
     db,
-    'SELECT id, name, description FROM collections WHERE user_id = ? ORDER BY updated_at, id',
-  ).all(userId) as { id: string; name: string; description: string }[]
+    'SELECT id, name, description, cover_title_id FROM collections WHERE user_id = ? ORDER BY updated_at, id',
+  ).all(userId) as {
+    id: string
+    name: string
+    description: string
+    cover_title_id: string | null
+  }[]
   return rows.map((row) => ({
     name: row.name,
     description: row.description,
+    cover: row.cover_title_id,
     items: (
       sql(
         db,
@@ -277,6 +284,13 @@ function importCollections(db: DB, titles: TitleStore, userId: string, collectio
         titles.putImported(item.title as TitleRecord)
         insert.run(row.id, item.titleId, ms(item.addedAt) ?? now)
       }
+      // The picked cover comes along when its title did and nothing was picked here yet.
+      if (input.cover)
+        sql(
+          db,
+          `UPDATE collections SET cover_title_id = ? WHERE id = ? AND cover_title_id IS NULL
+             AND EXISTS (SELECT 1 FROM collection_items WHERE collection_id = ? AND title_id = ?)`,
+        ).run(input.cover, row.id, row.id, input.cover)
       imported++
     }
   })

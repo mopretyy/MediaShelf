@@ -53,7 +53,15 @@ export function useCreateCollection() {
 export function useUpdateCollection() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...input }: { id: string; name?: string; description?: string }) =>
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string
+      name?: string
+      description?: string
+      coverTitleId?: string | null
+    }) =>
       api<{ collection: CollectionSummary }>('PATCH', `/collections/${id}`, input).then(
         (data) => data.collection,
       ),

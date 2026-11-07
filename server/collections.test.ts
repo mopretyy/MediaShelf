@@ -141,3 +141,47 @@ describe('collections', () => {
     expect([left.n, items.n]).toEqual([0, 0])
   })
 })
+
+describe('collection covers', () => {
+  it('take the latest title with a frame, or the owner’s pick, which travels with the export', async () => {
+    const t = await signedIn()
+    const { body } = await t.request('POST', '/api/collections', { name: 'Любимое' })
+    const id = body.collection.id
+    for (const titleId of [MOVIE, SERIES])
+      await t.request('POST', `/api/collections/${id}/items`, { titleId })
+    // The test catalog has no pictures: give the series a frame.
+    t.db
+      .prepare(
+        "UPDATE titles SET data = json_set(data, '$.backdrop', 'https://img/frame.jpg') WHERE id = ?",
+      )
+      .run(SERIES)
+    const auto = (await t.request('GET', `/api/collections/${id}`)).body.collection
+    expect(auto.coverTitleId).toBeNull()
+    expect(auto.cover).toEqual({ titleId: SERIES, backdrop: 'https://img/frame.jpg', poster: null })
+
+    // Only a title of the collection can be its cover.
+    expect(
+      (await t.request('PATCH', `/api/collections/${id}`, { coverTitleId: 'steam-1145360' }))
+        .status,
+    ).toBe(400)
+    const picked = await t.request('PATCH', `/api/collections/${id}`, { coverTitleId: MOVIE })
+    expect(picked.body.collection).toMatchObject({ coverTitleId: MOVIE, cover: { titleId: MOVIE } })
+
+    const exported = (await t.request('GET', '/api/me/export')).body
+    expect(exported.collections[0].cover).toBe(MOVIE)
+    const other = testApp()
+    await registerAccount(other, BORIS)
+    await other.request('POST', '/api/me/import', exported)
+    const copy = (await other.request('GET', '/api/collections')).body.collections[0]
+    expect(copy).toMatchObject({ coverTitleId: MOVIE })
+
+    // Taking the picked title out falls back to the latest one; null clears the pick.
+    await t.request('DELETE', `/api/collections/${id}/items/${MOVIE}`)
+    const fallback = (await t.request('GET', `/api/collections/${id}`)).body.collection
+    expect(fallback.coverTitleId).toBeNull()
+    expect(fallback.cover?.titleId).toBe(SERIES)
+    expect(
+      (await t.request('PATCH', `/api/collections/${id}`, { coverTitleId: null })).status,
+    ).toBe(200)
+  })
+})

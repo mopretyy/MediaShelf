@@ -11,7 +11,10 @@ interface CollectionRow {
   name: string
   description: string
   updated_at: number
+  cover_title_id: string | null
 }
+
+const ROW = 'id, user_id, name, description, updated_at, cover_title_id'
 
 const iso = (ms: number) => new Date(ms).toISOString()
 
@@ -20,16 +23,28 @@ function summaryOf(db: DB, row: CollectionRow): CollectionSummary {
     db,
     'SELECT COUNT(*) AS count FROM collection_items WHERE collection_id = ?',
   ).get(row.id) as { count: number }
-  const posters = (
+  const latest = (
     sql(
       db,
       `SELECT t.data FROM collection_items i JOIN titles t ON t.id = i.title_id
-       WHERE i.collection_id = ? ORDER BY i.added_at DESC, i.title_id LIMIT 12`,
+       WHERE i.collection_id = ? ORDER BY i.added_at DESC, i.title_id LIMIT 24`,
     ).all(row.id) as { data: string }[]
-  )
-    .map((item) => (JSON.parse(item.data) as TitleRecord).poster)
+  ).map((item) => JSON.parse(item.data) as TitleRecord)
+  const posters = latest
+    .map((title) => title.poster)
     .filter((poster): poster is string => Boolean(poster))
     .slice(0, 4)
+  // The owner's pick while it is still in the collection, else the latest title with a frame.
+  const picked = row.cover_title_id
+    ? (sql(
+        db,
+        `SELECT t.data FROM collection_items i JOIN titles t ON t.id = i.title_id
+         WHERE i.collection_id = ? AND i.title_id = ?`,
+      ).get(row.id, row.cover_title_id) as { data: string } | undefined)
+    : undefined
+  const coverTitle = picked
+    ? (JSON.parse(picked.data) as TitleRecord)
+    : (latest.find((title) => title.backdrop) ?? latest.find((title) => title.poster))
   const owner = sql(db, 'SELECT name FROM users WHERE id = ?').get(row.user_id) as
     { name: string } | undefined
   return {
@@ -40,6 +55,10 @@ function summaryOf(db: DB, row: CollectionRow): CollectionSummary {
     description: row.description,
     count,
     posters,
+    cover: coverTitle
+      ? { titleId: coverTitle.id, backdrop: coverTitle.backdrop, poster: coverTitle.poster }
+      : null,
+    coverTitleId: picked ? row.cover_title_id : null,
     updatedAt: iso(row.updated_at),
   }
 }
@@ -48,7 +67,7 @@ function summaryOf(db: DB, row: CollectionRow): CollectionSummary {
 export function listCollections(db: DB, userId: string, titleId?: string): CollectionSummary[] {
   const rows = sql(
     db,
-    'SELECT id, user_id, name, description, updated_at FROM collections WHERE user_id = ? ORDER BY updated_at DESC, id',
+    `SELECT ${ROW} FROM collections WHERE user_id = ? ORDER BY updated_at DESC, id`,
   ).all(userId) as unknown as CollectionRow[]
   const holding = titleId
     ? new Set(
@@ -68,10 +87,7 @@ export function listCollections(db: DB, userId: string, titleId?: string): Colle
 }
 
 function findRow(db: DB, id: string) {
-  return sql(
-    db,
-    'SELECT id, user_id, name, description, updated_at FROM collections WHERE id = ?',
-  ).get(id) as CollectionRow | undefined
+  return sql(db, `SELECT ${ROW} FROM collections WHERE id = ?`).get(id) as CollectionRow | undefined
 }
 
 /** A collection with its titles; any signed-in viewer may see it, as with profiles. */
@@ -118,12 +134,24 @@ export function updateCollection(
   db: DB,
   userId: string,
   id: string,
-  input: { name?: string; description?: string },
+  input: { name?: string; description?: string; coverTitleId?: string | null },
 ): CollectionSummary {
   const row = ownRow(db, userId, id)
-  sql(db, 'UPDATE collections SET name = ?, description = ?, updated_at = ? WHERE id = ?').run(
+  if (input.coverTitleId) {
+    const inside = sql(
+      db,
+      'SELECT 1 FROM collection_items WHERE collection_id = ? AND title_id = ?',
+    ).get(id, input.coverTitleId)
+    if (!inside)
+      throw new ApiError(400, 'BAD_REQUEST', 'The cover must be a title of the collection')
+  }
+  sql(
+    db,
+    'UPDATE collections SET name = ?, description = ?, cover_title_id = ?, updated_at = ? WHERE id = ?',
+  ).run(
     input.name ?? row.name,
     input.description ?? row.description,
+    input.coverTitleId === undefined ? row.cover_title_id : input.coverTitleId,
     Date.now(),
     id,
   )
