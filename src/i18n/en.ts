@@ -1,6 +1,7 @@
 import { profileLookEn } from './sections/profile-look.ts'
 import { airingEn } from './sections/airing.ts'
 import { calendarEn } from './sections/calendar.ts'
+import { moodsEn } from './sections/moods.ts'
 import { externalImportEn } from './sections/external-import.ts'
 import { shortcutsEn } from './sections/shortcuts.ts'
 import { steamConnectEn } from './sections/steam-connect.ts'
@@ -15,6 +16,7 @@ export const en: Messages = {
   externalImport: externalImportEn,
   shortcuts: shortcutsEn,
   calendar: calendarEn,
+  moods: moodsEn,
   app: {
     name: 'MediaShell',
     tagline: 'Games, movies, series and anime — one library',

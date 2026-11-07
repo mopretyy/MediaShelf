@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router'
 import { CHART_LISTS, KINDS, type ChartList, type Kind, type TitleRecord } from '@shared/types.ts'
 import { genreLabel } from '@shared/genres.ts'
 import { PageBody, PageHeader } from '@/app/PageHeader'
+import { MoodRow, MoodView, useMoodParam } from './discover/Moods'
 import { Showcase } from './discover/Showcase'
 import { Shelf, TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
 import { Button, focusRing, Spinner } from '@/components/ui/button'
@@ -314,11 +315,12 @@ function SearchResults({
 }
 
 // Genres come from the results, so a genre picked for one query or kind means nothing for the next.
-const SEARCH_RESETS = ['genre']
+const SEARCH_RESETS = ['genre', 'mood']
 
 export default function DiscoverPage() {
   const { t } = useI18n()
   const [params, setParams] = useSearchParams()
+  const { mood } = useMoodParam()
   const kindParam = params.get('kind')
   const kind: Kind | 'all' = KINDS.includes(kindParam as Kind) ? (kindParam as Kind) : 'all'
   const listParam = params.get('list')
@@ -381,7 +383,9 @@ export default function DiscoverPage() {
             <Segmented
               aria-label={t('discover.title')}
               value={kind}
-              onChange={(value) => update({ kind: value === 'all' ? null : value, genre: null })}
+              onChange={(value) =>
+                update({ kind: value === 'all' ? null : value, genre: null, mood: null })
+              }
               options={(['all', ...KINDS] as const).map((value) => ({
                 value,
                 label: t(`kinds.${value}`),
@@ -398,8 +402,9 @@ export default function DiscoverPage() {
           </div>
         </div>
 
-        {/* The showcase leads browsing; a search shows its results straight away. */}
-        {query ? null : <Showcase kind={kind} />}
+        {/* The showcase leads browsing; a search shows its results straight away, a mood its
+            titles. */}
+        {query || mood ? null : <Showcase kind={kind} />}
 
         {query ? (
           <SearchResults
@@ -413,8 +418,15 @@ export default function DiscoverPage() {
             setHideAdded={(value) => update({ hide: value ? '1' : null })}
             clearFilters={() => update({ genre: null, hide: null })}
           />
+        ) : mood ? (
+          <MoodView mood={mood} />
         ) : kind === 'all' ? (
-          KINDS.map((value) => <KindShelf key={value} kind={value} />)
+          <>
+            <MoodRow />
+            {KINDS.map((value) => (
+              <KindShelf key={value} kind={value} />
+            ))}
+          </>
         ) : (
           <ChartGrid key={`${kind}-${list}`} kind={kind} list={list} />
         )}

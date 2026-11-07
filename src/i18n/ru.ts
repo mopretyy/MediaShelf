@@ -1,6 +1,7 @@
 import { profileLookRu } from './sections/profile-look.ts'
 import { airingRu } from './sections/airing.ts'
 import { calendarRu } from './sections/calendar.ts'
+import { moodsRu } from './sections/moods.ts'
 import { externalImportRu } from './sections/external-import.ts'
 import { shortcutsRu } from './sections/shortcuts.ts'
 import { steamConnectRu } from './sections/steam-connect.ts'
@@ -20,6 +21,7 @@ export const ru = {
   externalImport: externalImportRu,
   shortcuts: shortcutsRu,
   calendar: calendarRu,
+  moods: moodsRu,
   app: {
     name: 'MediaShell',
     tagline: 'Игры, фильмы, сериалы и аниме — в одной библиотеке',
