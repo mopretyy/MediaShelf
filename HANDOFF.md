@@ -1,40 +1,33 @@
 # MediaShell — handoff
 
-## ГДЕ ОСТАНОВИЛИСЬ (2026-11-06 20:50 UTC) — читать первым
+## ГДЕ ОСТАНОВИЛИСЬ (2026-11-07) — читать первым
 
-Работа продолжается в новом чате, возможно на другой машине. Всё нужное лежит в репозитории, на ветке `tembo/make-it-better`. Локальные пути `/workspace/tools/...` и `/workspace/wt/...` могут уже не существовать, не рассчитывайте на них.
+Вся работа из плана слита в `main` через PR #22–#28, CI на `main` зелёный. Незаконченных патчей больше нет: `docs/handoff/pending/` пуст.
 
-### Состояние ветки
+### Что сделано
 
-- **Запушено и проверено** (264 unit/API-теста и 32/32 e2e на последнем коммите):
-  - handoff-документы;
-  - фиксы данных: Undo восстанавливает запись целиком, ссылка подтверждения почты, обложка без 404, статистика серий, демо-seed;
-  - «Новые серии» и «Скоро выйдет» на Главной, значок новых серий;
-  - импорт из MyAnimeList, Шикимори и IMDb;
-  - пакет `wp-nav`: палитра Ctrl+K, горячие клавиши на русской раскладке, поиск, фильтры Discover, недавние тайтлы по аккаунтам;
-  - README;
-  - **wave 2** (коммит `14a5344`): фокус возвращается туда, откуда открыли палитру; тосты, кнопка «наверх» и нижний отступ страниц над мобильной панелью вкладок (`--tabbar-h`, на `md+` равна 0; тосты подняты и на 601–767 px); `SectionHeader` переносится; Shuffle по умолчанию берёт планы, кнопка на Главной ведёт на `/shuffle?source=library`;
-  - **страница тайтла, P0 и P3** (бывший `wp-title-unfinished.patch`, доделан и проверен 20:55 UTC): заметка больше не попадает в чужой тайтл (страница пересоздаётся по id, черновик привязан к тайтлу, сохраняется при уходе со страницы и при закрытии вкладки); «Следующая серия», «Просмотрено X из Y» и процент считаются из списка серий и отметок, запись перечитывается после загрузки списка, лента «Новые серии» и библиотека обновляют друг друга; стрелка «Назад» не уводит из приложения; даты проверяются (не позже сегодня, порядок начала и конца, понятная причина отказа, сервер называет поле). Перед коммитом было независимое ревью (9 находок, все исправлены, на каждую тест). Подробности в `PROGRESS.md`.
-- **Не применено, лежит патчами** в `docs/handoff/pending/` (шаг 4, работа прервана по просьбе владельца в 20:40 UTC): `wp-title2.patch`, `wp-lists.patch`, `wp-shell.patch`, `wp-i18n.patch`. База — `b2a4e3f`; каждый применяется чисто (`git apply --3way`), все четыре подряд тоже без конфликтов. **Код не доделан и не проверен**: агентов остановили посреди работы, проверки и ревью по этим патчам не запускались. В `wp-i18n` сделана только основная часть (тон текста, выбор языка в палитре, тест паритета); переводы uk/de/es/fr/ro не начаты.
+- **#22:** лента «Новые серии» и «Скоро выйдет», импорт из MyAnimeList, Шикимори и IMDb, полный Undo, исправления страницы тайтла и палитры. Плюс 9 исправлений по ревью: импорт списка IMDb «Хочу посмотреть», безопасность Undo, очередь обновления списков серий, приватность обложки.
+- **#23:** новые экраны входа и регистрации, перенесены из локальной копии владельца.
+- **#24 (`wp-title2`):** страница тайтла на телефонах: одна панель действий, сетка оценок 5×2, отметка серии всей строкой.
+- **#25 (`wp-lists`):** карточки библиотеки, топ-10 в Обзоре, «+» на сенсорных экранах, «Последние действия», «Фон избранного», пустой Жребий.
+- **#26 (`wp-shell`):** приветствие для новых аккаунтов, итоги года как модальное окно, видимый фокус, контраст `--fg-3`, кнопки 40–44 px на сенсорных экранах.
+- **#27 (`wp-i18n`):** тон русских текстов, выбор языка в Ctrl+K, `parity.test.ts`.
+- **#28:** полные переводы uk/de/es/fr/ro, все семь языков в `COMPLETE_LOCALES`; первый визит открывается на языке браузера.
 
-### Что сделать дальше, по порядку
+Каждый пакет перед слиянием прошёл независимое ревью, на каждое исправление есть тест. Подробности в `PROGRESS.md`.
 
-1. `git fetch origin && git checkout tembo/make-it-better && npm ci` (Node 24).
-2. ~~Применить `wave2-palette-mobile-shuffle.patch`~~ — сделано, `14a5344`.
-3. ~~Применить и доделать `wp-title-unfinished.patch`~~ — сделано (см. «Состояние ветки»).
-4. **Начато, лежит патчами:** UX и мобильная версия по находкам в `docs/handoff/audit-ux-visual-partial.md` и `docs/handoff/audit-mobile-a11y-i18n-partial.md`. Применить по одному патчу из `docs/handoff/pending/` (`git apply --3way`), прогнать все проверки и e2e, доделать по списку ниже, закоммитить, удалить патч. Объём каждого пакета:
-   - `wp-title2`: ряд кнопок героя переносится на 320–360 px (трейлер иконкой на телефоне), без дублей статуса, оценки и избранного (панель справа: прогресс, даты, заметки, удаление), шкала оценки 5×2 с целями 44 px и без сброса повторным нажатием, вся строка серии отмечает её, меню серии «Ещё: S1 · E3», короткая подпись «Добавить» у прохождений; e2e-проверка переполнения сравнивает с шириной экрана (с `isMobile` старая проверка его не видела);
-   - `wp-lists`: статус не обрезается на карточках библиотеки, топ-10 в Discover (постер поверх цифры, названия в две строки), невидимый «+» на планшетах, время в «Последних действиях» профиля, «Фон избранного» берёт первое избранное с фоном (клиент и сервер), одна строка «Скоро: …» вместо пяти карточек в настройках игр, пустой Shuffle без наложения на рамку и с кнопкой «Бросить по популярному»;
-   - `wp-shell`: новые аккаунты попадают на /welcome, история года как настоящий модальный диалог (фокус, inert, h2), подпись области уведомлений по-русски, видимый фокус у полей ввода, контраст `--fg-3` в светлой теме, цели касания 40–44 px на телефонах;
-   - `wp-i18n`: русский текст без «ты» и мужского рода, выбор языка в палитре вместо переключателя ru↔en, тест паритета ключей, полные переводы uk/de/es/fr/ro.
-5. Не проверены совсем: серверные баги, производительность (замеры LCP и так далее), предложения новых функций. При желании провести эти аудиты заново.
-6. В конце: полная регрессия, скриншоты «до и после» (снимки «до» сделаны скриптом `/workspace/tools/shots/shoot.mjs`, он сидирует библиотеку на fixtures-сервере), обновить README и этот файл.
+### Что осталось (по желанию владельца)
+
+1. Аудиты, которые ни разу не проводились: серверные ошибки, производительность (LCP и т. п.), предложения новых функций.
+2. Демо-данные (`server/scripts/seed-demo.ts`) местами несогласованны, см. «Known errors».
+3. Носителям языков стоит посмотреть подобранные названия пунктов меню Steam и IMDb и название «Жребия» в uk/de/es/fr/ro.
+4. Скриншоты в `docs/screenshots/` сделаны до этих изменений.
 
 ### Важно
 
-- Если работаете в песочнице Tembo: `tembo commit` после коммита делает `git reset --hard origin/<branch>`, и незакоммиченные изменения отслеживаемых файлов пропадают. Перед ним всегда `git add -A` (или сохраните патч).
-- CI (`.github/workflows/ci.yml`) запускается только на push в `main` и на pull request. Push в эту ветку его не запускает, проверки гонять локально. Prettier проверяет и `.md`.
-- PR не открыт и не запрашивался.
+- Если работаете в песочнице Tembo: `tembo commit` после коммита делает `git reset --hard origin/<branch>`. Перед ним всегда `git add -A`.
+- CI (`.github/workflows/ci.yml`) запускается на push в `main` и на pull request.
+- На NixOS встроенный Chromium Playwright не запускается. Для локального e2e подставьте системный через временный конфиг с `launchOptions.executablePath`, в репозиторий его не коммитьте.
 
 ## INSTRUCTIONS FOR THE NEXT AI AGENT
 
@@ -53,7 +46,7 @@ The owner asked (in Russian): «короче улучши сайт как тол
 
 ## Current status (update this section at every milestone)
 
-- **Last updated:** 2026-11-06 20:55 UTC. The detailed status is in «ГДЕ ОСТАНОВИЛИСЬ» above.
+- **Last updated:** 2026-11-07. Everything planned is merged to `main` (#22–#28); see «ГДЕ ОСТАНОВИЛИСЬ» above. The notes below this line describe the state before that and are kept for history.
 - **Committed:** `wp-data`, the airing feed, external imports, `wp-nav`, wave 2 (palette focus return, tab-bar offsets, header wrap, Shuffle default) and the title-page P0/P3 fixes (PROGRESS items 1, 2, 11, 12) with their review fixes. Checks green on the latest commit: typecheck, lint, prettier, 264 unit/API tests, 32/32 e2e.
 - **Next step:** apply, verify and finish the four unfinished step-4 patches in `docs/handoff/pending/` (UX, mobile, a11y, i18n), then decide on the server/performance/features audits, then the final regression.
 - **Audit:** the client-bug audit is complete (`docs/handoff/AUDIT.md`); UX/visual and mobile/a11y/i18n are partial lists (`docs/handoff/audit-*-partial.md`); server bugs, performance and features were never audited.
@@ -194,7 +187,7 @@ If you cannot reach these agents (different account or machine), do not wait for
 
 - **Stack:** React 19 + Vite 8 + Tailwind 4 + Radix + TanStack Query (`src/`); Node 24 + Hono + `node:sqlite` (`server/`); shared zod schemas and types (`shared/`). No native modules; the TypeScript server runs without a build step (type stripping).
 - **Respect `DESIGN.md`:** strict black and white, colour only from posters, backdrops and avatars. Glass only on floating layers, hairlines instead of shadows, Inter display tracking −0.022 em, and the stated radii and motion timings. Improvements should make the app more polished inside this system, not repaint it.
-- **i18n:** Russian is the source of truth and English must have identical keys. Other locales (uk, de, es, fr, ro) are partial and fall back to English. Put new strings for a feature in `src/i18n/sections/<feature>.ts` (export `<feature>Ru` and `<feature>En`, as `steam-connect.ts` does) and register them with one line in `ru.ts` and `en.ts`. This keeps parallel work from conflicting.
+- **i18n:** Russian is the source of truth. All seven locales are complete and listed in `COMPLETE_LOCALES` (`src/i18n/languages.ts`); `parity.test.ts` fails on any missing key, placeholder or plural form, so a new string needs all seven. Put new strings for a feature in `src/i18n/sections/<feature>.ts` (export `<feature>Ru` and `<feature>En`, as `steam-connect.ts` does) and register them with one line in `ru.ts` and `en.ts`; uk/de/es/fr/ro hold their sections inline, so add the same keys there. This keeps parallel work from conflicting.
 - **Data safety first:** user data bugs (notes saved to the wrong title, Undo losing marks) outrank everything else.
 - **Optimistic UI** is a product principle (`PRODUCT.md`). Fixes must keep actions instant and reversible.
 - **Tests:** add a unit or e2e test for every bug fix where practical (the existing e2e suite runs offline against fixtures).
@@ -202,5 +195,5 @@ If you cannot reach these agents (different account or machine), do not wait for
 ## Known errors, blockers, unresolved issues
 
 - No blockers. The baseline is green.
-- CI does not run on branch pushes (see step 5 above).
+- CI runs on pushes to `main` and on pull requests, not on other branch pushes.
 - The demo seed (`server/scripts/seed-demo.ts`) writes inconsistent data: series progress without episode marks, and an IMDb rating on a Steam game. Don't mistake these artifacts for app bugs; fixing the seed itself is a TODO.
