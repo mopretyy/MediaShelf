@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Check, Heart, ImagePlus, Library, Search, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
+import { favoriteBanner } from '@shared/banner.ts'
 import type { User } from '@shared/types.ts'
 import { useErrorMessage } from '@/components/library-actions'
 import { Poster } from '@/components/Poster'
@@ -66,13 +67,15 @@ function Tile({
   children: ReactNode
 }) {
   return (
+    // w-full: a button sizes to its content, so the tile wrapped for its extra controls came
+    // out narrower than the other three.
     <button
       type="button"
       role="radio"
       aria-checked={active}
       disabled={disabled}
       onClick={onClick}
-      className="group block min-w-0 text-left disabled:opacity-60"
+      className="group block w-full min-w-0 text-left disabled:opacity-60"
     >
       <span
         className={cn(
@@ -87,14 +90,14 @@ function Tile({
           </span>
         ) : null}
       </span>
-      <span className="mt-1.5 block truncate text-sm font-medium">{label}</span>
-      {hint ? <span className="block truncate text-xs text-fg-3">{hint}</span> : null}
+      <span className="mt-1.5 line-clamp-2 text-sm font-medium">{label}</span>
+      {hint ? <span className="line-clamp-2 text-xs text-fg-3">{hint}</span> : null}
     </button>
   )
 }
 
 const Placeholder = ({ icon, text }: { icon: ReactNode; text: string }) => (
-  <span className="absolute inset-0 grid place-content-center justify-items-center gap-1 px-2 text-center text-xs text-fg-3 [&_svg]:size-5">
+  <span className="absolute inset-0 grid place-content-center justify-items-center gap-1 px-1.5 text-center text-xs text-balance text-fg-3 [&_svg]:size-5">
     {icon}
     {text}
   </span>
@@ -123,7 +126,11 @@ export function CoverPicker({ user }: { user: User }) {
 
   const current = user.preferences.banner ?? 'none'
   const posters = profile.data?.heroPosters ?? []
-  const favourite = profile.data?.favorites[0]?.title
+  // The same pick as the server's banner: the first favourite that has a backdrop. The library
+  // holds every favourite (the profile lists twelve) and follows changes at once.
+  const entries = library.data ?? profile.data?.favorites
+  const favourite = entries ? favoriteBanner(entries)?.title : undefined
+  const hasFavourites = Boolean(entries?.some((entry) => entry.favorite))
   const picked = library.data?.find((entry) => entry.titleId === user.preferences.bannerTitleId)
   const coverUrl = `/api/users/${user.id}/cover?v=${version ?? 0}`
 
@@ -258,9 +265,16 @@ export function CoverPicker({ user }: { user: User }) {
               referrerPolicy="no-referrer"
               className="absolute inset-0 size-full object-cover"
             />
-          ) : (
-            <Placeholder icon={<Heart />} text={t('profileLook.coverFavoriteEmpty')} />
-          )}
+          ) : entries ? (
+            <Placeholder
+              icon={<Heart />}
+              text={
+                hasFavourites
+                  ? t('profileLook.coverFavoriteNoBackdrop')
+                  : t('profileLook.coverFavoriteEmpty')
+              }
+            />
+          ) : null}
         </Tile>
 
         <Tile
@@ -293,7 +307,7 @@ export function CoverPicker({ user }: { user: User }) {
               <img src={coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
             ) : null}
             {!hasCover ? (
-              <Placeholder icon={<ImagePlus />} text={t('profileLook.coverImageEmpty')} />
+              <Placeholder icon={<ImagePlus />} text={t('profileLook.coverUpload')} />
             ) : null}
           </Tile>
           {hasCover ? (

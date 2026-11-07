@@ -1,4 +1,6 @@
-import type { ActivityItem } from '@shared/types.ts'
+// Relative import (not @shared): unit tests type-check this file under tsconfig.node.json,
+// which has no path aliases.
+import type { ActivityItem } from '../../shared/types.ts'
 
 const WINDOW_MS = 10 * 60_000
 
@@ -46,4 +48,19 @@ function fold(newer: ActivityItem, older: ActivityItem): ActivityItem | null {
     }
   }
   return null
+}
+
+/**
+ * Heading for one day of the feed: «17 октября» this year, «19 февраля 2025» before it. No
+ * «г.» after the year: a heading is not a sentence, and the bare year reads clearly.
+ */
+export function formatDayHeading(date: Date, locale: string, now = new Date()) {
+  const parts = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+  }).formatToParts(date)
+  // Trailing literals are the year's abbreviation: « г.» in Russian, « р.» in Ukrainian.
+  while (parts.at(-1)?.type === 'literal') parts.pop()
+  return parts.map((part) => part.value).join('')
 }

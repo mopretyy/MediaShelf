@@ -397,13 +397,16 @@ function SteamCard({ user }: { user: User }) {
   )
 }
 
-/** Connected accounts: Steam works, the rest are placeholders for later. */
+/**
+ * Connected accounts: a card for every store that can be connected (Steam for now). The rest get
+ * one quiet line instead of a stack of empty «Скоро» cards.
+ */
 export function AccountsList({ user }: { user: User }) {
-  const { t } = useI18n()
+  const { t, fmt } = useI18n()
+  const later = STORES.filter((store) => !CONNECTABLE.includes(store))
   return (
     <div className="grid gap-3">
-      {STORES.map((store) => {
-        const ready = CONNECTABLE.includes(store)
+      {STORES.filter((store) => CONNECTABLE.includes(store)).map((store) => {
         const connected = store === 'steam' && user.preferences.steamId
         return (
           <div key={store} className="rounded-xl bg-raised px-4 py-4 ring-1 ring-line ring-inset">
@@ -415,14 +418,17 @@ export function AccountsList({ user }: { user: User }) {
                   <Check className="size-3.5" />
                   {t('welcome.connected')}
                 </Chip>
-              ) : ready ? null : (
-                <Chip>{t('welcome.soon')}</Chip>
-              )}
+              ) : null}
             </div>
-            {ready ? <SteamCard user={user} /> : null}
+            <SteamCard user={user} />
           </div>
         )
       })}
+      {later.length ? (
+        <p className="px-1 text-sm text-fg-3">
+          {t('welcome.soon', { stores: fmt.list(later.map((store) => t(`stores.${store}`))) })}
+        </p>
+      ) : null}
     </div>
   )
 }

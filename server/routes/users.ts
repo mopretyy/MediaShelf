@@ -10,6 +10,7 @@ import type {
 import type { AppDeps, AppEnv } from '../context.ts'
 import { requireUser } from '../context.ts'
 import { coverVersion, getCover } from '../auth/covers.ts'
+import { favoriteBanner } from '../../shared/banner.ts'
 import { BANNERS } from '../../shared/types.ts'
 import { notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
@@ -104,7 +105,8 @@ export function usersRoutes(deps: AppDeps) {
     })
 
     let bannerImage: string | null = null
-    if (banner === 'favorite') bannerImage = favourites[0]?.title?.backdrop ?? null
+    // Any favourite, not only the twelve listed: the first one with a backdrop to show.
+    if (banner === 'favorite') bannerImage = favoriteBanner(all)?.title?.backdrop ?? null
     else if (banner === 'title') {
       const picked = all.find((entry) => entry.titleId === prefs.bannerTitleId)
       bannerImage = picked?.title?.backdrop ?? picked?.title?.poster ?? null

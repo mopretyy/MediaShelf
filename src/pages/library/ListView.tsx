@@ -1,12 +1,14 @@
 import { Star } from 'lucide-react'
 import { Link } from 'react-router'
 import type { LibraryEntry } from '@shared/types.ts'
+import { BrandIcon } from '@/components/BrandIcon'
 import { Poster } from '@/components/Poster'
 import { RatingButton, StatusPicker } from '@/components/StatusControls'
 import { ProgressBar } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { entryProgressText, titleHref, titleName, yearRange } from '@/lib/titles'
+import { showsProgress } from './card-meta'
 
 export function ListView({ entries }: { entries: LibraryEntry[] }) {
   const { t, locale, fmt } = useI18n()
@@ -23,6 +25,9 @@ export function ListView({ entries }: { entries: LibraryEntry[] }) {
         {entries.map((entry) => {
           const year = yearRange(entry.title)
           const progress = entryProgressText(entry, t)
+          // Small screens: the status picker sits right next to this line, so only progress
+          // that is still under way adds anything.
+          const compactProgress = showsProgress(entry.status) ? progress : null
           return (
             <li
               key={entry.titleId}
@@ -47,8 +52,20 @@ export function ListView({ entries }: { entries: LibraryEntry[] }) {
                   <span className="block truncate text-xs text-fg-3">
                     {t(`kind.${entry.kind}`)}
                     {year ? ` · ${year}` : ''}
-                    {entry.store === 'steam' ? ' · Steam' : ''}
-                    <span className="lg:hidden">{progress ? ` · ${progress}` : ''}</span>
+                    {/* The store as its icon, as on the grid cards, for every store. */}
+                    {entry.store ? (
+                      <>
+                        {' · '}
+                        <BrandIcon
+                          id={entry.store}
+                          label={t(`stores.${entry.store}`)}
+                          className="-mt-px inline size-3 align-middle"
+                        />
+                      </>
+                    ) : null}
+                    <span className="lg:hidden">
+                      {compactProgress ? ` · ${compactProgress}` : ''}
+                    </span>
                   </span>
                 </span>
               </Link>

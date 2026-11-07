@@ -15,6 +15,7 @@ import { useI18n } from '@/i18n'
 import { useDocumentTitle, useSearchParamText } from '@/lib/hooks'
 import { useLibrary } from '@/lib/queries'
 import { compareNames, entryProgressText, statusLabelKey } from '@/lib/titles'
+import { showsProgress } from './library/card-meta'
 import { ListView } from './library/ListView'
 
 const Board = lazy(() => import('./library/Board').then((module) => ({ default: module.Board })))
@@ -296,56 +297,41 @@ export default function LibraryPage() {
           ) : (
             <TitleGrid>
               {visible.map((entry, index) => {
-                const progress = entryProgressText(entry, t)
-                const status = t(statusLabelKey(entry.kind, entry.status))
-                const parts = [
-                  entry.store === 'steam' ? (
-                    <span key="steam" className="inline-flex shrink-0 items-center gap-1">
-                      <BrandIcon id="steam" className="size-3" />
-                      Steam
-                    </span>
-                  ) : null,
-                  progress ? (
-                    <span key="progress" className="tabular shrink-0">
-                      {progress}
-                    </span>
-                  ) : null,
-                  entry.rating ? (
-                    <span key="rating" className="tabular shrink-0">
-                      ★ {entry.rating}
-                    </span>
-                  ) : null,
-                ].filter(Boolean)
+                const progress = showsProgress(entry.status) ? entryProgressText(entry, t) : null
                 return (
                   <TitleCard
                     key={entry.titleId}
                     title={entry.title}
                     entry={entry}
                     eager={index < 12}
-                    meta={
-                      <>
-                        {/* Phone cards are ~110px wide: the status word used to shrink to
-                            "С…". It is already on the poster badge, so with other details
-                            to show it gives way on small screens (still read by screen readers). */}
-                        <span
-                          className={`flex min-w-0 items-center gap-1${parts.length ? ' max-sm:hidden' : ''}`}
-                        >
-                          <span className="truncate">{status}</span>
-                          {parts.length ? <span aria-hidden="true">·</span> : null}
+                    // By priority: the status never gives way; whatever does not fit after it
+                    // drops out whole, the store mark first.
+                    meta={[
+                      <span key="status" className="truncate">
+                        {t(statusLabelKey(entry.kind, entry.status))}
+                      </span>,
+                      progress ? (
+                        <span key="progress" className="tabular">
+                          {progress}
                         </span>
-                        {parts.length ? <span className="sr-only sm:hidden">{status}</span> : null}
-                        {parts.flatMap((part, i) =>
-                          i
-                            ? [
-                                <span key={`sep-${i}`} aria-hidden="true">
-                                  ·
-                                </span>,
-                                part,
-                              ]
-                            : [part],
-                        )}
-                      </>
-                    }
+                      ) : null,
+                      entry.rating ? (
+                        <span key="rating" className="tabular">
+                          <span aria-hidden="true">★ {entry.rating}</span>
+                          <span className="sr-only">
+                            {t('title.yourRatingValue', { rating: entry.rating })}
+                          </span>
+                        </span>
+                      ) : null,
+                      entry.store ? (
+                        <BrandIcon
+                          key="store"
+                          id={entry.store}
+                          label={t(`stores.${entry.store}`)}
+                          className="size-3"
+                        />
+                      ) : null,
+                    ]}
                   />
                 )
               })}

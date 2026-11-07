@@ -1,5 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
+import { isValidElement, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import type { LibraryEntry, TitleRecord } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
@@ -27,7 +27,39 @@ interface TitleCardProps {
   rank?: number
   className?: string
   eager?: boolean
-  meta?: ReactNode
+  /**
+   * Replaces the default details (kind, year, rating): the reader's own state, most important
+   * first. Screen readers hear it as the link's description.
+   */
+  meta?: ReactNode[]
+}
+
+/**
+ * One line of card details, most important first. What does not fit drops out whole from the
+ * end instead of cutting a word to «П…»: the row wraps and only its first line shows.
+ */
+function MetaLine({ id, items }: { id?: string; items: ReactNode[] }) {
+  const shown = items.filter((item) => item !== null && item !== undefined && item !== false)
+  return (
+    <p
+      id={id}
+      className="mt-0.5 flex h-4 flex-wrap items-center overflow-hidden text-xs leading-4 text-fg-3"
+    >
+      {shown.map((item, index) => (
+        <span
+          key={isValidElement(item) && item.key != null ? item.key : index}
+          className="flex max-w-full shrink-0 items-center"
+        >
+          {index ? (
+            <span aria-hidden="true" className="px-1">
+              ·
+            </span>
+          ) : null}
+          {item}
+        </span>
+      ))}
+    </p>
+  )
 }
 
 export function TitleCard({
@@ -40,6 +72,7 @@ export function TitleCard({
   meta,
 }: TitleCardProps) {
   const { t, locale, fmt } = useI18n()
+  const metaId = useId()
   const library = useLibraryMap()
   const saved = entry ?? library.get(title.id) ?? null
   const actions = useLibraryActions()
@@ -57,6 +90,7 @@ export function TitleCard({
         to={titleHref(title.id)}
         className="block rounded-md outline-offset-4"
         aria-label={[name, year, t(`kind.${title.kind}`)].filter(Boolean).join(', ')}
+        aria-describedby={meta ? metaId : undefined}
       >
         <div className="relative transition-transform duration-300 ease-out group-hover/card:-translate-y-0.5">
           <Poster
@@ -81,27 +115,32 @@ export function TitleCard({
             </div>
           ) : null}
         </div>
-        <div className="mt-2 px-0.5">
-          <p className="truncate text-sm leading-[18px] font-medium text-fg" title={name}>
+        {/* Ranked rows give the name up to two lines, in a caption of fixed height (two lines
+            and the details) so the posters and numerals of a row stay level. */}
+        <div className={cn('mt-2 px-0.5', rank !== undefined && 'h-[54px]')}>
+          <p
+            className={cn(
+              'text-sm leading-[18px] font-medium text-fg',
+              rank === undefined ? 'truncate' : 'line-clamp-2',
+            )}
+            title={name}
+          >
             {name}
           </p>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-fg-3">
-            {meta ?? (
-              <>
-                {showKind ? <span>{t(`kind.${title.kind}`)}</span> : null}
-                {showKind && year ? <span aria-hidden="true">·</span> : null}
-                {year ? <span className="tabular">{year}</span> : null}
-                {rating ? (
-                  <>
-                    {year || showKind ? <span aria-hidden="true">·</span> : null}
-                    <span className="tabular">
-                      {ratingSourceLabel(rating.source)} {formatRating(rating, fmt)}
-                    </span>
-                  </>
-                ) : null}
-              </>
-            )}
-          </p>
+          <MetaLine
+            id={metaId}
+            items={
+              meta ?? [
+                showKind ? <span className="truncate">{t(`kind.${title.kind}`)}</span> : null,
+                year ? <span className="tabular">{year}</span> : null,
+                rating ? (
+                  <span className="tabular">
+                    {ratingSourceLabel(rating.source)} {formatRating(rating, fmt)}
+                  </span>
+                ) : null,
+              ]
+            }
+          />
         </div>
       </Link>
       {!saved ? (
@@ -111,7 +150,15 @@ export function TitleCard({
             size="icon-sm"
             aria-label={`${t('title.addToLibrary')}: ${name}`}
             onClick={() => actions.add(title, 'planned')}
-            className="absolute top-1.5 right-1.5 size-7 rounded-full opacity-0 shadow-md transition-opacity duration-200 group-focus-within/card:opacity-100 group-hover/card:opacity-100 max-md:hidden"
+            className={cn(
+              'absolute top-1.5 right-1.5 size-7 rounded-full shadow-md transition-opacity duration-200 max-md:hidden',
+              // With a mouse it shows on hover or focus, and until then it is not there to click:
+              // an invisible button in the poster's corner would add the title by accident.
+              'pointer-events-none opacity-0 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100 group-hover/card:pointer-events-auto group-hover/card:opacity-100',
+              // Touch tablets cannot hover, so there it is always on view, with a 44 px target.
+              '[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100',
+              'pointer-coarse:pointer-events-auto pointer-coarse:size-8 pointer-coarse:opacity-100 pointer-coarse:before:absolute pointer-coarse:before:-inset-1.5',
+            )}
           >
             <Plus />
           </Button>
@@ -122,28 +169,38 @@ export function TitleCard({
 
   if (rank === undefined) return card
   return (
-    <div className="flex items-end gap-1">
+    // relative: holds the sr-only label inside the shelf's scroller (it would widen the page).
+    <div className="relative flex items-end">
+      <span className="sr-only">{t('discover.rank', { rank })}</span>
+      {/* The hollow numeral tucks under the poster's corner, its foot level with the poster's
+          bottom edge: pb is the caption's fixed height (8 + 54 px), and a 0.73 line height makes
+          the line box the digits' own height. Tabular figures keep a «1» from hiding behind the
+          poster. */}
       <span
-        aria-label={t('discover.rank', { rank })}
-        className="tabular -mr-2 w-[84px] shrink-0 pb-12 text-right text-[64px] leading-none font-bold tracking-[-0.04em] text-transparent select-none [-webkit-text-stroke:1.5px_var(--line-strong)] sm:w-[104px] sm:text-[80px]"
+        aria-hidden="true"
+        className="-mr-4 shrink-0 pb-[62px] text-[104px] leading-[0.73] font-bold tracking-[-0.06em] text-transparent tabular-nums select-none [-webkit-text-stroke:1.5px_var(--fg-3)] sm:-mr-5 sm:text-[128px]"
       >
         {rank}
       </span>
-      {/* flex-1: without it the card shrinks to its title's width, so every poster in a chart
-          row came out a different size ("Cyberpunk 2077" narrower than "Ведьмак 3: Дикая Охота"). */}
-      <div className="min-w-0 flex-1">{card}</div>
+      {/* A fixed width keeps every poster in a row the same size, whatever the numeral's width. */}
+      <div className={cn('relative shrink-0', RANKED_CARD_WIDTH)}>{card}</div>
     </div>
   )
 }
 
-export function TitleCardSkeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn('min-w-0', className)}>
+const RANKED_CARD_WIDTH = 'w-[132px] sm:w-[172px]'
+
+export function TitleCardSkeleton({ className, ranked }: { className?: string; ranked?: boolean }) {
+  const skeleton = (
+    <div className={cn('min-w-0', ranked && RANKED_CARD_WIDTH, className)}>
       <Skeleton className="aspect-[2/3] w-full rounded-md" />
       <Skeleton className="mt-2.5 h-3.5 w-4/5" />
+      {ranked ? <Skeleton className="mt-1.5 h-3.5 w-3/5" /> : null}
       <Skeleton className="mt-1.5 h-3 w-1/2" />
     </div>
   )
+  // Leaves the numeral's room, so the row does not jump when the charts arrive.
+  return ranked ? <div className="pl-11 sm:pl-14">{skeleton}</div> : skeleton
 }
 
 export const GRID_CLASS =

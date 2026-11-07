@@ -3,10 +3,23 @@ import type { ActivityItem } from '@shared/types.ts'
 import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { useI18n } from '@/i18n'
+import { cn } from '@/lib/cn'
 import { statusLabelKey, titleHref, titleName } from '@/lib/titles'
 
+/**
+ * How a row tells the time: «3 недели назад» in a plain feed, «14:05» or nothing at all under
+ * a day heading, which already says when.
+ */
+export type ActivityTime = 'relative' | 'clock' | 'none'
+
 /** One line of the activity feed: poster, title, what happened, when. */
-export function ActivityRow({ item }: { item: ActivityItem }) {
+export function ActivityRow({
+  item,
+  time = 'relative',
+}: {
+  item: ActivityItem
+  time?: ActivityTime
+}) {
   const { t, locale, fmt } = useI18n()
   const status = item.data.status ? t(statusLabelKey(item.kind, item.data.status)) : ''
   const text =
@@ -43,7 +56,8 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
           rounded="rounded-xs"
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-base">
+          {/* Two lines before an ellipsis: in the profile rail one line cut most titles short. */}
+          <span className="line-clamp-2 text-base break-words">
             {item.title ? titleName(item.title.names, locale) : item.titleId}
           </span>
           {/* truncate on the inner span: on a flex container it clips without an ellipsis. */}
@@ -54,7 +68,19 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
             <span className="truncate">{withRating}</span>
           </span>
         </span>
-        <span className="shrink-0 text-xs text-fg-3">{fmt.relative(item.createdAt)}</span>
+        {time === 'none' ? null : (
+          <time
+            dateTime={item.createdAt}
+            className={cn('shrink-0 text-xs text-fg-3', time === 'clock' && 'tabular-nums')}
+          >
+            {time === 'clock'
+              ? new Date(item.createdAt).toLocaleTimeString(locale, {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })
+              : fmt.relative(item.createdAt)}
+          </time>
+        )}
       </Link>
     </li>
   )

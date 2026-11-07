@@ -297,7 +297,7 @@ export interface UserProfile {
   inProgress: PublicEntry[]
   /** Up to 6 posters for the header collage: favourites, then completed, then in progress. */
   heroPosters: string[]
-  /** Backdrop of the first favourite title, for the 'favorite' banner. */
+  /** For the 'favorite' banner: the backdrop of the first favourite that has one. */
   bannerImage: string | null
   /** Version of the uploaded cover picture, or null when none was uploaded. */
   coverVersion: number | null
