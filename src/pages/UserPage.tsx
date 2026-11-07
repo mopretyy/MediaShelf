@@ -494,7 +494,7 @@ function Step({ n, icon, text }: { n: number; icon: ReactNode; text: string }) {
       </span>
       <span className="flex min-w-0 items-center gap-2 text-base text-fg-2 [&_svg]:size-4 [&_svg]:shrink-0">
         {icon}
-        <span className="truncate">{text}</span>
+        <span className="min-w-0 text-pretty">{text}</span>
       </span>
     </li>
   )
@@ -508,7 +508,7 @@ function StartShelf() {
         <Sparkles className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{t('profile.emptyOwnKicker')}</span>
       </p>
-      <h2 className="display mt-1 truncate text-2xl">{t('profile.emptyOwnTitle')}</h2>
+      <h2 className="display mt-1 text-2xl text-balance">{t('profile.emptyOwnTitle')}</h2>
       <ol className="mt-4 space-y-3">
         <Step n={1} icon={<Compass />} text={t('profile.emptyStep1')} />
         <Step n={2} icon={<ListChecks />} text={t('profile.emptyStep2')} />

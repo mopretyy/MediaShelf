@@ -22,6 +22,24 @@ test('mobile layout: tab bar navigation and no horizontal overflow', async ({ pa
   }
 })
 
+test('mobile layout: the palette language list works by touch', async ({ page }) => {
+  await register(page)
+  await page.locator('header').getByRole('button', { name: 'Поиск' }).tap()
+  const command = page.getByRole('option', { name: /^Язык…/ })
+  await command.tap()
+  await expect(page.getByPlaceholder('Выберите язык…')).toBeVisible()
+  // Without an Escape key the way back is a button.
+  await page.getByRole('dialog').getByRole('button', { name: 'Назад' }).tap()
+  await expect(page.getByPlaceholder('Поиск по библиотеке и каталогу…')).toBeVisible()
+  await command.tap()
+  await page.getByRole('option', { name: /^English/ }).tap()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(
+    page.getByRole('navigation', { name: 'Menu' }).getByRole('link', { name: 'Library' }),
+  ).toBeVisible()
+})
+
 test('mobile layout: profile page fits every phone width in both themes', async ({ page }) => {
   await register(page, 'Константинопольский')
   // A long two-word name must truncate, never wrap or overflow.
@@ -43,12 +61,24 @@ test('mobile layout: profile page fits every phone width in both themes', async 
 
   // Empty library: the onboarding card and Top-4 slots.
   await page.goto(url)
-  await expect(page.getByRole('heading', { name: 'Собери свою полку' })).toBeVisible()
+  const onboarding = page.locator('section', {
+    has: page.getByRole('heading', { name: 'Соберите свою полку' }),
+  })
+  await expect(onboarding).toBeVisible()
   for (const width of [320, 360, 393, 412])
     for (const colorScheme of ['dark', 'light'] as const) {
       await page.setViewportSize({ width, height: 800 })
       await page.emulateMedia({ colorScheme })
       await check()
+      // The steps wrap: no sentence loses its end to an ellipsis.
+      const cut = await onboarding
+        .locator('h2, li span')
+        .evaluateAll((nodes) =>
+          nodes
+            .filter((node) => node.scrollWidth > node.clientWidth + 1)
+            .map((node) => node.textContent),
+        )
+      expect(cut).toEqual([])
     }
 
   // A filled library: stats strip, Top-4, Now.
