@@ -2,9 +2,10 @@ import { expect, type Page } from '@playwright/test'
 
 let counter = 0
 
-export async function register(page: Page, name = 'Дмитрий') {
+/** Creates an account through the form and leaves the page on the onboarding it lands on. */
+export async function signUp(page: Page, name = 'Дмитрий', path = '/register') {
   const email = `user${Date.now()}${counter++}@example.com`
-  await page.goto('/register')
+  await page.goto(path)
   await page.getByLabel('Имя').fill(name)
   await page.getByLabel('Эл. почта').fill(email)
   await page.getByLabel('Пароль', { exact: true }).fill('correct-horse-42')
@@ -19,8 +20,18 @@ export async function register(page: Page, name = 'Дмитрий') {
   if (!devCode) throw new Error('register: the server did not return a dev code (SMTP configured?)')
   await expect(page.getByRole('heading', { level: 1, name: 'Проверьте почту' })).toBeVisible()
   await page.locator('input[autocomplete="one-time-code"]').fill(devCode)
-  await expect(page.getByRole('heading', { level: 1, name: new RegExp(name) })).toBeVisible()
   return { email, password: 'correct-horse-42' }
+}
+
+/** A new account on Home, past the onboarding: skipped the way a hurried user would. */
+export async function register(page: Page, name = 'Дмитрий') {
+  const account = await signUp(page, name)
+  await expect(page).toHaveURL(/\/welcome$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Выберите аватар' })).toBeVisible()
+  await page.getByRole('button', { name: 'Пропустить' }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole('heading', { level: 1, name: new RegExp(name) })).toBeVisible()
+  return account
 }
 
 export async function openTitle(page: Page, id: string) {

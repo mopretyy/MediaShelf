@@ -31,8 +31,8 @@ export default function VerifyEmailPage() {
     verify.mutate(
       { email, code, locale, theme: preference },
       {
-        // Same order as the code form: navigate first, then apply the session, so the route
-        // guard sees the signed-in user instead of bouncing to the login form.
+        // Navigate first, then apply the session: this page has no guest-only guard to race, and
+        // the guard on /welcome then sees the signed-in user instead of bouncing to the login form.
         onSuccess: ({ user }) =>
           setTimeout(() => {
             navigate('/welcome', { replace: true })

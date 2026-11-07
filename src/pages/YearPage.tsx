@@ -22,10 +22,11 @@ import { useDocumentTitle } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/hotkeys'
 import { useLibrary, useSession, useStats } from '@/lib/queries'
 import { titleHref, titleName } from '@/lib/titles'
-import { buildYearStory, type YearStory } from './year/story'
+import { buildYearStory, YEAR_STORY_ENTRY_ID, type YearStory } from './year/story'
 
+/** The slide's headline: small on screen, but the heading a screen reader jumps to. */
 function Label({ children }: { children: ReactNode }) {
-  return <p className="text-sm font-semibold tracking-wide text-white/60 uppercase">{children}</p>
+  return <h2 className="text-sm font-semibold tracking-wide text-white/60 uppercase">{children}</h2>
 }
 
 function Big({ children }: { children: ReactNode }) {
@@ -300,18 +301,20 @@ function useSlides(story: YearStory | null, name: string, again: () => void) {
 }
 
 /**
- * The story is a real modal: focus stays inside it, the shell underneath is inert for assistive
- * tech, and Escape closes only the topmost layer.
+ * The story is a real modal: focus starts on «Дальше» and stays inside, the shell underneath is
+ * hidden from assistive tech and takes no pointer input, and Escape closes only the topmost layer.
  */
 function StoryDialog({
   label,
   onClose,
   storyRef,
+  initialFocusRef,
   children,
 }: {
   label: string
   onClose(): void
   storyRef: RefObject<HTMLDivElement | null>
+  initialFocusRef: RefObject<HTMLButtonElement | null>
   children: ReactNode
 }) {
   return (
@@ -321,15 +324,25 @@ function StoryDialog({
           ref={storyRef}
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => {
-            // Focus the story itself instead of ringing the close button on arrival.
             event.preventDefault()
-            storyRef.current?.focus()
+            initialFocusRef.current?.focus()
+          }}
+          onCloseAutoFocus={(event) => {
+            // The story is a route of its own, so its entry point unmounted with the Stats page.
+            // Closing it (✕, Escape, «К статистике», Back) mounts that page again: return there.
+            const entry = document.getElementById(YEAR_STORY_ENTRY_ID)
+            if (!entry) return
+            event.preventDefault()
+            entry.focus()
           }}
           // Only toasts lie outside a full-screen story; touching one must not close it.
           onInteractOutside={(event) => event.preventDefault()}
           className="dark fixed inset-0 z-[60] flex flex-col bg-black text-white outline-none"
         >
-          <D.Title className="sr-only">{label}</D.Title>
+          {/* The page behind is hidden, so the story's name heads the outline; slides are h2. */}
+          <D.Title asChild>
+            <h1 className="sr-only">{label}</h1>
+          </D.Title>
           {children}
         </D.Content>
       </D.Portal>
@@ -357,6 +370,7 @@ export default function YearPage() {
   const next = useCallback(() => setIndex((i) => Math.min(i + 1, Math.max(total - 1, 0))), [total])
   const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), [])
   const storyRef = useRef<HTMLDivElement>(null)
+  const nextRef = useRef<HTMLButtonElement>(null)
   // The story covers the shell: Ctrl+K or '/' would open the palette invisibly underneath it.
   useSuspendShellHotkeys()
 
@@ -370,7 +384,13 @@ export default function YearPage() {
         target === document.body ||
         (target instanceof Node && Boolean(storyRef.current?.contains(target)))
       if (!inStory) return
-      if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown') {
+      // Space presses the focused button or link, so «Назад» can't turn into «Дальше».
+      const onControl = target instanceof Element && Boolean(target.closest('a, button'))
+      if (
+        event.key === 'ArrowRight' ||
+        event.key === 'PageDown' ||
+        (event.key === ' ' && !onControl)
+      ) {
         event.preventDefault()
         next()
       } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
@@ -392,8 +412,20 @@ export default function YearPage() {
   }
 
   const slide = slides[Math.min(index, Math.max(total - 1, 0))]
+  const atStart = index === 0
+  const atEnd = index >= total - 1
+  // aria-disabled rather than disabled: the end of the story must not drop focus from the
+  // button the user is pressing (a disabled button can't hold it). Only the label dims, so the
+  // focus outline stays crisp.
+  const navClass =
+    'text-white hover:bg-white/10 aria-disabled:pointer-events-none aria-disabled:text-white/30'
   return (
-    <StoryDialog label={t('year.title', { year })} onClose={close} storyRef={storyRef}>
+    <StoryDialog
+      label={t('year.title', { year })}
+      onClose={close}
+      storyRef={storyRef}
+      initialFocusRef={nextRef}
+    >
       <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex flex-1 gap-1" aria-hidden="true">
           {slides.map((s, i) => (
@@ -416,7 +448,9 @@ export default function YearPage() {
         </Button>
       </div>
 
+      {/* The live region stays mounted while slides swap inside it, so each new one is read. */}
       <div
+        aria-live="polite"
         className="relative mx-auto flex w-full max-w-3xl flex-1 cursor-pointer select-none"
         onClick={onTap}
       >
@@ -428,7 +462,6 @@ export default function YearPage() {
         ) : (
           <section
             key={slide?.key}
-            aria-live="polite"
             aria-label={t('year.slide', { n: index + 1, total })}
             className="flex flex-1 animate-rise flex-col justify-center overflow-y-auto px-6 py-8 sm:px-10"
           >
@@ -442,8 +475,8 @@ export default function YearPage() {
           variant="ghost"
           size="sm"
           onClick={prev}
-          disabled={index === 0}
-          className="text-white hover:bg-white/10 disabled:opacity-30"
+          aria-disabled={atStart || undefined}
+          className={navClass}
         >
           <ChevronLeft />
           {t('year.prev')}
@@ -452,11 +485,12 @@ export default function YearPage() {
           {total ? `${index + 1} / ${total}` : ''}
         </span>
         <Button
+          ref={nextRef}
           variant="ghost"
           size="sm"
           onClick={next}
-          disabled={index >= total - 1}
-          className="text-white hover:bg-white/10 disabled:opacity-30"
+          aria-disabled={atEnd || undefined}
+          className={navClass}
         >
           {t('year.next')}
           <ChevronRight />

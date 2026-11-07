@@ -199,13 +199,21 @@ export function UserMenu({ collapsed }: { collapsed?: boolean }) {
   )
 }
 
-/** Avatar-only trigger for the mobile title bar. */
+/**
+ * Avatar-only trigger for the mobile title bar, at its right edge. On touch screens it is a 44 px
+ * target; the negative margin keeps the avatar itself where it sits with a mouse.
+ */
 export function AccountButton({ className }: { className?: string }) {
   const { t } = useI18n()
   const user = useUser()
   if (!user)
     return (
-      <Button asChild variant="secondary" size="sm" className={className}>
+      <Button
+        asChild
+        variant="secondary"
+        size="sm"
+        className={cn('pointer-coarse:h-10 pointer-coarse:px-3.5', className)}
+      >
         <Link to="/login">{t('nav.signIn')}</Link>
       </Button>
     )
@@ -215,7 +223,7 @@ export function AccountButton({ className }: { className?: string }) {
         <button
           type="button"
           aria-label={t('nav.account')}
-          className={cn('rounded-full p-0.5', className)}
+          className={cn('rounded-full p-0.5 pointer-coarse:-mr-1.5 pointer-coarse:p-2', className)}
         >
           <UserAvatar user={user} />
         </button>

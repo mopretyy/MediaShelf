@@ -33,7 +33,8 @@
   --floating: #ffffff;
   --fg: #171717;
   --fg-2: #4d4d4d;
-  --fg-3: #737373;
+  /* 4.5:1 or better on every light surface (#737373 fell to 4.3 on bg and raised). */
+  --fg-3: #666666;
   --line: rgb(0 0 0 / 0.09);
   --line-subtle: rgb(0 0 0 / 0.06);
   --line-strong: rgb(0 0 0 / 0.2);

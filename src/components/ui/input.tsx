@@ -9,11 +9,14 @@ import {
 } from 'react'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
+import { focusRing } from './button'
 
+// The halo on focus is decoration; the focus indicator is the shared outline.
 export const fieldBase = cn(
   'w-full rounded-lg bg-raised text-fg ring-1 ring-inset ring-line placeholder:text-fg-3',
-  'transition-[box-shadow,background-color] duration-150 outline-none',
+  'transition-[box-shadow,background-color] duration-150',
   'hover:ring-line-strong focus:bg-panel focus:ring-line-strong focus:shadow-[0_0_0_4px_var(--active)]',
+  focusRing,
   'disabled:opacity-50 aria-[invalid=true]:ring-danger/70',
 )
 

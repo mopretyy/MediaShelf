@@ -269,7 +269,7 @@ export function MobileTabBar() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex h-full flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
+                    'flex h-full flex-col items-center justify-center gap-1 text-2xs font-medium transition-colors',
                     isActive ? 'text-fg' : 'text-fg-3',
                   )
                 }
@@ -278,7 +278,8 @@ export function MobileTabBar() {
                   <Icon className="size-[22px]" />
                   {item.to === '/' ? <FreshBadge variant="dot" /> : null}
                 </span>
-                <span className="max-w-full truncate px-1">{t(item.label)}</span>
+                {/* No side padding: at 320 px the 11 px «Библиотека» needs the whole 64 px column. */}
+                <span className="max-w-full truncate">{t(item.label)}</span>
               </NavLink>
             </li>
           )

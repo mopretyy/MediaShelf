@@ -5,7 +5,7 @@ import { CHART_LISTS, KINDS, type ChartList, type Kind, type TitleRecord } from 
 import { genreLabel } from '@shared/genres.ts'
 import { PageBody, PageHeader } from '@/app/PageHeader'
 import { Shelf, TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
-import { Button, Spinner } from '@/components/ui/button'
+import { Button, focusRing, Spinner } from '@/components/ui/button'
 import { EmptyState, Switch } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
@@ -363,7 +363,7 @@ export default function DiscoverPage() {
               placeholder={t('discover.searchPlaceholder')}
               aria-label={t('nav.search')}
               enterKeyHint="search"
-              className="h-11 w-full rounded-xl bg-raised pr-10 pl-10 text-lg ring-1 ring-line outline-none ring-inset transition-shadow placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
+              className={`h-11 w-full rounded-xl bg-raised pr-10 pl-10 text-lg ring-1 ring-line ring-inset transition-shadow placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${focusRing}`}
             />
             {search.text ? (
               <button

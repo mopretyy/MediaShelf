@@ -51,7 +51,7 @@ function Shell({
   )
 }
 
-function AvatarStep({ onNext, onBack }: { onNext(): void; onBack(): void }) {
+function AvatarStep({ onNext, onSkip }: { onNext(): void; onSkip(): void }) {
   const { t } = useI18n()
   const user = useUser()!
   const update = useUpdateProfile()
@@ -62,9 +62,9 @@ function AvatarStep({ onNext, onBack }: { onNext(): void; onBack(): void }) {
         <AvatarPicker user={user} />
       </Row>
       <div className="mt-8 flex justify-between">
-        <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft />
-          {t('welcome.back')}
+        {/* There is nothing to go back to from the first step: the account already exists. */}
+        <Button variant="ghost" onClick={onSkip}>
+          {t('welcome.skip')}
         </Button>
         <Button variant="primary" onClick={onNext} loading={update.isPending}>
           {t('welcome.next')}
@@ -115,13 +115,14 @@ export default function WelcomePage() {
   if (!user) return null
   if (isOnboarded(user.id)) return <Navigate to="/" replace />
 
+  // Skipping counts as done: the setup isn't offered again on this device.
   const done = () => {
     markOnboarded(user.id)
     navigate('/', { replace: true })
   }
 
   return step === 0 ? (
-    <AvatarStep onNext={() => setStep(1)} onBack={() => navigate('/', { replace: true })} />
+    <AvatarStep onNext={() => setStep(1)} onSkip={done} />
   ) : (
     <StoresStep onBack={() => setStep(0)} onDone={done} />
   )

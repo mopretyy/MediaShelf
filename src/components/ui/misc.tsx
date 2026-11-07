@@ -149,6 +149,8 @@ export function Chip({
       aria-pressed={active}
       className={cn(
         'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 [&_svg]:size-3.5',
+        // A thumb-sized target on touch screens.
+        'pointer-coarse:h-10 pointer-coarse:px-3.5',
         active
           ? 'bg-fg text-panel'
           : 'bg-raised text-fg-2 ring-1 ring-line ring-inset hover:bg-active hover:text-fg',

@@ -27,7 +27,7 @@ import { UserAvatar } from '@/components/avatar'
 import { Backdrop, Poster } from '@/components/Poster'
 import { KindIcon, StatusIcon } from '@/components/StatusIcon'
 import { Shelf, TitleCard } from '@/components/TitleCard'
-import { Button } from '@/components/ui/button'
+import { Button, focusRing } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyState, SectionHeader, Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
@@ -187,7 +187,10 @@ function Header({ profile, own }: { profile: UserProfile; own: boolean }) {
             value={manualUrl ?? ''}
             aria-label={t('profile.shareTitle')}
             onFocus={(event) => event.currentTarget.select()}
-            className="h-10 w-full rounded-lg bg-raised px-3 text-base text-fg ring-1 ring-line outline-none ring-inset focus-visible:ring-2 focus-visible:ring-fg/40"
+            className={cn(
+              'h-10 w-full rounded-lg bg-raised px-3 text-base text-fg ring-1 ring-line ring-inset',
+              focusRing,
+            )}
           />
         </DialogContent>
       </Dialog>

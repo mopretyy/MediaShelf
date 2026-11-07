@@ -1,5 +1,6 @@
 import { Slider as S } from 'radix-ui'
 import { cn } from '@/lib/cn'
+import { focusRing } from './button'
 
 export function Slider({
   value,
@@ -38,7 +39,11 @@ export function Slider({
       </S.Track>
       <S.Thumb
         aria-label={ariaLabel}
-        className="block size-4 rounded-full bg-panel shadow-[0_0_0_1.5px_var(--fg),0_2px_6px_rgb(0_0_0/0.25)] transition-transform outline-none hover:scale-110 focus-visible:shadow-[0_0_0_1.5px_var(--fg),0_0_0_5px_var(--active)]"
+        className={cn(
+          'block size-4 rounded-full bg-panel shadow-[0_0_0_1.5px_var(--fg),0_2px_6px_rgb(0_0_0/0.25)] transition-transform hover:scale-110',
+          'focus-visible:shadow-[0_0_0_1.5px_var(--fg),0_0_0_4px_var(--active)]',
+          focusRing,
+        )}
       />
     </S.Root>
   )

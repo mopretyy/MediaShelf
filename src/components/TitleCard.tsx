@@ -271,13 +271,15 @@ export function Shelf({
           </div>
         ))}
       </div>
+      {/* Arrows are for mice: touch screens swipe the shelf, and a hover-only arrow there would
+          be an invisible target over the posters. */}
       {!edges.start ? (
         <Button
           variant="secondary"
           size="icon-sm"
           aria-label={t('common.back')}
           onClick={() => scroll(-1)}
-          className="absolute top-[38%] left-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden"
+          className="absolute top-[38%] left-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden pointer-coarse:hidden"
         >
           <ChevronLeft />
         </Button>
@@ -288,7 +290,7 @@ export function Shelf({
           size="icon-sm"
           aria-label={t('common.more')}
           onClick={() => scroll(1)}
-          className="absolute top-[38%] right-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden"
+          className="absolute top-[38%] right-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden pointer-coarse:hidden"
         >
           <ChevronRight />
         </Button>

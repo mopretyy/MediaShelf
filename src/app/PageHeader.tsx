@@ -48,13 +48,25 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      {/* On touch screens every control here is a 44 px box; negative margins at the edges keep
+          the icons where they sit with a mouse, so only the hit areas grow. */}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 pointer-coarse:gap-1">
         {back ? (
-          <Button variant="ghost" size="icon-sm" aria-label={t('common.back')} onClick={goBack}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('common.back')}
+            onClick={goBack}
+            className="pointer-coarse:-ml-1.5 pointer-coarse:size-11"
+          >
             <ArrowLeft />
           </Button>
         ) : (
-          <Link to="/" className="mr-1 rounded-md md:hidden" aria-label={t('nav.home')}>
+          <Link
+            to="/"
+            className="mr-1 rounded-md md:hidden pointer-coarse:mr-0 pointer-coarse:-ml-2 pointer-coarse:p-2"
+            aria-label={t('nav.home')}
+          >
             <BrandMark className="size-7" />
           </Link>
         )}
@@ -87,12 +99,13 @@ export function PageHeader({
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      {/* The 44 px boxes carry their own whitespace on touch screens, so they need no gap. */}
+      <div className="flex shrink-0 items-center gap-1.5 pointer-coarse:gap-0">
         {actions}
         <Button
           variant="ghost"
           size="icon-sm"
-          className="md:hidden"
+          className="md:hidden pointer-coarse:size-11"
           aria-label={t('nav.search')}
           onClick={() => openPalette('search')}
         >

@@ -19,7 +19,7 @@ Strict black and white, in the spirit of Apple and ChatGPT. The layout follows H
 | Raised (cards, inputs)  | `#1c1c1c`              | `#f4f4f4`             |
 | Floating (menus)        | `#1f1f1f`              | `#ffffff`             |
 | Text primary            | `#ededed`              | `#171717`             |
-| Text secondary/tertiary | `#a1a1a1` / `#8f8f8f`  | `#4d4d4d` / `#737373` |
+| Text secondary/tertiary | `#a1a1a1` / `#8f8f8f`  | `#4d4d4d` / `#666666` |
 | Hairline                | white 9%               | black 9%              |
 | Primary button          | `#ededed` on `#0a0a0a` | `#171717` on white    |
 

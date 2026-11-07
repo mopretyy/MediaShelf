@@ -43,6 +43,7 @@ export const en: Messages = {
     optional: 'optional',
     confirm: 'Confirm',
     undo: 'Undo',
+    notifications: 'Notifications',
     or: 'or',
     copy: 'Copy',
     dash: '—',
@@ -552,6 +553,7 @@ export const en: Messages = {
   welcome: {
     title: 'Profile setup',
     back: 'Back',
+    skip: 'Skip',
     next: 'Next',
     finish: 'Done',
     avatarTitle: 'Pick your avatar',
