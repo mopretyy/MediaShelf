@@ -29,6 +29,7 @@ import { useDebounced } from '@/lib/hooks'
 import { readRecent } from '@/lib/recent'
 import { useLibrary, useLibraryMap, useLogout, useSearch, useUser } from '@/lib/queries'
 import { titleHref, titleName, yearRange } from '@/lib/titles'
+import { PalettePreview, type PreviewCommand } from './PalettePreview'
 import { NAV_ITEMS } from './Sidebar'
 import { usePreferenceSetters } from './UserMenu'
 
@@ -238,6 +239,24 @@ export function CommandPalette({
     Boolean(item.keywords?.some((word) => word.startsWith(folded)))
   const listLabel = root ? t('nav.search') : t('settings.language')
 
+  // What the preview column can describe: every title row on screen, and the other rows by value.
+  const shownCatalog = catalogItems.slice(0, 10)
+  const previewTitles = new Map<string, TitleRecord>()
+  for (const title of [...recent, ...libraryMatches.map((entry) => entry.title), ...shownCatalog])
+    previewTitles.set(title.id, title)
+  const previewCommands: PreviewCommand[] = root
+    ? [
+        ...commands.map((item) => ({ ...item, value: `nav-${item.id}` })),
+        ...actionItems.map((item) => ({ ...item, value: `action-${item.id}` })),
+      ]
+    : languageMatches.map((item) => ({
+        value: `language-${item.code}`,
+        label: item.name,
+        lang: item.code,
+        icon: <Languages />,
+        detail: item.hint,
+      }))
+
   const row = (title: TitleRecord) => {
     const saved = library.get(title.id)
     const year = yearRange(title)
@@ -277,7 +296,7 @@ export function CommandPalette({
       <D.Portal>
         <D.Overlay className="anim-fade fixed inset-0 z-50 bg-scrim" />
         <D.Content
-          className="anim-pop fixed top-[10vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[640px] -translate-x-1/2 overflow-hidden rounded-xl liquid-float outline-none max-sm:top-3"
+          className="anim-pop fixed top-[10vh] left-1/2 z-50 w-[calc(100vw-24px)] max-w-[640px] -translate-x-1/2 overflow-hidden rounded-xl liquid-float outline-none max-sm:top-3 md:max-w-[880px]"
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => {
             if (!returnFocus) return
@@ -348,115 +367,120 @@ export function CommandPalette({
                 <Kbd>Esc</Kbd>
               )}
             </div>
-            <Command.List
-              ref={list}
-              // cmdk would name the listbox «Suggestions», in English.
-              label={listLabel}
-              className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3"
-            >
-              {!root ? (
-                languageMatches.length ? (
-                  <Command.Group heading={t('settings.language')}>
-                    {languageMatches.map((item) => (
-                      <Command.Item
-                        key={item.code}
-                        value={`language-${item.code}`}
-                        // aria-selected follows the keyboard; aria-checked marks the one in use.
-                        aria-checked={item.code === locale}
-                        onSelect={run(() => setters.setLocale(item.code))}
-                        className={cn(itemClass, 'h-9')}
-                      >
-                        <span lang={item.code}>{item.name}</span>
-                        {item.hint ? (
-                          <span className="min-w-0 truncate text-sm text-fg-3">{item.hint}</span>
-                        ) : null}
-                        {item.code === locale ? <Check className="ml-auto" /> : null}
-                      </Command.Item>
-                    ))}
+            <div className="md:grid md:grid-cols-[minmax(0,1fr)_300px]">
+              <Command.List
+                ref={list}
+                // cmdk would name the listbox «Suggestions», in English.
+                label={listLabel}
+                className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 md:h-[min(60vh,480px)] [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3"
+              >
+                {!root ? (
+                  languageMatches.length ? (
+                    <Command.Group heading={t('settings.language')}>
+                      {languageMatches.map((item) => (
+                        <Command.Item
+                          key={item.code}
+                          value={`language-${item.code}`}
+                          // aria-selected follows the keyboard; aria-checked marks the one in use.
+                          aria-checked={item.code === locale}
+                          onSelect={run(() => setters.setLocale(item.code))}
+                          className={cn(itemClass, 'h-9')}
+                        >
+                          <span lang={item.code}>{item.name}</span>
+                          {item.hint ? (
+                            <span className="min-w-0 truncate text-sm text-fg-3">{item.hint}</span>
+                          ) : null}
+                          {item.code === locale ? <Check className="ml-auto" /> : null}
+                        </Command.Item>
+                      ))}
+                    </Command.Group>
+                  ) : (
+                    <p className="px-2.5 py-6 text-center text-sm text-fg-3">
+                      {t('palette.empty')}
+                    </p>
+                  )
+                ) : null}
+                {recent.length ? (
+                  <Command.Group heading={t('palette.recent')}>{recent.map(row)}</Command.Group>
+                ) : null}
+                {libraryMatches.length ? (
+                  <Command.Group heading={t('palette.library')}>
+                    {libraryMatches.map((entry) => row(entry.title))}
                   </Command.Group>
-                ) : (
-                  <p className="px-2.5 py-6 text-center text-sm text-fg-3">{t('palette.empty')}</p>
-                )
-              ) : null}
-              {recent.length ? (
-                <Command.Group heading={t('palette.recent')}>{recent.map(row)}</Command.Group>
-              ) : null}
-              {libraryMatches.length ? (
-                <Command.Group heading={t('palette.library')}>
-                  {libraryMatches.map((entry) => row(entry.title))}
-                </Command.Group>
-              ) : null}
-              {catalogItems.length ? (
-                <Command.Group heading={t('palette.catalog')}>
-                  {catalogItems.slice(0, 10).map(row)}
-                </Command.Group>
-              ) : null}
-              {searching ? (
-                <div className="flex h-11 items-center gap-3 px-2.5 text-sm text-fg-3">
-                  <Spinner />
-                  {t('palette.searching')}
-                </div>
-              ) : null}
-              {mode === 'add' && query.length < 2 ? (
-                <p className="px-2.5 py-6 text-center text-sm text-fg-3">
-                  {t('palette.typeToSearch')}
-                </p>
-              ) : null}
-              {mode === 'search' && root ? (
-                <>
-                  {commands.some((item) => matches(item)) ? (
-                    <Command.Group heading={t('palette.navigation')}>
-                      {commands
-                        .filter((item) => matches(item))
-                        .map((item) => (
-                          <Command.Item
-                            key={item.id}
-                            value={`nav-${item.id}`}
-                            onSelect={item.run}
-                            className={cn(itemClass, 'h-9')}
-                          >
-                            <span className="text-fg-2">{item.icon}</span>
-                            {item.label}
-                          </Command.Item>
-                        ))}
-                    </Command.Group>
-                  ) : null}
-                  {actionItems.some((item) => matches(item)) ? (
-                    <Command.Group heading={t('palette.actions')}>
-                      {actionItems
-                        .filter((item) => matches(item))
-                        .map((item) => (
-                          <Command.Item
-                            key={item.id}
-                            value={`action-${item.id}`}
-                            onSelect={item.run}
-                            className={cn(itemClass, 'h-9')}
-                          >
-                            <span className="text-fg-2">{item.icon}</span>
-                            {item.label}
-                            {item.detail ? (
-                              <span className="ml-auto flex min-w-0 items-center gap-1 pl-2 text-sm text-fg-3 [&_svg]:-mr-1">
-                                {item.detail}
-                              </span>
-                            ) : null}
-                          </Command.Item>
-                        ))}
-                    </Command.Group>
-                  ) : null}
-                </>
-              ) : null}
-              {searchable &&
-              !searching &&
-              !catalogItems.length &&
-              !libraryMatches.length &&
-              !(
-                mode === 'search' && [...commands, ...actionItems].some((item) => matches(item))
-              ) ? (
-                <p className="px-2.5 py-6 text-center text-sm text-fg-3">
-                  {catalogFailed ? t('discover.unavailable') : t('palette.empty')}
-                </p>
-              ) : null}
-            </Command.List>
+                ) : null}
+                {catalogItems.length ? (
+                  <Command.Group heading={t('palette.catalog')}>
+                    {shownCatalog.map(row)}
+                  </Command.Group>
+                ) : null}
+                {searching ? (
+                  <div className="flex h-11 items-center gap-3 px-2.5 text-sm text-fg-3">
+                    <Spinner />
+                    {t('palette.searching')}
+                  </div>
+                ) : null}
+                {mode === 'add' && query.length < 2 ? (
+                  <p className="px-2.5 py-6 text-center text-sm text-fg-3">
+                    {t('palette.typeToSearch')}
+                  </p>
+                ) : null}
+                {mode === 'search' && root ? (
+                  <>
+                    {commands.some((item) => matches(item)) ? (
+                      <Command.Group heading={t('palette.navigation')}>
+                        {commands
+                          .filter((item) => matches(item))
+                          .map((item) => (
+                            <Command.Item
+                              key={item.id}
+                              value={`nav-${item.id}`}
+                              onSelect={item.run}
+                              className={cn(itemClass, 'h-9')}
+                            >
+                              <span className="text-fg-2">{item.icon}</span>
+                              {item.label}
+                            </Command.Item>
+                          ))}
+                      </Command.Group>
+                    ) : null}
+                    {actionItems.some((item) => matches(item)) ? (
+                      <Command.Group heading={t('palette.actions')}>
+                        {actionItems
+                          .filter((item) => matches(item))
+                          .map((item) => (
+                            <Command.Item
+                              key={item.id}
+                              value={`action-${item.id}`}
+                              onSelect={item.run}
+                              className={cn(itemClass, 'h-9')}
+                            >
+                              <span className="text-fg-2">{item.icon}</span>
+                              {item.label}
+                              {item.detail ? (
+                                <span className="ml-auto flex min-w-0 items-center gap-1 pl-2 text-sm text-fg-3 [&_svg]:-mr-1">
+                                  {item.detail}
+                                </span>
+                              ) : null}
+                            </Command.Item>
+                          ))}
+                      </Command.Group>
+                    ) : null}
+                  </>
+                ) : null}
+                {searchable &&
+                !searching &&
+                !catalogItems.length &&
+                !libraryMatches.length &&
+                !(
+                  mode === 'search' && [...commands, ...actionItems].some((item) => matches(item))
+                ) ? (
+                  <p className="px-2.5 py-6 text-center text-sm text-fg-3">
+                    {catalogFailed ? t('discover.unavailable') : t('palette.empty')}
+                  </p>
+                ) : null}
+              </Command.List>
+              <PalettePreview titles={previewTitles} commands={previewCommands} library={library} />
+            </div>
             <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-xs text-fg-3 max-sm:hidden">
               <span className="flex items-center gap-1.5">
                 <Kbd>↑</Kbd>
