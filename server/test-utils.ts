@@ -113,7 +113,10 @@ export function fakeCatalog(): CatalogService {
   }
 }
 
-export function testApp(catalog: CatalogService = fakeCatalog(), { limits = false } = {}) {
+export function testApp(
+  catalog: CatalogService = fakeCatalog(),
+  { limits = false, imageFetch }: { limits?: boolean; imageFetch?: typeof fetch } = {},
+) {
   const config = { ...loadConfig([], { DB_FILE: ':memory:' }), dev: true }
   const db = openDatabase(':memory:')
   const app = createApp({
@@ -123,6 +126,7 @@ export function testApp(catalog: CatalogService = fakeCatalog(), { limits = fals
     cache: memoryCache(),
     titles: new TitleStore(db),
     limits: createLimits(limits),
+    imageFetch,
   })
   let cookie = ''
   const request = async (
@@ -157,7 +161,7 @@ export function testApp(catalog: CatalogService = fakeCatalog(), { limits = fals
     }
     return { status: response.status, headers: response.headers, body: parsed }
   }
-  return { app, db, request, clearCookie: () => (cookie = '') }
+  return { app, db, request, cookie: () => cookie, clearCookie: () => (cookie = '') }
 }
 
 export interface TestAccount {

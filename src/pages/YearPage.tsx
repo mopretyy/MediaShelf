@@ -22,6 +22,7 @@ import { useDocumentTitle } from '@/lib/hooks'
 import { isTypingTarget } from '@/lib/hotkeys'
 import { useLibrary, useSession, useStats } from '@/lib/queries'
 import { titleHref, titleName } from '@/lib/titles'
+import { ShareImageButton } from './year/ShareImage'
 import { buildYearStory, YEAR_STORY_ENTRY_ID, type YearStory } from './year/story'
 
 /** The slide's headline: small on screen, but the heading a screen reader jumps to. */
@@ -36,7 +37,13 @@ function Big({ children }: { children: ReactNode }) {
 }
 
 /** Builds only the slides that have something true to say about this year. */
-function useSlides(story: YearStory | null, name: string, again: () => void) {
+function useSlides(
+  story: YearStory | null,
+  name: string,
+  again: () => void,
+  /** The «picture for social media» button on the last slide. */
+  share: ReactNode,
+) {
   const { t, locale, fmt } = useI18n()
   return useMemo(() => {
     if (!story) return []
@@ -287,6 +294,7 @@ function useSlides(story: YearStory | null, name: string, again: () => void) {
               <RotateCcw />
               {t('year.again')}
             </Button>
+            {share}
             <Button asChild variant="primary" className="bg-white text-black hover:bg-white/90">
               <Link to="/stats" onClick={(event) => event.stopPropagation()}>
                 {t('year.toStats')}
@@ -297,7 +305,7 @@ function useSlides(story: YearStory | null, name: string, again: () => void) {
       ),
     })
     return slides
-  }, [story, name, again, t, locale, fmt])
+  }, [story, name, again, share, t, locale, fmt])
 }
 
 /**
@@ -364,7 +372,20 @@ export default function YearPage() {
   )
   const [index, setIndex] = useState(0)
   const again = useCallback(() => setIndex(0), [])
-  const slides = useSlides(story, user?.name.split(' ')[0] ?? '', again)
+  const firstName = user?.name.split(' ')[0] ?? ''
+  const share = useMemo(
+    () =>
+      story && library.data ? (
+        <ShareImageButton
+          story={story}
+          entries={library.data}
+          name={firstName}
+          className="bg-white/10 text-white ring-white/20 hover:bg-white/15"
+        />
+      ) : null,
+    [story, library.data, firstName],
+  )
+  const slides = useSlides(story, firstName, again, share)
   const total = slides.length
   const close = useCallback(() => navigate('/stats'), [navigate])
   const next = useCallback(() => setIndex((i) => Math.min(i + 1, Math.max(total - 1, 0))), [total])

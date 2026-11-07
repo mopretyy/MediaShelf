@@ -16,6 +16,8 @@ interface ContentProps {
   className?: string
   hideTitle?: boolean
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Opens over a full-screen layer (the year story is z-60) instead of under it. */
+  overLayer?: boolean
 }
 
 const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' }
@@ -27,16 +29,18 @@ export function DialogContent({
   className,
   hideTitle,
   size = 'md',
+  overLayer,
 }: ContentProps) {
   const { t } = useI18n()
   return (
     <D.Portal>
-      <D.Overlay className="anim-fade fixed inset-0 z-50 bg-scrim" />
+      <D.Overlay className={cn('anim-fade fixed inset-0 z-50 bg-scrim', overLayer && 'z-[70]')} />
       <D.Content
         className={cn(
           'anim-pop fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-32px)] w-[calc(100vw-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto',
           'rounded-xl liquid-float p-5 outline-none sm:p-6',
           widths[size],
+          overLayer && 'z-[70]',
           className,
         )}
       >

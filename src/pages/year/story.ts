@@ -76,3 +76,17 @@ export function buildYearStory(
     added: stats.addedThisYear,
   }
 }
+
+/**
+ * Posters for the «My year» picture: titles finished this year that have one, the best rated
+ * first, then the most recently finished. Up to `limit`.
+ */
+export function yearPosters(year: number, entries: LibraryEntry[], limit = 5): LibraryEntry[] {
+  return entries
+    .filter((e) => e.status === 'completed' && yearOf(e.finishedAt) === year && e.title.poster)
+    .sort(
+      (a, b) =>
+        (b.rating ?? 0) - (a.rating ?? 0) || (b.finishedAt ?? '').localeCompare(a.finishedAt ?? ''),
+    )
+    .slice(0, limit)
+}

@@ -13,6 +13,7 @@ import { ApiError, errorResponse } from './http/errors.ts'
 import { sameOriginOnly, securityHeaders } from './http/security.ts'
 import { authRoutes } from './routes/auth.ts'
 import { catalogRoutes } from './routes/catalog.ts'
+import { imagesRoutes } from './routes/images.ts'
 import { libraryRoutes } from './routes/library.ts'
 import { meRoutes } from './routes/me.ts'
 import { usersRoutes } from './routes/users.ts'
@@ -86,6 +87,7 @@ export function createApp(deps: AppDeps) {
   api.route('/me', meRoutes(deps))
   api.route('/library', libraryRoutes(deps))
   api.route('/users', usersRoutes(deps))
+  api.route('/images', imagesRoutes(deps, deps.imageFetch))
   api.route('/', catalogRoutes(deps))
   api.all('*', () => {
     throw new ApiError(404, 'NOT_FOUND', 'Unknown API route')

@@ -856,6 +856,15 @@ export const de: DeepPartial<Messages> = {
     emptyText:
       'Markieren Sie, was Sie gesehen und durchgespielt haben, dann erscheint hier Ihr Jahresrückblick.',
     emptyAction: 'Bibliothek öffnen',
+    shareImage: 'Bild für soziale Netzwerke',
+    shareImageTitle: 'Ihr {year} in einem Bild',
+    shareImageText: 'Speichern Sie es oder teilen Sie es in Ihrer Story.',
+    shareMaking: 'Bild wird gezeichnet…',
+    shareFailed: 'Das Bild konnte nicht gezeichnet werden. Bitte versuchen Sie es erneut.',
+    shareDownload: 'PNG herunterladen',
+    shareSend: 'Teilen',
+    cardHeadline: { one: '{count} Titel abgeschlossen', other: '{count} Titel abgeschlossen' },
+    cardFirst: 'Nummer eins · {rating}/10',
   },
   verify: {
     title: 'E-Mail-Bestätigung',

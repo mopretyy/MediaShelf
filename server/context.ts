@@ -17,6 +17,8 @@ export interface AppDeps {
   titles: TitleStore
   limits: Limits
   cache: PersistentCache
+  /** Fetches catalog pictures for /api/images (tests pass a fake). */
+  imageFetch?: typeof fetch
 }
 
 export type AppEnv = {

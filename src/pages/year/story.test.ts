@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryEntry, LibraryStats } from '../../../shared/types.ts'
-import { buildYearStory } from './story.ts'
+import { buildYearStory, yearPosters } from './story.ts'
 
 function entry(id: string, over: Partial<LibraryEntry> & { genres?: string[] } = {}): LibraryEntry {
   const { genres = [], ...rest } = over
@@ -68,5 +68,28 @@ describe('year story', () => {
     expect(empty.bestMonth).toBeNull()
     expect(empty.top).toEqual([])
     expect(empty.averageRating).toBeNull()
+  })
+})
+
+describe('year posters', () => {
+  const withPoster = (id: string, over: Partial<LibraryEntry> = {}) => {
+    const value = entry(id, over)
+    return { ...value, title: { ...value.title, poster: `https://img/${id}.jpg` } } as LibraryEntry
+  }
+
+  it('takes this year’s finished titles with a poster, best rated, then most recent', () => {
+    const picked = yearPosters(2026, [
+      withPoster('old', { rating: 10, finishedAt: '2025-12-31T10:00:00.000Z' }),
+      entry('no-poster', { rating: 10 }),
+      withPoster('planned', { status: 'planned', rating: 10 }),
+      withPoster('nine', { rating: 9 }),
+      withPoster('unrated-late', { finishedAt: '2026-09-01T10:00:00.000Z' }),
+      withPoster('unrated-early', { finishedAt: '2026-02-01T10:00:00.000Z' }),
+      withPoster('ten', { rating: 10 }),
+    ])
+    expect(picked.map((e) => e.titleId)).toEqual(['ten', 'nine', 'unrated-late', 'unrated-early'])
+    expect(yearPosters(2026, [withPoster('a'), withPoster('b'), withPoster('c')], 2)).toHaveLength(
+      2,
+    )
   })
 })
