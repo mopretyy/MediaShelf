@@ -14,6 +14,21 @@ export const LANGUAGE_NAMES: Record<Locale, string> = {
 }
 
 /**
+ * The word for «language» in every interface language (each locale's `nav.language`), so the
+ * palette finds «Язык…» from any of them without loading every dictionary. Kept equal to the
+ * dictionaries by languages.test.ts.
+ */
+export const LANGUAGE_WORDS: Record<Locale, string> = {
+  ru: 'Язык',
+  en: 'Language',
+  uk: 'Мова',
+  de: 'Sprache',
+  es: 'Idioma',
+  fr: 'Langue',
+  ro: 'Limbă',
+}
+
+/**
  * Fully translated locales: parity.test.ts fails when one of them lacks a key that ru.ts has.
  * The others are partial and fall back to English. Add a locale once its translation is done.
  */

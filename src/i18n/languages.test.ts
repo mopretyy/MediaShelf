@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LOCALES } from '../../shared/types.ts'
-import { foldForSearch, languageOptions, matchLanguages } from './languages.ts'
+import { foldForSearch, LANGUAGE_WORDS, languageOptions, matchLanguages } from './languages.ts'
 
 const codes = (options: { code: string }[]) => options.map((option) => option.code)
 
@@ -59,5 +59,21 @@ describe('matchLanguages', () => {
 
   it('finds nothing for something that is not a language', () => {
     expect(matchLanguages(russian, 'язык')).toEqual([])
+  })
+})
+
+describe('LANGUAGE_WORDS', () => {
+  it('is each dictionary’s own word for «language»', async () => {
+    const dictionaries = {
+      ru: (await import('./ru.ts')).ru,
+      en: (await import('./en.ts')).en,
+      uk: (await import('./uk.ts')).uk,
+      de: (await import('./de.ts')).de,
+      es: (await import('./es.ts')).es,
+      fr: (await import('./fr.ts')).fr,
+      ro: (await import('./ro.ts')).ro,
+    }
+    for (const [code, messages] of Object.entries(dictionaries))
+      expect(LANGUAGE_WORDS[code as keyof typeof LANGUAGE_WORDS]).toBe(messages.nav?.language)
   })
 })

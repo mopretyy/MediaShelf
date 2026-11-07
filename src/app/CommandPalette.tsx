@@ -23,8 +23,14 @@ import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { Button, Spinner } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/misc'
-import { translate, useI18n } from '@/i18n'
-import { foldForSearch, LANGUAGE_NAMES, languageOptions, matchLanguages } from '@/i18n/languages'
+import { useI18n } from '@/i18n'
+import {
+  foldForSearch,
+  LANGUAGE_NAMES,
+  LANGUAGE_WORDS,
+  languageOptions,
+  matchLanguages,
+} from '@/i18n/languages'
 import { cn } from '@/lib/cn'
 import { useDebounced } from '@/lib/hooks'
 import { readRecent } from '@/lib/recent'
@@ -155,7 +161,7 @@ export function CommandPalette({
   // language, so a person stuck in an interface they can't read still finds the way out.
   const languageKeywords = useMemo(
     () => [
-      ...LOCALES.map((code) => foldForSearch(translate(code, 'nav.language'))),
+      ...LOCALES.map((code) => foldForSearch(LANGUAGE_WORDS[code])),
       ...languages.flatMap((item) => item.words),
     ],
     [languages],

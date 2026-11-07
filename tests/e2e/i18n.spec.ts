@@ -136,3 +136,24 @@ test('a first visit opens in the browser’s language when the interface has it'
     await context.close()
   }
 })
+
+test('only the dictionary in use is downloaded', async ({ page }) => {
+  const dictionaries: string[] = []
+  page.on('request', (request) => {
+    const match = /\/assets\/(uk|de|es|fr|ro)-[\w-]+\.js$/.exec(new URL(request.url()).pathname)
+    if (match) dictionaries.push(match[1])
+  })
+  await register(page)
+  await page.goto('/discover')
+  await expect(page.getByRole('heading', { name: /популярное сейчас/ }).first()).toBeVisible()
+  // Russian and English come with the app; nothing else was needed.
+  expect(dictionaries).toEqual([])
+
+  await page.keyboard.press('Control+k')
+  await page.getByPlaceholder('Поиск по библиотеке и каталогу…').fill('deutsch')
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+  await expect(page.getByRole('link', { name: 'Entdecken' }).first()).toBeVisible()
+  expect(dictionaries).toEqual(['de'])
+})

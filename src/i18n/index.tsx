@@ -4,18 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import type { Locale } from '@shared/types.ts'
 import { LOCALES } from '@shared/types.ts'
-import { de } from './de.ts'
 import { en } from './en.ts'
-import { es } from './es.ts'
-import { fr } from './fr.ts'
-import { ro } from './ro.ts'
 import { ru, type DeepPartial, type Messages } from './ru.ts'
-import { uk } from './uk.ts'
 
 type Plural = { one: string; few: string; many: string; other: string }
 type Leaves<T, P extends string = ''> = {
@@ -29,9 +25,34 @@ type Leaves<T, P extends string = ''> = {
 export type MessageKey = Leaves<Messages>
 export type Vars = Record<string, string | number>
 
-// ru/en are complete; the rest are partial and fall back to English.
-const dictionaries: Record<Locale, DeepPartial<Messages>> = { ru, en, uk, de, es, fr, ro }
+// Russian (the source of the keys) and English (every other locale's fallback) come with the
+// app; the other five load on demand, so each visitor downloads one more dictionary at most.
+const dictionaries: Partial<Record<Locale, DeepPartial<Messages>>> = { ru, en }
+const loaders: Partial<Record<Locale, () => Promise<DeepPartial<Messages>>>> = {
+  uk: () => import('./uk.ts').then((module) => module.uk),
+  de: () => import('./de.ts').then((module) => module.de),
+  es: () => import('./es.ts').then((module) => module.es),
+  fr: () => import('./fr.ts').then((module) => module.fr),
+  ro: () => import('./ro.ts').then((module) => module.ro),
+}
 const STORAGE_KEY = 'mediashelf:locale'
+
+export const isLocaleLoaded = (locale: Locale) => Boolean(dictionaries[locale])
+
+/**
+ * Fetches a locale's dictionary once. A failed fetch (offline) resolves anyway: the interface
+ * then shows English, the fallback of every locale, rather than nothing.
+ */
+export async function loadLocale(locale: Locale): Promise<void> {
+  if (dictionaries[locale]) return
+  const loader = loaders[locale]
+  if (!loader) return
+  try {
+    dictionaries[locale] = await loader()
+  } catch {
+    /* English fallback, see translate() */
+  }
+}
 
 function lookup(messages: DeepPartial<Messages> | undefined, key: string): unknown {
   let node: unknown = messages
@@ -186,14 +207,20 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
+  // The last language asked for: a slow dictionary must not win over a later choice.
+  const wanted = useRef(locale)
 
   const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next)
+    wanted.current = next
     try {
       localStorage.setItem(STORAGE_KEY, next)
     } catch {
       /* ignore */
     }
+    // The interface switches once the words are there, never to a page of keys.
+    void loadLocale(next).then(() => {
+      if (wanted.current === next) setLocaleState(next)
+    })
   }, [])
 
   useEffect(() => {
