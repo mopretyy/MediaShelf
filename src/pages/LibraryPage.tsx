@@ -1,4 +1,14 @@
-import { Columns3, Heart, LayoutGrid, LibraryBig, List, Search, SearchX, X } from 'lucide-react'
+import {
+  Columns3,
+  Heart,
+  Layers,
+  LayoutGrid,
+  LibraryBig,
+  List,
+  Search,
+  SearchX,
+  X,
+} from 'lucide-react'
 import { lazy, Suspense, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { STATUS_ORDER } from '@shared/status.ts'
@@ -123,20 +133,28 @@ export default function LibraryPage() {
     <PageHeader
       title={t('library.title')}
       actions={
-        entries.length ? (
-          <Segmented<View>
-            size="sm"
-            aria-label={t('library.title')}
-            value={view}
-            onChange={(value) => update({ view: value === 'grid' ? null : value })}
-            iconOnlyOnMobile
-            options={[
-              { value: 'grid', label: t('library.viewGrid'), icon: <LayoutGrid /> },
-              { value: 'list', label: t('library.viewList'), icon: <List /> },
-              { value: 'board', label: t('library.viewBoard'), icon: <Columns3 /> },
-            ]}
-          />
-        ) : null
+        <div className="flex items-center gap-2">
+          {/* Phones have no sidebar, and the tab bar no room: collections live here for them. */}
+          <Button asChild variant="ghost" size="icon-sm" className="md:hidden">
+            <Link to="/collections" aria-label={t('nav.collections')}>
+              <Layers />
+            </Link>
+          </Button>
+          {entries.length ? (
+            <Segmented<View>
+              size="sm"
+              aria-label={t('library.title')}
+              value={view}
+              onChange={(value) => update({ view: value === 'grid' ? null : value })}
+              iconOnlyOnMobile
+              options={[
+                { value: 'grid', label: t('library.viewGrid'), icon: <LayoutGrid /> },
+                { value: 'list', label: t('library.viewList'), icon: <List /> },
+                { value: 'board', label: t('library.viewBoard'), icon: <Columns3 /> },
+              ]}
+            />
+          ) : null}
+        </div>
       }
     />
   )

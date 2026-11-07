@@ -1,6 +1,7 @@
 import { profileLookEn } from './sections/profile-look.ts'
 import { airingEn } from './sections/airing.ts'
 import { calendarEn } from './sections/calendar.ts'
+import { collectionsEn } from './sections/collections.ts'
 import { moodsEn } from './sections/moods.ts'
 import { externalImportEn } from './sections/external-import.ts'
 import { shortcutsEn } from './sections/shortcuts.ts'
@@ -17,6 +18,7 @@ export const en: Messages = {
   shortcuts: shortcutsEn,
   calendar: calendarEn,
   moods: moodsEn,
+  collections: collectionsEn,
   app: {
     name: 'MediaShell',
     tagline: 'Games, movies, series and anime — one library',
@@ -63,6 +65,7 @@ export const en: Messages = {
     shuffle: 'Shuffle',
     stats: 'Stats',
     calendar: 'Calendar',
+    collections: 'Collections',
     settings: 'Settings',
     search: 'Search',
     add: 'Add',

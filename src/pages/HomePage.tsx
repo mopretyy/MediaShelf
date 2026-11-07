@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Chip, ProgressBar, SectionHeader, Skeleton } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { ActivityRow } from '@/components/ActivityRow'
+import { CollectionCard } from '@/components/CollectionCard'
 import { useI18n } from '@/i18n'
 import { mergeActivity } from '@/lib/activity'
+import { useCollections } from '@/lib/collections'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle } from '@/lib/hooks'
 import { useActivity, useCharts, useLibrary, useSession } from '@/lib/queries'
@@ -235,6 +237,34 @@ function PausedShelf({ entries }: { entries: LibraryEntry[] }) {
   )
 }
 
+/** The user's collections that have titles, one tap from Home. */
+function CollectionsShelf() {
+  const { t } = useI18n()
+  const collections = (useCollections().data ?? []).filter((collection) => collection.count > 0)
+  if (!collections.length) return null
+  return (
+    <section className="mt-12" aria-labelledby="collections-heading">
+      <SectionHeader
+        id="collections-heading"
+        title={t('collections.yours')}
+        action={
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/collections">
+              {t('common.seeAll')}
+              <ArrowRight />
+            </Link>
+          </Button>
+        }
+      />
+      <Shelf label={t('collections.yours')} itemClassName="w-[240px] sm:w-[268px]">
+        {collections.map((collection) => (
+          <CollectionCard key={collection.id} collection={collection} />
+        ))}
+      </Shelf>
+    </section>
+  )
+}
+
 function Dashboard({ name }: { name: string }) {
   const { t } = useI18n()
   const library = useLibrary()
@@ -343,6 +373,8 @@ function Dashboard({ name }: { name: string }) {
       ) : null}
 
       {failed ? null : paused.length ? <PausedShelf entries={paused} /> : null}
+
+      {failed ? null : <CollectionsShelf />}
 
       {failed || library.isLoading || entries.length ? null : (
         <section className="mt-12 rounded-xl bg-raised p-8 text-center ring-1 ring-line ring-inset sm:p-10">

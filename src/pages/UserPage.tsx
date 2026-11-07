@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   Compass,
   Heart,
   ListChecks,
@@ -30,6 +31,7 @@ import { Shelf, TitleCard } from '@/components/TitleCard'
 import { Button, focusRing } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyState, SectionHeader, Skeleton } from '@/components/ui/misc'
+import { CollectionCard } from '@/components/CollectionCard'
 import { useI18n } from '@/i18n'
 import { formatDayHeading, mergeActivity } from '@/lib/activity'
 import { bannerBackground, isGradientBanner } from '@/lib/banners'
@@ -625,6 +627,35 @@ function ProfileSkeleton() {
   )
 }
 
+/** The user's collections with titles in them, as small shelves. */
+function CollectionsSection({ profile, own }: { profile: UserProfile; own: boolean }) {
+  const { t } = useI18n()
+  if (!profile.collections?.length) return null
+  return (
+    <section className="mt-8" aria-labelledby="profile-collections">
+      <SectionHeader
+        id="profile-collections"
+        title={t('collections.title')}
+        action={
+          own ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/collections">
+                {t('common.seeAll')}
+                <ArrowRight />
+              </Link>
+            </Button>
+          ) : undefined
+        }
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {profile.collections.slice(0, 6).map((collection) => (
+          <CollectionCard key={collection.id} collection={collection} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function ProfileContent({ profile, own }: { profile: UserProfile; own: boolean }) {
   const { t } = useI18n()
   const empty = profile.stats.total === 0
@@ -632,15 +663,20 @@ function ProfileContent({ profile, own }: { profile: UserProfile; own: boolean }
     <div className="animate-fade-in pb-10">
       <Header profile={profile} own={own} />
       {empty ? (
+        // Collections can hold titles that are not in the library: they show here too.
         own ? (
           <>
             <StartShelf />
+            <CollectionsSection profile={profile} own />
             <TopFour entries={[]} own />
           </>
         ) : (
-          <p className="mt-10 truncate text-center text-base text-fg-3">
-            {t('profile.emptyOther')}
-          </p>
+          <>
+            <p className="mt-10 truncate text-center text-base text-fg-3">
+              {t('profile.emptyOther')}
+            </p>
+            <CollectionsSection profile={profile} own={false} />
+          </>
         )
       ) : (
         <>
@@ -649,6 +685,7 @@ function ProfileContent({ profile, own }: { profile: UserProfile; own: boolean }
             <div className="min-w-0">
               <TopFour entries={profile.favorites} own={own} />
               <NowSection entries={profile.inProgress} />
+              <CollectionsSection profile={profile} own={own} />
               <RecentlyCompleted entries={profile.completed} />
             </div>
             <aside className="min-w-0 lg:pt-8">

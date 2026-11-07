@@ -11,6 +11,7 @@ import {
   MAX_PLAYTHROUGHS,
   refreshEpisodeCounters,
 } from './entries.ts'
+import { MAX_COLLECTION_ITEMS, MAX_COLLECTIONS } from './collections.ts'
 import type { TitleStore } from './titles.ts'
 
 // Imported artwork may only point at the image CDNs the catalogs themselves use.
@@ -122,19 +123,46 @@ const entrySchema = z.object({
     .catch([]),
 })
 
+const collectionSchema = z.object({
+  name: text(80).trim().min(1),
+  description: text(500).catch(''),
+  items: z
+    .array(z.object({ titleId: z.string().refine(isTitleId), addedAt: iso, title: titleSchema }))
+    .max(MAX_COLLECTION_ITEMS)
+    .catch([]),
+})
+
 export const importSchema = z.object({
   // Legacy 'mediadeck' files still import after the rename to MediaShell.
   format: z.enum(['mediashelf', 'mediadeck']),
   version: z.literal(4),
   entries: z.array(z.unknown()).max(MAX_ENTRIES),
+  // Added later in version 4: files without it import as before.
+  collections: z.array(z.unknown()).max(MAX_COLLECTIONS).optional(),
 })
+
+/** The part of a title record an export carries: enough to show it before a refresh. */
+function titleSnapshot(db: DB, titleId: string) {
+  const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(titleId) as { data: string }
+  const title = JSON.parse(stored.data) as TitleRecord
+  return {
+    id: title.id,
+    kind: title.kind,
+    names: title.names,
+    year: title.year,
+    poster: title.poster,
+    backdrop: title.backdrop,
+    genres: title.genres,
+    ratings: title.ratings,
+    runtime: title.runtime ?? null,
+    seasons: title.seasons ?? null,
+    episodes: title.episodes ?? null,
+    externalIds: title.externalIds,
+  }
+}
 
 /** One entry in export format: everything needed to recreate it, marks and playthroughs included. */
 export function exportEntry(db: DB, userId: string, entry: LibraryEntry) {
-  const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(entry.titleId) as {
-    data: string
-  }
-  const title = JSON.parse(stored.data) as TitleRecord
   return {
     titleId: entry.titleId,
     status: entry.status,
@@ -149,20 +177,7 @@ export function exportEntry(db: DB, userId: string, entry: LibraryEntry) {
     startedAt: entry.startedAt,
     finishedAt: entry.finishedAt,
     position: entry.position,
-    title: {
-      id: title.id,
-      kind: title.kind,
-      names: title.names,
-      year: title.year,
-      poster: title.poster,
-      backdrop: title.backdrop,
-      genres: title.genres,
-      ratings: title.ratings,
-      runtime: title.runtime ?? null,
-      seasons: title.seasons ?? null,
-      episodes: title.episodes ?? null,
-      externalIds: title.externalIds,
-    },
+    title: titleSnapshot(db, entry.titleId),
     playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
     episodes: snapshotMarks(db, userId, entry.titleId),
   }
@@ -185,6 +200,28 @@ function snapshotMarks(db: DB, userId: string, titleId: string) {
 
 export type EntrySnapshot = ReturnType<typeof exportEntry>
 
+/** The user's collections with their titles, oldest first so an import keeps the order. */
+function exportCollections(db: DB, userId: string) {
+  const rows = sql(
+    db,
+    'SELECT id, name, description FROM collections WHERE user_id = ? ORDER BY updated_at, id',
+  ).all(userId) as { id: string; name: string; description: string }[]
+  return rows.map((row) => ({
+    name: row.name,
+    description: row.description,
+    items: (
+      sql(
+        db,
+        'SELECT title_id, added_at FROM collection_items WHERE collection_id = ? ORDER BY added_at, title_id',
+      ).all(row.id) as { title_id: string; added_at: number }[]
+    ).map((item) => ({
+      titleId: item.title_id,
+      addedAt: new Date(item.added_at).toISOString(),
+      title: titleSnapshot(db, item.title_id),
+    })),
+  }))
+}
+
 export function exportLibrary(db: DB, user: User) {
   const entries = listEntries(db, user.id).map((entry) => exportEntry(db, user.id, entry))
   return {
@@ -193,15 +230,68 @@ export function exportLibrary(db: DB, user: User) {
     exportedAt: new Date().toISOString(),
     profile: { name: user.name, preferences: user.preferences },
     entries,
+    collections: exportCollections(db, user.id),
   }
+}
+
+/**
+ * Collections from an export: one with the same name gets the missing titles, a new one is
+ * created otherwise (within the limits). Invalid collections and items are skipped.
+ */
+function importCollections(db: DB, titles: TitleStore, userId: string, collections: unknown[]) {
+  let imported = 0
+  transaction(db, () => {
+    for (const raw of collections) {
+      const parsed = collectionSchema.safeParse(raw)
+      if (!parsed.success) continue
+      const input = parsed.data
+      let row = sql(db, 'SELECT id FROM collections WHERE user_id = ? AND name = ?').get(
+        userId,
+        input.name,
+      ) as { id: string } | undefined
+      const now = Date.now()
+      if (!row) {
+        const { count } = sql(
+          db,
+          'SELECT COUNT(*) AS count FROM collections WHERE user_id = ?',
+        ).get(userId) as { count: number }
+        if (count >= MAX_COLLECTIONS) continue
+        row = { id: crypto.randomUUID() }
+        sql(
+          db,
+          'INSERT INTO collections (id, user_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        ).run(row.id, userId, input.name, input.description, now, now)
+      }
+      const insert = sql(
+        db,
+        'INSERT OR IGNORE INTO collection_items (collection_id, title_id, added_at) VALUES (?, ?, ?)',
+      )
+      for (const item of input.items) {
+        if (item.title.id !== item.titleId || kindOfTitleId(item.titleId) !== item.title.kind)
+          continue
+        const { count } = sql(
+          db,
+          'SELECT COUNT(*) AS count FROM collection_items WHERE collection_id = ?',
+        ).get(row.id) as { count: number }
+        if (count >= MAX_COLLECTION_ITEMS) break
+        titles.putImported(item.title as TitleRecord)
+        insert.run(row.id, item.titleId, ms(item.addedAt) ?? now)
+      }
+      imported++
+    }
+  })
+  return imported
 }
 
 const ms = (value: string | null | undefined) => (value ? Date.parse(value) : null)
 
 /** Merges an export into the user's library; existing entries are overwritten. */
 export function importLibrary(db: DB, titles: TitleStore, userId: string, payload: unknown) {
-  const { entries } = importSchema.parse(payload)
-  return importEntries(db, titles, userId, entries)
+  const { entries, collections } = importSchema.parse(payload)
+  const result = importEntries(db, titles, userId, entries)
+  // Reported only when there were some, so the answer for older files stays as it was.
+  const imported = importCollections(db, titles, userId, collections ?? [])
+  return imported ? { ...result, collections: imported } : result
 }
 
 /**

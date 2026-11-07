@@ -1,0 +1,56 @@
+// Copy for the user's own collections (/collections, the title page picker, the profile).
+// ru is the source of truth; every locale provides exactly the same keys (parity.test.ts).
+
+export const collectionsRu = {
+  title: 'Подборки',
+  create: 'Новая подборка',
+  name: 'Название',
+  namePlaceholder: 'Например, «Ужасы на Хеллоуин»',
+  description: 'Описание',
+  descriptionPlaceholder: 'Пара слов о том, что внутри',
+  edit: 'Изменить подборку',
+  deleteTitle: 'Удалить подборку?',
+  deleteText: '«{name}» исчезнет, тайтлы останутся в библиотеке.',
+  deleted: 'Подборка удалена',
+  empty: 'Подборок пока нет',
+  emptyText:
+    'Собирайте тайтлы в свои полки: «Ужасы на Хеллоуин», «С друзьями», «Пересмотреть зимой». Их видно и в вашем профиле.',
+  emptyCollection: 'В подборке пока пусто',
+  emptyCollectionText: 'Добавляйте тайтлы кнопкой «В подборку» на их страницах.',
+  addTo: 'В подборку',
+  pickerTitle: 'Добавить в подборку',
+  pickerEmpty: 'Подборок пока нет — создайте первую.',
+  added: 'Добавлено в «{name}»',
+  removed: 'Убрано из «{name}»',
+  removeFrom: 'Убрать из подборки',
+  by: 'Автор: {name}',
+  yours: 'Ваши подборки',
+  notFound: 'Подборка не найдена',
+}
+
+export const collectionsEn: typeof collectionsRu = {
+  title: 'Collections',
+  create: 'New collection',
+  name: 'Name',
+  namePlaceholder: 'For example, “Halloween horror”',
+  description: 'Description',
+  descriptionPlaceholder: 'A few words about what is inside',
+  edit: 'Edit collection',
+  deleteTitle: 'Delete the collection?',
+  deleteText: '“{name}” will be gone; the titles stay in your library.',
+  deleted: 'Collection deleted',
+  empty: 'No collections yet',
+  emptyText:
+    'Gather titles into shelves of your own: “Halloween horror”, “With friends”, “Rewatch in winter”. They show on your profile too.',
+  emptyCollection: 'This collection is empty',
+  emptyCollectionText: 'Add titles with “Add to collection” on their pages.',
+  addTo: 'Add to collection',
+  pickerTitle: 'Add to a collection',
+  pickerEmpty: 'No collections yet — create the first one.',
+  added: 'Added to “{name}”',
+  removed: 'Removed from “{name}”',
+  removeFrom: 'Remove from collection',
+  by: 'By {name}',
+  yours: 'Your collections',
+  notFound: 'Collection not found',
+}

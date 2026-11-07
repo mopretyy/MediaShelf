@@ -14,6 +14,7 @@ import { favoriteBanner } from '../../shared/banner.ts'
 import { BANNERS } from '../../shared/types.ts'
 import { notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
+import { listCollections } from '../library/collections.ts'
 import { listEntries } from '../library/entries.ts'
 import { computeStats } from '../library/stats.ts'
 import { findUserById, toUser } from '../auth/users.ts'
@@ -125,6 +126,10 @@ export function usersRoutes(deps: AppDeps) {
       heroPosters,
       bannerImage,
       coverVersion: cover,
+      // Empty ones say nothing about anyone's taste: the profile shows those with titles.
+      collections: listCollections(db, id)
+        .filter((collection) => collection.count > 0)
+        .slice(0, 12),
     }
     return c.json(profile)
   })

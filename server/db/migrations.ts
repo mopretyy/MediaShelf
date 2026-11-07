@@ -159,6 +159,26 @@ const MIGRATIONS: string[] = [
     synced_at INTEGER NOT NULL
   ) STRICT;
   `,
+  // v7: the user's own collections («Ужасы на Хеллоуин»), any titles, shown on the profile.
+  `
+  CREATE TABLE collections (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX collections_user ON collections(user_id, updated_at DESC);
+
+  CREATE TABLE collection_items (
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    title_id TEXT NOT NULL REFERENCES titles(id),
+    added_at INTEGER NOT NULL,
+    PRIMARY KEY (collection_id, title_id)
+  ) STRICT;
+  CREATE INDEX collection_items_order ON collection_items(collection_id, added_at DESC);
+  `,
 ]
 
 export function migrate(db: DatabaseSync) {

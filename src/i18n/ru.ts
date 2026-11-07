@@ -1,6 +1,7 @@
 import { profileLookRu } from './sections/profile-look.ts'
 import { airingRu } from './sections/airing.ts'
 import { calendarRu } from './sections/calendar.ts'
+import { collectionsRu } from './sections/collections.ts'
 import { moodsRu } from './sections/moods.ts'
 import { externalImportRu } from './sections/external-import.ts'
 import { shortcutsRu } from './sections/shortcuts.ts'
@@ -22,6 +23,7 @@ export const ru = {
   shortcuts: shortcutsRu,
   calendar: calendarRu,
   moods: moodsRu,
+  collections: collectionsRu,
   app: {
     name: 'MediaShell',
     tagline: 'Игры, фильмы, сериалы и аниме — в одной библиотеке',
@@ -68,6 +70,7 @@ export const ru = {
     shuffle: 'Жребий',
     stats: 'Статистика',
     calendar: 'Календарь',
+    collections: 'Подборки',
     settings: 'Настройки',
     search: 'Поиск',
     add: 'Добавить',

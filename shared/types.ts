@@ -183,6 +183,26 @@ export interface CalendarFeed {
   refreshing?: boolean
 }
 
+/** A user's own collection of titles («Ужасы на Хеллоуин»), as lists and the profile show it. */
+export interface CollectionSummary {
+  id: string
+  ownerId: string
+  ownerName: string
+  name: string
+  description: string
+  count: number
+  /** Up to four posters, the latest added first. */
+  posters: string[]
+  updatedAt: string
+  /** Only when asked about a title (`?titleId=`): whether it is in this collection. */
+  contains?: boolean
+}
+
+export interface CollectionDetail extends CollectionSummary {
+  /** Latest added first. */
+  items: { title: TitleRecord; addedAt: string }[]
+}
+
 /** "What's new for me": fresh episodes of shows you had caught up on, and what airs soon. */
 export interface AiringFeed {
   /** The day the feed was computed for (the viewer's local date). */
@@ -315,6 +335,8 @@ export interface UserProfile {
   bannerImage: string | null
   /** Version of the uploaded cover picture, or null when none was uploaded. */
   coverVersion: number | null
+  /** The user's collections, the most recently changed first. */
+  collections: CollectionSummary[]
 }
 
 export interface SessionInfo {

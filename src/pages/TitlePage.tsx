@@ -1,4 +1,4 @@
-import { ExternalLink, MoreHorizontal, Play, SearchX, Trash2, WifiOff } from 'lucide-react'
+import { ExternalLink, Layers, MoreHorizontal, Play, SearchX, Trash2, WifiOff } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { parseTitleId } from '@shared/ids.ts'
@@ -12,12 +12,13 @@ import { KindIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/dialog'
+import { CollectionPicker } from '@/components/CollectionDialogs'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/menu'
 import { EmptyState, Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { useDocumentTitle } from '@/lib/hooks'
-import { useEntry, useSession, useTitle } from '@/lib/queries'
+import { useEntry, useSession, useTitle, useUser } from '@/lib/queries'
 import {
   formatRating,
   genreList,
@@ -89,7 +90,9 @@ function HeroSkeleton() {
 function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
   const { t, locale, fmt } = useI18n()
   const entry = useEntry(title.id)
+  const user = useUser()
   const [trailer, setTrailer] = useState(false)
+  const [picking, setPicking] = useState(false)
   const name = titleName(title.names, locale)
   const secondary = secondaryName(title.names, locale)
   const meta = [
@@ -208,7 +211,7 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
                   <span className="max-sm:sr-only">{t('title.trailer')}</span>
                 </Button>
               ) : null}
-              {links.length || entry ? (
+              {links.length || entry || user ? (
                 <Menu>
                   <MenuTrigger asChild>
                     <Button variant="secondary" size="icon-lg" aria-label={t('common.more')}>
@@ -216,6 +219,15 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
                     </Button>
                   </MenuTrigger>
                   <MenuContent align="end">
+                    {user ? (
+                      <>
+                        <MenuItem onSelect={() => setPicking(true)}>
+                          <Layers />
+                          {t('collections.addTo')}
+                        </MenuItem>
+                        {links.length ? <MenuSeparator /> : null}
+                      </>
+                    ) : null}
                     {links.map((link) => (
                       <MenuItem key={link.url} asChild>
                         <a href={link.url} target="_blank" rel="noopener noreferrer">
@@ -227,7 +239,7 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
                     ))}
                     {entry ? (
                       <>
-                        {links.length ? <MenuSeparator /> : null}
+                        {links.length || user ? <MenuSeparator /> : null}
                         <MenuItem destructive onSelect={onRemove}>
                           <Trash2 />
                           {t('title.removeFromLibrary')}
@@ -241,6 +253,14 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
           </div>
         </div>
       </div>
+      {user ? (
+        <CollectionPicker
+          open={picking}
+          onOpenChange={setPicking}
+          titleId={title.id}
+          titleName={name}
+        />
+      ) : null}
       {title.trailer ? (
         <TrailerDialog
           trailer={title.trailer}
