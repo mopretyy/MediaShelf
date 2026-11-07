@@ -81,3 +81,24 @@ test('a month without episodes says so; Home and «G, then C» lead to the calen
   await expect(page.getByText('В этом месяце серий нет')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Сегодня', exact: true })).toBeDisabled()
 })
+
+test('a day with several episodes of one show gets one poster with the count', async ({ page }) => {
+  await followWithFirstEpisodeWatched(page)
+  // A season dropped at once: three more episodes on the first episode's day.
+  await page.route('**/api/library/calendar?*', async (route) => {
+    const response = await route.fetch()
+    const body = (await response.json()) as {
+      items: { episode: { number: number; airdate: string }; watched: boolean }[]
+    }
+    const first = body.items.find((item) => item.episode.airdate === '2008-01-07')!
+    for (const number of [7, 8, 9])
+      body.items.push({ ...first, watched: false, episode: { ...first.episode, number } })
+    await route.fulfill({ response, json: body })
+  })
+  await page.goto('/calendar?month=2008-01')
+  const cell = page.getByTestId('calendar-grid').locator('[data-day="2008-01-07"]')
+  await expect(cell).toHaveAccessibleName(/4 серии/)
+  await expect(cell).toContainText('×4')
+  await expect(cell.locator('img, [class*="aspect-[2/3]"]')).toHaveCount(1)
+  await expect(page.getByTestId('calendar-day').getByRole('listitem')).toHaveCount(4)
+})

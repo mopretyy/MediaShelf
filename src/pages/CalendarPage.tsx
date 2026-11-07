@@ -223,8 +223,18 @@ function DayCell({
 }) {
   const { t, locale } = useI18n()
   const formats = useFormats()
-  const shown = items.slice(0, CELL_POSTERS)
-  const hidden = items.length - shown.length
+  // One poster per show: four episodes of one series on a day (a season dropped at once) are
+  // one poster with «×4», not four copies of it.
+  const shows: { item: CalendarItem; count: number; watched: boolean }[] = []
+  for (const item of items) {
+    const show = shows.find((entry) => entry.item.titleId === item.titleId)
+    if (show) {
+      show.count++
+      show.watched &&= item.watched
+    } else shows.push({ item, count: 1, watched: item.watched })
+  }
+  const shown = shows.slice(0, CELL_POSTERS)
+  const hidden = shows.length - shown.length
   const isToday = day === today
   const names = items.map((item) => titleName(item.title.names, locale))
   const label = [
@@ -264,17 +274,22 @@ function DayCell({
         {shown.length ? (
           // One or two episodes get half the cell each; three share it in thirds.
           <span className={cn('grid gap-1', shown.length < 3 ? 'grid-cols-2' : 'grid-cols-3')}>
-            {shown.map((item) => (
-              <span key={itemKey(item)} className="relative">
+            {shown.map(({ item, count, watched }) => (
+              <span key={item.titleId} className="relative">
                 <Poster
                   src={item.title.poster}
                   alt=""
                   kind={item.kind}
                   sizes="sm"
                   rounded="rounded-xs"
-                  className={cn(item.watched && 'opacity-50')}
+                  className={cn(watched && 'opacity-50')}
                 />
-                {item.watched ? (
+                {count > 1 ? (
+                  <span className="absolute top-0.5 right-0.5 rounded-full bg-black/75 px-1 text-2xs leading-4 font-semibold text-white tabular-nums">
+                    ×{count}
+                  </span>
+                ) : null}
+                {watched ? (
                   <span className="absolute right-0.5 bottom-0.5 grid size-3.5 place-items-center rounded-full bg-black/70 text-white">
                     <Check className="size-2.5" strokeWidth={3} />
                   </span>
