@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EpisodeList, EpisodeMark } from '../../../shared/types.ts'
-import { episodeProgress } from './episode-progress.ts'
+import { episodeProgress, shownEpisodeProgress } from './episode-progress.ts'
 
 const episode = (season: number, number: number, airdate: string | null = '2020-01-01') => ({
   season,
@@ -75,5 +75,57 @@ describe('episodeProgress', () => {
     const specials: EpisodeList = { ...list, seasons: [{ number: 0, episodes: [episode(0, 1)] }] }
     expect(episodeProgress(specials, [watched(0, 1)])).toBeNull()
     expect(episodeProgress({ ...list, seasons: [] }, [])).toBeNull()
+  })
+})
+
+describe('shownEpisodeProgress', () => {
+  // Saved counters that lag behind the list and the marks.
+  const saved = {
+    status: 'in_progress' as const,
+    progress: 7,
+    watchedEpisodes: 7,
+    totalEpisodes: 99,
+    nextEpisode: { season: 3, number: 1, name: null, airdate: null },
+  }
+  const counted = episodeProgress(list, [watched(1, 1), watched(1, 2)])
+
+  it('shows what the list and the marks say once both are in', () => {
+    expect(shownEpisodeProgress(saved, counted, false)).toEqual({
+      watched: 2,
+      total: 5,
+      percent: 40,
+      next: { season: 1, number: 3, name: 'S1E3', airdate: '2020-01-01' },
+      unsure: false,
+    })
+  })
+
+  it("stands in with the entry's counters until then, unsure of its next episode", () => {
+    expect(shownEpisodeProgress(saved, null, true)).toEqual({
+      watched: 7,
+      total: 99,
+      percent: 7,
+      next: saved.nextEpisode,
+      unsure: true,
+    })
+    // Marks that failed to load leave nothing better, but nothing to wait for either.
+    expect(shownEpisodeProgress(saved, null, false).unsure).toBe(false)
+  })
+
+  it('reads 100 % for a completed series even when new episodes came out', () => {
+    expect(shownEpisodeProgress({ ...saved, status: 'completed' }, counted, false)).toMatchObject({
+      watched: 2,
+      total: 5,
+      percent: 100,
+    })
+  })
+
+  it('has nothing watched without an entry, whatever the cache holds', () => {
+    expect(shownEpisodeProgress(null, counted, false)).toEqual({
+      watched: 0,
+      total: null,
+      percent: 0,
+      next: null,
+      unsure: false,
+    })
   })
 })

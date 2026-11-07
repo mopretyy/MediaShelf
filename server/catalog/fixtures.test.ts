@@ -68,7 +68,13 @@ describe('createFixtureCatalog', () => {
     const record = await catalog.details('movie-tt0816692', ctx)
     expect(record).toMatchObject({ detailed: true, runtime: 169, creators: ['Christopher Nolan'] })
     expect(Object.keys(record?.descriptions ?? {}).sort()).toEqual(['en', 'ru'])
+    expect(record?.trailer).toBeNull()
     expect(await catalog.details('movie-tt0000001', ctx)).toBeNull()
+  })
+
+  it('gives one title of each kind a trailer', async () => {
+    for (const id of ['movie-tt1375666', 'series-tt0903747', 'steam-292030', 'anime-52991'])
+      expect((await catalog.details(id, ctx))?.trailer).toMatchObject({ type: 'video' })
   })
 
   it('builds episode lists for series and anime only', async () => {

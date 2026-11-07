@@ -346,6 +346,7 @@ export const ru = {
     markUpTo: 'Отметить все до этой',
     markWatched: 'Отметить просмотренной',
     markUnwatched: 'Снять отметку',
+    moreFor: 'Ещё: {code}',
     airsOn: 'Выйдет {date}',
     allWatched: 'Вы посмотрели все вышедшие серии',
     waiting: 'Ждём новые серии',
