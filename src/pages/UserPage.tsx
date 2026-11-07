@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyState, SectionHeader, Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
-import { mergeActivity } from '@/lib/activity'
+import { formatDayHeading, mergeActivity } from '@/lib/activity'
 import { bannerBackground, isGradientBanner } from '@/lib/banners'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle } from '@/lib/hooks'
@@ -446,7 +446,7 @@ function groupActivity(items: ActivityItem[]) {
 }
 
 function Activity({ items }: { items: ActivityItem[] }) {
-  const { t, fmt } = useI18n()
+  const { t, locale } = useI18n()
   const groups = useMemo(() => groupActivity(mergeActivity(items)), [items])
   if (!items.length) return null
   const today = new Date().toDateString()
@@ -460,16 +460,17 @@ function Activity({ items }: { items: ActivityItem[] }) {
       <div className="rounded-xl p-1.5 bg-raised ring-1 ring-line ring-inset">
         {groups.map((group) => (
           <div key={group.day}>
-            <p className="truncate px-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-fg-3 uppercase">
+            <p className="truncate px-2 pt-2 pb-1 text-sm font-medium text-fg-2">
               {group.day === today
                 ? t('profile.today')
                 : group.day === yesterday
                   ? t('profile.yesterday')
-                  : fmt.date(group.date.toISOString(), 'medium')}
+                  : formatDayHeading(group.date, locale)}
             </p>
+            {/* The heading gives the day, so rows skip the time and keep the width for titles. */}
             <ul>
               {group.items.map((item) => (
-                <ActivityRow key={item.id} item={item} />
+                <ActivityRow key={item.id} item={item} time="none" />
               ))}
             </ul>
           </div>

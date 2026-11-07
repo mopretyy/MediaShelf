@@ -135,11 +135,10 @@ function KindShelf({ kind }: { kind: Kind }) {
       {charts.isError ? (
         <p className="py-6 text-sm text-fg-3">{t('discover.unavailable')}</p>
       ) : (
-        <Shelf label={t(`kinds.${kind}`)} itemClassName="w-[184px] sm:w-[224px]">
+        // Ranked cards size themselves: equal posters, and the numeral «10» gets the room it needs.
+        <Shelf label={t(`kinds.${kind}`)} itemClassName="w-auto">
           {charts.isLoading
-            ? Array.from({ length: 6 }, (_, index) => (
-                <TitleCardSkeleton key={index} className="pl-[80px] sm:pl-[100px]" />
-              ))
+            ? Array.from({ length: 6 }, (_, index) => <TitleCardSkeleton key={index} ranked />)
             : items.map((title, index) => (
                 <TitleCard key={title.id} title={title} rank={index + 1} eager={index < 4} />
               ))}

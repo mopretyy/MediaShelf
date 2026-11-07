@@ -31,25 +31,33 @@ const ICONS: Partial<Record<SourceId | StoreId | 'metacritic', { path: string }>
 
 const FALLBACK = { xbox: Gamepad2, nintendo: Gamepad2, tvmaze: Tv, cinemeta: Clapperboard } as const
 
-/** Monochrome brand mark for stores and data sources. */
+/**
+ * Monochrome brand mark for stores and data sources. Next to a visible name it is decoration;
+ * with a `label` it stands in for the name (an image with a tooltip).
+ */
 export function BrandIcon({
   id,
   className,
+  label,
 }: {
   id: SourceId | StoreId | 'metacritic'
   className?: string
+  label?: string
 }) {
   const icon = ICONS[id]
+  const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true }
+  const tooltip = label ? <title>{label}</title> : null
   if (icon)
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className={cn('size-4 shrink-0 fill-current', className)}
-        aria-hidden="true"
-      >
+      <svg viewBox="0 0 24 24" className={cn('size-4 shrink-0 fill-current', className)} {...a11y}>
+        {tooltip}
         <path d={icon.path} />
       </svg>
     )
   const Fallback = FALLBACK[id as keyof typeof FALLBACK] ?? Store
-  return <Fallback className={cn('size-4 shrink-0', className)} aria-hidden="true" />
+  return (
+    <Fallback className={cn('size-4 shrink-0', className)} {...a11y}>
+      {tooltip}
+    </Fallback>
+  )
 }

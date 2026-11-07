@@ -1,4 +1,14 @@
-import { Dices, ExternalLink, Play, Plus, RotateCw } from 'lucide-react'
+import {
+  CloudOff,
+  Dices,
+  ExternalLink,
+  LibraryBig,
+  ListFilter,
+  LogIn,
+  Play,
+  Plus,
+  RotateCw,
+} from 'lucide-react'
 import { useAnimate, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -8,12 +18,12 @@ import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
-import { Chip, Kbd } from '@/components/ui/misc'
+import { Chip, EmptyState, Kbd, Skeleton } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle, useHotkey } from '@/lib/hooks'
-import { useCharts, useLibrary, useLibraryMap, useUser } from '@/lib/queries'
+import { useCharts, useLibrary, useLibraryMap, useSession } from '@/lib/queries'
 import {
   formatRating,
   genreList,
@@ -78,14 +88,15 @@ function useCatalogPool(kinds: Kind[], enabled: boolean) {
   const queries = { game, movie, series, anime }
   const loading = kinds.some((kind) => queries[kind].isLoading)
   const items = kinds.flatMap((kind) => queries[kind].data?.pages[0]?.items ?? [])
-  return { items, loading }
+  const retry = () => kinds.forEach((kind) => void queries[kind].refetch())
+  return { items, loading, retry }
 }
 
 const pickRandom = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)]
 
 export default function ShufflePage() {
   const { t, locale, fmt } = useI18n()
-  const user = useUser()
+  const { user, isLoading: sessionLoading } = useSession()
   const library = useLibrary()
   const libraryMap = useLibraryMap()
   const actions = useLibraryActions()
@@ -111,10 +122,17 @@ export default function ShufflePage() {
     library.data?.some((entry) => kinds.includes(entry.kind) && statuses.includes(entry.status)),
   )
   const source: Source = sourceChoice ?? (hasCandidates ? 'library' : 'catalog')
+  // Until the library arrives (after the session, on a fresh load) neither the default source nor
+  // the library pool is known: the reel waits in its idle state instead of flashing «nothing to
+  // pick», «sign in» or the wrong source.
+  const libraryLoading = sessionLoading || library.isLoading
+  const deciding = sourceChoice === null && libraryLoading
   const [reel, setReel] = useState<TitleRecord[]>([])
   const [rolling, setRolling] = useState(false)
   const [result, setResult] = useState<TitleRecord | null>(null)
   const [history, setHistory] = useState<HistoryItem[]>(readHistory)
+  // «Бросить по популярному» switches the source, then rolls once those titles are in.
+  const [rollWhenReady, setRollWhenReady] = useState(false)
   // Bumped whenever a spin becomes obsolete (e.g. the source changed mid-spin).
   const rollId = useRef(0)
 
@@ -138,8 +156,18 @@ export default function ShufflePage() {
       .map((entry) => entry.title)
   }, [source, catalog.items, library.data, kinds, statuses])
 
+  const poolLoading = deciding || (source === 'library' ? libraryLoading : catalog.loading)
+
   const toggle = <T,>(list: T[], value: T) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
+
+  const switchSource = (value: Source) => {
+    rollId.current++
+    setSource(value)
+    setReel([])
+    setResult(null)
+    setRollWhenReady(false)
+  }
 
   const step = () => {
     const first = scope.current?.firstElementChild as HTMLElement | null
@@ -149,7 +177,8 @@ export default function ShufflePage() {
   }
 
   const roll = async () => {
-    if (rolling || !pool.length) return
+    // Not while the pool is still loading: Space would roll whatever happens to be there.
+    if (rolling || poolLoading || !pool.length) return
     const candidates =
       pool.length > 1 && result ? pool.filter((item) => item.id !== result.id) : pool
     const winner = pickRandom(candidates)
@@ -198,6 +227,14 @@ export default function ShufflePage() {
     })
   }
 
+  useEffect(() => {
+    if (!rollWhenReady || poolLoading) return
+    setRollWhenReady(false)
+    void roll()
+    // roll is a new closure on every render; this only has to run once the pool is in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollWhenReady, poolLoading])
+
   useHotkey(' ', (event) => {
     // Space keeps its native meaning on focused controls.
     if (event.target instanceof Element && event.target.closest('button, a, [role], summary'))
@@ -234,7 +271,90 @@ export default function ShufflePage() {
       behavior: reduceMotion ? 'auto' : 'smooth',
     })
   }, [result, rolling, reduceMotion])
-  const emptyLibrary = source === 'library' && !hasLibrary
+  // Nothing to pick: the reel and its frame give way to an empty state that says how to fix it.
+  const empty = !poolLoading && !rolling && !pool.length
+  const rollPopular = (
+    <Button
+      variant="primary"
+      onClick={() => {
+        switchSource('catalog')
+        setRollWhenReady(true)
+      }}
+    >
+      <Dices />
+      {t('shuffle.rollPopular')}
+    </Button>
+  )
+  const clearFilters = (
+    <Button
+      variant="secondary"
+      onClick={() => {
+        setKinds([...KINDS])
+        setStatuses([...LIBRARY_STATUSES])
+      }}
+    >
+      {t('shuffle.clearFilters')}
+    </Button>
+  )
+  const emptyState =
+    source === 'catalog' ? (
+      kinds.length ? (
+        // Categories are chosen and still nothing: the catalog did not answer.
+        <EmptyState
+          className="py-6"
+          icon={<CloudOff />}
+          title={t('discover.unavailable')}
+          text={t('discover.unavailableHint')}
+          action={
+            <Button variant="secondary" onClick={catalog.retry}>
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      ) : (
+        <EmptyState
+          className="py-6"
+          icon={<ListFilter />}
+          title={t('shuffle.emptyPool')}
+          text={t('shuffle.emptyKinds')}
+          action={clearFilters}
+        />
+      )
+    ) : !user ? (
+      <EmptyState
+        className="py-6"
+        icon={<LogIn />}
+        title={t('shuffle.emptyLibrary')}
+        text={t('shuffle.loginForLibrary')}
+        action={
+          <div className="flex flex-wrap justify-center gap-2">
+            {rollPopular}
+            <Button asChild variant="secondary">
+              <Link to={`/login?next=${encodeURIComponent('/shuffle?source=library')}`}>
+                {t('nav.signIn')}
+              </Link>
+            </Button>
+          </div>
+        }
+      />
+    ) : library.data?.some((item) => LIBRARY_STATUSES.includes(item.status)) ? (
+      // Plans are there, the chips just leave them out.
+      <EmptyState
+        className="py-6"
+        icon={<ListFilter />}
+        title={t('shuffle.emptyPool')}
+        text={t('shuffle.emptyPoolText')}
+        action={clearFilters}
+      />
+    ) : (
+      <EmptyState
+        className="py-6"
+        icon={<LibraryBig />}
+        title={t('shuffle.emptyLibrary')}
+        text={t('shuffle.emptyLibraryText')}
+        action={rollPopular}
+      />
+    )
 
   return (
     <>
@@ -255,12 +375,7 @@ export default function ShufflePage() {
               size="sm"
               aria-label={t('shuffle.source')}
               value={source}
-              onChange={(value) => {
-                rollId.current++
-                setSource(value)
-                setReel([])
-                setResult(null)
-              }}
+              onChange={switchSource}
               options={
                 hasLibrary
                   ? [
@@ -307,86 +422,93 @@ export default function ShufflePage() {
           ) : null}
         </div>
 
+        {/* Stays mounted when empty: the landed reel keeps its position for when the pool is back. */}
         <div
           ref={viewport}
-          className="fade-edges-x relative mt-6 h-[250px] overflow-hidden sm:h-[300px]"
+          className={cn(
+            'relative mt-6 overflow-hidden',
+            empty
+              ? 'grid min-h-[250px] place-items-center sm:min-h-[300px]'
+              : 'fade-edges-x h-[250px] sm:h-[300px]',
+          )}
           aria-live="polite"
-          aria-busy={rolling}
+          aria-busy={rolling || poolLoading}
         >
           <div
             ref={scope}
             className={cn(
               'absolute top-4 left-0 flex gap-4 will-change-transform',
               idle && 'left-1/2 -translate-x-1/2 opacity-40',
+              empty && 'invisible',
             )}
           >
-            {preview.map((title, index) => (
-              <div
-                key={`${title.id}-${index}`}
-                className={cn(
-                  'w-[140px] shrink-0 transition-transform duration-500 ease-out sm:w-[172px]',
-                  landed && index === WINNER_INDEX && 'scale-[1.035]',
-                )}
-              >
-                <Poster
-                  src={title.poster}
-                  alt={idle ? '' : titleName(title.names, locale)}
-                  kind={title.kind}
-                  eager
-                  className="shadow-poster"
-                />
-              </div>
-            ))}
+            {poolLoading && idle
+              ? Array.from({ length: 7 }, (_, index) => (
+                  <Skeleton key={index} className="aspect-[2/3] w-[140px] shrink-0 sm:w-[172px]" />
+                ))
+              : preview.map((title, index) => (
+                  <div
+                    key={`${title.id}-${index}`}
+                    className={cn(
+                      'w-[140px] shrink-0 transition-transform duration-500 ease-out sm:w-[172px]',
+                      landed && index === WINNER_INDEX && 'scale-[1.035]',
+                    )}
+                  >
+                    <Poster
+                      src={title.poster}
+                      alt={idle ? '' : titleName(title.names, locale)}
+                      kind={title.kind}
+                      eager
+                      className="shadow-poster"
+                    />
+                  </div>
+                ))}
           </div>
-          {/* Selection frame: sits 6px outside the poster on every side (the reel viewport
-              leaves 10px above it, so the ring is never clipped) with pointer notches. */}
-          <div
-            aria-hidden="true"
-            className={cn(
-              'pointer-events-none absolute top-2.5 left-1/2 aspect-[2/3] w-[152px] -translate-x-1/2 rounded-[14px] ring-2 ring-fg transition-opacity duration-300 sm:w-[184px]',
-              idle || rolling ? 'opacity-30' : 'opacity-100',
-            )}
-          >
-            <span className="absolute -top-[7px] left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-fg" />
-            <span className="absolute -bottom-[7px] left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-fg" />
-          </div>
-          {idle && !pool.length ? (
-            <div className="absolute inset-0 grid place-items-center px-6 text-center">
-              <div>
-                <p className="text-lg font-semibold">
-                  {emptyLibrary ? t('shuffle.emptyLibrary') : t('shuffle.emptyPool')}
-                </p>
-                <p className="mt-1 text-base text-fg-2">
-                  {emptyLibrary
-                    ? user
-                      ? t('shuffle.emptyLibraryText')
-                      : t('shuffle.loginForLibrary')
-                    : t('shuffle.emptyPoolText')}
-                </p>
-              </div>
+          {empty ? (
+            emptyState
+          ) : (
+            // Selection frame: sits 6px outside the poster on every side (the reel viewport
+            // leaves 10px above it, so the ring is never clipped) with pointer notches.
+            <div
+              aria-hidden="true"
+              className={cn(
+                'pointer-events-none absolute top-2.5 left-1/2 aspect-[2/3] w-[152px] -translate-x-1/2 rounded-[14px] ring-2 ring-fg transition-opacity duration-300 sm:w-[184px]',
+                idle || rolling ? 'opacity-30' : 'opacity-100',
+              )}
+            >
+              <span className="absolute -top-[7px] left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-fg" />
+              <span className="absolute -bottom-[7px] left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] bg-fg" />
             </div>
-          ) : null}
+          )}
         </div>
 
-        <div className="mt-5 flex flex-col items-center gap-2">
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => void roll()}
-            disabled={!pool.length || rolling || (source === 'catalog' && catalog.loading)}
-            data-testid="shuffle-roll"
-          >
-            {rolling ? <RotateCw className="animate-spin" /> : <Dices />}
-            {rolling ? t('shuffle.rolling') : result ? t('shuffle.again') : t('shuffle.roll')}
-          </Button>
-          <p className="text-xs text-fg-3">
-            {t('shuffle.pool', { count: pool.length })}
-            <span className="max-md:hidden">
-              {' · '}
-              <Kbd>{t('shuffle.spaceKey')}</Kbd> {t('shuffle.hint')}
-            </span>
-          </p>
-        </div>
+        {empty ? null : (
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => void roll()}
+              disabled={poolLoading || !pool.length || rolling}
+              data-testid="shuffle-roll"
+            >
+              {rolling ? <RotateCw className="animate-spin" /> : <Dices />}
+              {rolling ? t('shuffle.rolling') : result ? t('shuffle.again') : t('shuffle.roll')}
+            </Button>
+            {/* Kept at its height while the pool loads, so nothing jumps when the count arrives. */}
+            <p className="min-h-4 text-xs text-fg-3">
+              {poolLoading ? null : (
+                <>
+                  {t('shuffle.pool', { count: pool.length })}
+                  <span className="max-md:hidden">
+                    {' · '}
+                    <Kbd>{t('shuffle.spaceKey')}</Kbd>{' '}
+                    {idle ? t('shuffle.hintFirst') : t('shuffle.hint')}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        )}
 
         {result && !rolling ? (
           <section

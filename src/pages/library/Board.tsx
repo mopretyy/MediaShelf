@@ -34,6 +34,7 @@ import { ProgressBar } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { entryProgressText, titleHref, titleName } from '@/lib/titles'
+import { showsProgress } from './card-meta'
 import { positionBetween } from './board-math'
 
 type Columns = Record<Status, string[]>
@@ -49,7 +50,8 @@ function buildColumns(entries: LibraryEntry[]): Columns {
 
 function CardBody({ entry, dragging }: { entry: LibraryEntry; dragging?: boolean }) {
   const { t, locale } = useI18n()
-  const progress = entryProgressText(entry, t)
+  // The column already names the status: «Завершено» needs no «100 %» on every card.
+  const progress = showsProgress(entry.status) ? entryProgressText(entry, t) : null
   return (
     <div
       className={cn(
