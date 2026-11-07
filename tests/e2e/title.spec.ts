@@ -101,7 +101,11 @@ test('a series saved before its episode list arrived gets "+1 серия" on Hom
 
   await sidebar(page).getByRole('link', { name: 'Главная' }).click()
   await expect(page.getByRole('heading', { name: 'Продолжить' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '+1 серия' })).toBeVisible()
+  await expect(
+    page
+      .locator('section[aria-labelledby="continue-heading"]')
+      .getByRole('button', { name: '+1 серия' }),
+  ).toBeVisible()
   await expect(sidebar(page).getByRole('link', { name: /Игра престолов/ })).toContainText('S1 · E1')
 })
 

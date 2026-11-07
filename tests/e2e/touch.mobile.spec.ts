@@ -39,7 +39,8 @@ test('touch screens get thumb-sized targets in the title bar, chips, segments an
   const trending = page.getByRole('radiogroup', { name: 'Популярное сейчас' })
   expect((await size(trending.getByRole('radio').first())).height).toBe(40)
   // An xs button on a card («+1 серия»): from 28 px up to 40.
-  expect((await size(page.getByRole('button', { name: '+1 серия' }))).height).toBe(40)
+  const continueCards = page.locator('section[aria-labelledby="continue-heading"]')
+  expect((await size(continueCards.getByRole('button', { name: '+1 серия' }))).height).toBe(40)
 
   await page.goto('/library')
   for (const view of ['Сетка', 'Список', 'Доска'])

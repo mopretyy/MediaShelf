@@ -10,15 +10,15 @@ import { Button } from '@/components/ui/button'
 import { Chip, ProgressBar, SectionHeader, Skeleton } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { ActivityRow } from '@/components/ActivityRow'
-import { useErrorMessage } from '@/components/library-actions'
 import { useI18n } from '@/i18n'
 import { mergeActivity } from '@/lib/activity'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle } from '@/lib/hooks'
-import { useActivity, useCharts, useLibrary, useMarkNext, useSession } from '@/lib/queries'
-import { episodeCode, localToday, statusLabelKey, titleHref, titleName } from '@/lib/titles'
-import { toast } from 'sonner'
+import { useActivity, useCharts, useLibrary, useSession } from '@/lib/queries'
+import { titleHref, titleName } from '@/lib/titles'
 import { AiringSections } from './home/AiringSections'
+import { canMarkNext, useContinueSubtitle, useMarkNextWithToast } from './home/continue'
+import { HomeHero, HomeHeroSkeleton } from './home/HomeHero'
 
 function greetingKey(hour: number) {
   if (hour < 5) return 'home.night' as const
@@ -40,7 +40,7 @@ function HomeSearch() {
     navigate(`/discover${params.size ? `?${params}` : ''}`)
   }
   return (
-    <form onSubmit={submit} className="mt-7 max-w-2xl">
+    <form onSubmit={submit} className="mt-6 max-w-2xl">
       {/* The box shows the field's focus (the outline stays off while only the button is focused). */}
       <div className="flex items-center gap-2 rounded-xl bg-raised p-1.5 pl-4 ring-1 ring-line ring-inset transition-shadow focus-within:shadow-[0_0_0_4px_var(--active)] focus-within:ring-line-strong has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-fg">
         <input
@@ -73,32 +73,10 @@ function HomeSearch() {
 
 function ContinueCard({ entry }: { entry: LibraryEntry }) {
   const { t, locale, fmt } = useI18n()
-  const markNext = useMarkNext()
-  const message = useErrorMessage()
+  const markNext = useMarkNextWithToast()
   const name = titleName(entry.title.names, locale)
-  const next = entry.nextEpisode
-  const today = localToday()
-  const canMark =
-    (entry.kind === 'series' || entry.kind === 'anime') &&
-    next &&
-    (!next.airdate || next.airdate <= today)
-  const subtitle =
-    entry.kind === 'series' || entry.kind === 'anime'
-      ? next
-        ? [t('episodes.code', episodeCode(next.season, next.number)), next.name]
-            .filter(Boolean)
-            .join(' · ')
-        : entry.progress >= 100
-          ? t('home.caughtUp')
-          : entry.totalEpisodes
-            ? t('episodes.watchedOf', {
-                watched: entry.watchedEpisodes,
-                total: entry.totalEpisodes,
-              })
-            : t('home.percent', { value: entry.progress })
-      : entry.kind === 'game'
-        ? t('home.percent', { value: entry.progress })
-        : t(statusLabelKey(entry.kind, entry.status))
+  const canMark = canMarkNext(entry)
+  const subtitle = useContinueSubtitle()(entry)
   const info = (
     <>
       <p className="truncate text-md font-semibold">{name}</p>
@@ -134,7 +112,7 @@ function ContinueCard({ entry }: { entry: LibraryEntry }) {
                   aria-hidden="true"
                   decoding="async"
                   referrerPolicy="no-referrer"
-                  className="absolute inset-0 size-full scale-125 object-cover opacity-50 blur-2xl"
+                  className="absolute inset-0 size-full scale-125 object-cover opacity-80 blur-2xl"
                 />
               ) : null}
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
@@ -157,22 +135,7 @@ function ContinueCard({ entry }: { entry: LibraryEntry }) {
           variant="primary"
           className="absolute top-2.5 right-2.5 bg-white text-black shadow-md hover:bg-white/90"
           loading={markNext.isPending}
-          onClick={() =>
-            markNext.mutate(entry.titleId, {
-              onSuccess: ({ statusChanged }) =>
-                toast(
-                  statusChanged
-                    ? t('toast.autoStatus', {
-                        status: t(statusLabelKey(entry.kind, statusChanged.to)),
-                      })
-                    : t('toast.episodeMarked'),
-                  {
-                    description: `${name} · ${t('episodes.code', episodeCode(next!.season, next!.number))}`,
-                  },
-                ),
-              onError: (error) => toast.error(message(error)),
-            })
-          }
+          onClick={() => markNext.mark(entry)}
         >
           <Plus />
           {t('home.plusEpisode')}
@@ -241,39 +204,42 @@ function Dashboard({ name }: { name: string }) {
   const completed = entries.filter((entry) => entry.status === 'completed').length
   const hour = new Date().getHours()
   const failed = library.isError && !library.data
+  const greeting = t(greetingKey(hour), { name: name.split(' ')[0] })
+  // The hero wants a frame: the latest title in progress that has one, else the latest at all.
+  const heroEntry = active.find((entry) => entry.title.backdrop) ?? active[0]
+  // Nothing in progress: the hero shows a frame from what is popular (with a backdrop).
+  const movies = useCharts('movie', 'trending', !library.isLoading && !active.length)
+  const trendingMovies = movies.data?.pages[0]?.items ?? []
+  const featured = trendingMovies.find((title) => title.backdrop) ?? trendingMovies[0]
+  const summary = failed ? (
+    <>
+      {t('home.libraryError')}{' '}
+      <button
+        type="button"
+        onClick={() => void library.refetch()}
+        className="font-medium text-white underline decoration-white/40 underline-offset-4 hover:decoration-white"
+      >
+        {t('common.retry')}
+      </button>
+    </>
+  ) : entries.length ? (
+    t('home.summary', {
+      active: active.length,
+      planned: entries.filter((e) => e.status === 'planned').length,
+      completed,
+    })
+  ) : (
+    t('home.emptySummary')
+  )
 
   return (
     <>
-      <section className="pt-6 md:pt-12">
-        <h1 className="display text-3xl sm:text-4xl">
-          {t(greetingKey(hour), { name: name.split(' ')[0] })}
-        </h1>
-        <p className="mt-2 text-md text-fg-2">
-          {library.isLoading ? (
-            <Skeleton className="h-5 w-72" />
-          ) : failed ? (
-            <>
-              {t('home.libraryError')}{' '}
-              <button
-                type="button"
-                onClick={() => void library.refetch()}
-                className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg"
-              >
-                {t('common.retry')}
-              </button>
-            </>
-          ) : entries.length ? (
-            t('home.summary', {
-              active: active.length,
-              planned: entries.filter((e) => e.status === 'planned').length,
-              completed,
-            })
-          ) : (
-            t('home.emptySummary')
-          )}
-        </p>
-        <HomeSearch />
-      </section>
+      {library.isLoading ? (
+        <HomeHeroSkeleton greeting={greeting} />
+      ) : (
+        <HomeHero greeting={greeting} summary={summary} entry={heroEntry} trending={featured} />
+      )}
+      <HomeSearch />
 
       {/* What you are in the middle of comes first. Popular leads only when there is nothing
           to continue (it keeps an empty library interesting). While the library loads we assume
