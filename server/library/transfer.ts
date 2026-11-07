@@ -219,7 +219,7 @@ function exportCollections(db: DB, userId: string) {
     items: (
       sql(
         db,
-        'SELECT title_id, added_at FROM collection_items WHERE collection_id = ? ORDER BY added_at, title_id',
+        'SELECT title_id, added_at FROM collection_items WHERE collection_id = ? ORDER BY position, title_id',
       ).all(row.id) as { title_id: string; added_at: number }[]
     ).map((item) => ({
       titleId: item.title_id,
@@ -271,9 +271,14 @@ function importCollections(db: DB, titles: TitleStore, userId: string, collectio
       }
       const insert = sql(
         db,
-        'INSERT OR IGNORE INTO collection_items (collection_id, title_id, added_at) VALUES (?, ?, ?)',
+        'INSERT OR IGNORE INTO collection_items (collection_id, title_id, added_at, position) VALUES (?, ?, ?, ?)',
       )
-      for (const item of input.items) {
+      // Items come in the collection's order; they go after whatever the collection already has.
+      const { last } = sql(
+        db,
+        'SELECT COALESCE(MAX(position), 0) AS last FROM collection_items WHERE collection_id = ?',
+      ).get(row.id) as { last: number }
+      for (const [index, item] of input.items.entries()) {
         if (item.title.id !== item.titleId || kindOfTitleId(item.titleId) !== item.title.kind)
           continue
         const { count } = sql(
@@ -282,7 +287,7 @@ function importCollections(db: DB, titles: TitleStore, userId: string, collectio
         ).get(row.id) as { count: number }
         if (count >= MAX_COLLECTION_ITEMS) break
         titles.putImported(item.title as TitleRecord)
-        insert.run(row.id, item.titleId, ms(item.addedAt) ?? now)
+        insert.run(row.id, item.titleId, ms(item.addedAt) ?? now, last + 1 + index)
       }
       // The picked cover comes along when its title did and nothing was picked here yet.
       if (input.cover)

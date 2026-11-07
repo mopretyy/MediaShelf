@@ -183,6 +183,13 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE collections ADD COLUMN cover_title_id TEXT;
   `,
+  // v9: the order of a collection's titles. Lower first; a new title gets −(time added), so it
+  // comes before anything already there, and a reorder numbers the titles 0, 1, 2…
+  `
+  ALTER TABLE collection_items ADD COLUMN position REAL NOT NULL DEFAULT 0;
+  UPDATE collection_items SET position = -added_at;
+  CREATE INDEX collection_items_position ON collection_items(collection_id, position);
+  `,
 ]
 
 export function migrate(db: DatabaseSync) {

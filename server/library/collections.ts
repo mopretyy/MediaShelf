@@ -27,7 +27,7 @@ function summaryOf(db: DB, row: CollectionRow): CollectionSummary {
     sql(
       db,
       `SELECT t.data FROM collection_items i JOIN titles t ON t.id = i.title_id
-       WHERE i.collection_id = ? ORDER BY i.added_at DESC, i.title_id LIMIT 24`,
+       WHERE i.collection_id = ? ORDER BY i.position, i.title_id LIMIT 24`,
     ).all(row.id) as { data: string }[]
   ).map((item) => JSON.parse(item.data) as TitleRecord)
   const posters = latest
@@ -98,7 +98,7 @@ export function getCollection(db: DB, id: string): CollectionDetail {
     sql(
       db,
       `SELECT t.data, i.added_at FROM collection_items i JOIN titles t ON t.id = i.title_id
-       WHERE i.collection_id = ? ORDER BY i.added_at DESC, i.title_id`,
+       WHERE i.collection_id = ? ORDER BY i.position, i.title_id`,
     ).all(id) as { data: string; added_at: number }[]
   ).map((item) => ({ title: JSON.parse(item.data) as TitleRecord, addedAt: iso(item.added_at) }))
   return { ...summaryOf(db, row), items }
@@ -181,8 +181,8 @@ export function addToCollection(db: DB, userId: string, id: string, titleId: str
     const now = Date.now()
     sql(
       db,
-      'INSERT INTO collection_items (collection_id, title_id, added_at) VALUES (?, ?, ?)',
-    ).run(id, titleId, now)
+      'INSERT INTO collection_items (collection_id, title_id, added_at, position) VALUES (?, ?, ?, ?)',
+    ).run(id, titleId, now, -now)
     sql(db, 'UPDATE collections SET updated_at = ? WHERE id = ?').run(now, id)
   })
   return summaryOf(db, findRow(db, id)!)
@@ -196,5 +196,34 @@ export function removeFromCollection(db: DB, userId: string, id: string, titleId
   ).run(id, titleId)
   if (result.changes)
     sql(db, 'UPDATE collections SET updated_at = ? WHERE id = ?').run(Date.now(), id)
+  return summaryOf(db, findRow(db, id)!)
+}
+
+/**
+ * Puts the collection's titles in the given order (0, 1, 2…). Every title of the collection must
+ * be listed exactly once: a list from a stale page must not shuffle titles it never saw.
+ */
+export function reorderCollection(db: DB, userId: string, id: string, titleIds: string[]) {
+  ownRow(db, userId, id)
+  const current = (
+    sql(db, 'SELECT title_id FROM collection_items WHERE collection_id = ?').all(id) as {
+      title_id: string
+    }[]
+  ).map((row) => row.title_id)
+  const given = new Set(titleIds)
+  if (
+    given.size !== titleIds.length ||
+    given.size !== current.length ||
+    current.some((t) => !given.has(t))
+  )
+    throw new ApiError(409, 'CONFLICT', 'The order must list every title of the collection once')
+  transaction(db, () => {
+    const update = sql(
+      db,
+      'UPDATE collection_items SET position = ? WHERE collection_id = ? AND title_id = ?',
+    )
+    titleIds.forEach((titleId, index) => update.run(index, id, titleId))
+    sql(db, 'UPDATE collections SET updated_at = ? WHERE id = ?').run(Date.now(), id)
+  })
   return summaryOf(db, findRow(db, id)!)
 }

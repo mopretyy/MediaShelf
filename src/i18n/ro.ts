@@ -172,6 +172,10 @@ export const ro: DeepPartial<Messages> = {
     isCover: 'Coperta colecției',
     coverChanged: 'Coperta a fost actualizată',
     inCollections: 'În colecțiile tale',
+    reorder: 'Schimbă ordinea',
+    dragHandle: 'Trage sau apasă Spațiu ca să-l muți',
+    dragOver: '„{title}” pe locul {position} din {total}.',
+    dragEnd: '„{title}” e acum pe locul {position} din {total}.',
   },
   airing: {
     freshTitle: 'Episoade noi',

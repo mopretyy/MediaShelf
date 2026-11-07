@@ -5,6 +5,7 @@ const ANYA = { name: 'Аня', email: 'anya@example.com', password: 'correct hor
 const BORIS = { name: 'Борис', email: 'boris@example.com', password: 'correct horse 43' }
 const MOVIE = 'movie-tt0816692'
 const SERIES = 'series-tt0903747'
+const GAME = 'steam-1145360'
 
 async function signedIn(account = ANYA) {
   const t = testApp()
@@ -183,5 +184,46 @@ describe('collection covers', () => {
     expect(
       (await t.request('PATCH', `/api/collections/${id}`, { coverTitleId: null })).status,
     ).toBe(200)
+  })
+})
+
+describe('collection order', () => {
+  it('is newest first until reordered, takes the full list only, and survives an export', async () => {
+    const t = await signedIn()
+    const { body } = await t.request('POST', '/api/collections', { name: 'По порядку' })
+    const id = body.collection.id
+    for (const titleId of [MOVIE, SERIES, GAME]) {
+      await t.request('POST', `/api/collections/${id}/items`, { titleId })
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    const order = async (app = t, collection = id) =>
+      (await app.request('GET', `/api/collections/${collection}`)).body.collection.items.map(
+        (item: { title: { id: string } }) => item.title.id,
+      )
+    expect(await order()).toEqual([GAME, SERIES, MOVIE])
+
+    expect(
+      (await t.request('PUT', `/api/collections/${id}/order`, { titleIds: [MOVIE, GAME] })).status,
+    ).toBe(409)
+    expect(
+      (await t.request('PUT', `/api/collections/${id}/order`, { titleIds: [MOVIE, MOVIE, GAME] }))
+        .status,
+    ).toBe(409)
+    const put = await t.request('PUT', `/api/collections/${id}/order`, {
+      titleIds: [SERIES, MOVIE, GAME],
+    })
+    expect(put.status).toBe(200)
+    expect(await order()).toEqual([SERIES, MOVIE, GAME])
+    // A title added later comes first.
+    await t.request('DELETE', `/api/collections/${id}/items/${GAME}`)
+    await t.request('POST', `/api/collections/${id}/items`, { titleId: GAME })
+    expect(await order()).toEqual([GAME, SERIES, MOVIE])
+
+    const exported = (await t.request('GET', '/api/me/export')).body
+    const other = testApp()
+    await registerAccount(other, BORIS)
+    await other.request('POST', '/api/me/import', exported)
+    const copy = (await other.request('GET', '/api/collections')).body.collections[0].id
+    expect(await order(other, copy)).toEqual([GAME, SERIES, MOVIE])
   })
 })

@@ -1,5 +1,14 @@
-import { Compass, Dices, Image as ImageIcon, Pencil, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import {
+  ArrowDownUp,
+  Check,
+  Compass,
+  Dices,
+  Image as ImageIcon,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { PageBody, PageHeader } from '@/app/PageHeader'
@@ -16,12 +25,18 @@ import {
   useCollection,
   useCollectionItem,
   useDeleteCollection,
+  useReorderCollection,
   useUpdateCollection,
 } from '@/lib/collections'
 import { cn } from '@/lib/cn'
 import { useDocumentTitle } from '@/lib/hooks'
 import { useUser } from '@/lib/queries'
 import { titleName } from '@/lib/titles'
+
+// Only owners who reorder need the drag-and-drop code.
+const SortableGrid = lazy(() =>
+  import('./collection/SortableGrid').then((module) => ({ default: module.SortableGrid })),
+)
 
 /** The small round buttons over a poster: dark glass, white glyph. */
 const OVERLAY_BUTTON =
@@ -41,6 +56,8 @@ export default function CollectionPage() {
   const remove = useDeleteCollection()
   const item = useCollectionItem()
   const update = useUpdateCollection()
+  const reorder = useReorderCollection()
+  const [sorting, setSorting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const data = collection.data
@@ -124,6 +141,16 @@ export default function CollectionPage() {
                       </Link>
                     </Button>
                   ) : null}
+                  {data.count > 1 ? (
+                    <Button
+                      variant={sorting ? 'primary' : 'secondary'}
+                      aria-pressed={sorting}
+                      onClick={() => setSorting((value) => !value)}
+                    >
+                      {sorting ? <Check /> : <ArrowDownUp />}
+                      {sorting ? t('common.done') : t('collections.reorder')}
+                    </Button>
+                  ) : null}
                   <Button variant="secondary" onClick={() => setEditing(true)}>
                     <Pencil />
                     {t('common.edit')}
@@ -153,6 +180,26 @@ export default function CollectionPage() {
                 <TitleCardSkeleton key={index} />
               ))}
             </TitleGrid>
+          ) : own && sorting && data.items.length > 1 ? (
+            <Suspense
+              fallback={
+                <TitleGrid>
+                  {data.items.map(({ title }) => (
+                    <TitleCardSkeleton key={title.id} />
+                  ))}
+                </TitleGrid>
+              }
+            >
+              <SortableGrid
+                titles={data.items.map((item) => item.title)}
+                onReorder={(titleIds) =>
+                  reorder.mutate(
+                    { id: data.id, titleIds },
+                    { onError: (error) => toast.error(message(error)) },
+                  )
+                }
+              />
+            </Suspense>
           ) : data.items.length ? (
             <TitleGrid>
               {data.items.map(({ title }) => (

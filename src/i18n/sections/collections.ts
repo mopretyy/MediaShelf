@@ -30,6 +30,10 @@ export const collectionsRu = {
   isCover: 'Обложка подборки',
   coverChanged: 'Обложка подборки обновлена',
   inCollections: 'В подборках',
+  reorder: 'Изменить порядок',
+  dragHandle: 'Перетащите или нажмите пробел, чтобы переставить',
+  dragOver: '«{title}» на месте {position} из {total}.',
+  dragEnd: '«{title}» теперь на месте {position} из {total}.',
 }
 
 export const collectionsEn: typeof collectionsRu = {
@@ -61,4 +65,8 @@ export const collectionsEn: typeof collectionsRu = {
   isCover: 'The collection’s cover',
   coverChanged: 'Collection cover updated',
   inCollections: 'In your collections',
+  reorder: 'Reorder',
+  dragHandle: 'Drag, or press Space, to move it',
+  dragOver: '“{title}” at place {position} of {total}.',
+  dragEnd: '“{title}” is now at place {position} of {total}.',
 }

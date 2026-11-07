@@ -177,6 +177,10 @@ export const uk: Messages = {
     isCover: 'Обкладинка добірки',
     coverChanged: 'Обкладинку добірки оновлено',
     inCollections: 'У добірках',
+    reorder: 'Змінити порядок',
+    dragHandle: 'Перетягніть або натисніть пробіл, щоб переставити',
+    dragOver: '«{title}» на місці {position} з {total}.',
+    dragEnd: '«{title}» тепер на місці {position} з {total}.',
   },
   airing: {
     freshTitle: 'Нові серії',

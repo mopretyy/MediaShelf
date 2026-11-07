@@ -16,6 +16,7 @@ import {
   getCollection,
   listCollections,
   removeFromCollection,
+  reorderCollection,
   updateCollection,
 } from '../library/collections.ts'
 import { resolveTitle } from '../library/resolve.ts'
@@ -36,6 +37,7 @@ const updateSchema = z
       value.coverTitleId !== undefined,
   )
 const itemSchema = z.object({ titleId: titleIdSchema })
+const orderSchema = z.object({ titleIds: z.array(titleIdSchema).max(500) })
 
 /** /api/collections: the signed-in user's collections; anyone signed in may look at one. */
 export function collectionsRoutes(deps: AppDeps) {
@@ -84,6 +86,14 @@ export function collectionsRoutes(deps: AppDeps) {
     // Any title, in the library or not: stored the way adding to the library stores it.
     await resolveTitle(deps, titleId, requestLocale(c), requestRegion(c))
     return c.json({ collection: addToCollection(db, user.id, c.req.param('id'), titleId) })
+  })
+
+  // The whole order at once, as the page shows it after a drag.
+  app.put('/:id/order', async (c) => {
+    const user = requireUser(c)
+    limit(limits, 'library', user.id)
+    const { titleIds } = orderSchema.parse(await c.req.json())
+    return c.json({ collection: reorderCollection(db, user.id, c.req.param('id'), titleIds) })
   })
 
   app.delete('/:id/items/:titleId', (c) => {

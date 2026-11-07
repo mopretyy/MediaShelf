@@ -92,3 +92,29 @@ export function useCollectionItem() {
     onSuccess: () => refresh(client),
   })
 }
+
+/** A new order for a collection's titles, shown at once and rolled back if the server refuses. */
+export function useReorderCollection() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, titleIds }: { id: string; titleIds: string[] }) =>
+      api<{ collection: CollectionSummary }>('PUT', `/collections/${id}/order`, { titleIds }),
+    onMutate: async ({ id, titleIds }) => {
+      const key = [...collectionsKey, 'one', id]
+      await client.cancelQueries({ queryKey: key })
+      const previous = client.getQueryData<CollectionDetail>(key)
+      if (previous) {
+        const byId = new Map(previous.items.map((item) => [item.title.id, item]))
+        client.setQueryData<CollectionDetail>(key, {
+          ...previous,
+          items: titleIds.map((titleId) => byId.get(titleId)).filter((item) => item !== undefined),
+        })
+      }
+      return { key, previous }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) client.setQueryData(context.key, context.previous)
+    },
+    onSettled: () => refresh(client),
+  })
+}

@@ -175,6 +175,10 @@ export const de: DeepPartial<Messages> = {
     isCover: 'Titelbild der Sammlung',
     coverChanged: 'Titelbild aktualisiert',
     inCollections: 'In Ihren Sammlungen',
+    reorder: 'Reihenfolge ändern',
+    dragHandle: 'Ziehen oder Leertaste drücken, um es zu verschieben',
+    dragOver: '„{title}“ an Stelle {position} von {total}.',
+    dragEnd: '„{title}“ steht jetzt an Stelle {position} von {total}.',
   },
   airing: {
     freshTitle: 'Neue Folgen',

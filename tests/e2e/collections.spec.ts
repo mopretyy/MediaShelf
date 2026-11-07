@@ -169,3 +169,48 @@ test('Ctrl K finds collections and starts a new one; a title page lists its coll
   await openTitle(page, 'movie-tt1375666')
   await expect(page.getByTestId('in-collections')).toHaveCount(0)
 })
+
+test('the owner reorders a collection by dragging, keyboard included', async ({ page }) => {
+  await register(page)
+  const { body } = await api<{ collection: { id: string } }>(page, 'POST', '/collections', {
+    name: 'Марафон',
+  })
+  const id = body.collection.id
+  // Added in this order, shown newest first: Shawshank, Inception, Interstellar.
+  for (const titleId of ['movie-tt0816692', 'movie-tt1375666', 'movie-tt0111161'])
+    await api(page, 'POST', `/collections/${id}/items`, { titleId })
+  const order = async () =>
+    (
+      await api<{ collection: { items: { title: { id: string } }[] } }>(
+        page,
+        'GET',
+        `/collections/${id}`,
+      )
+    ).body.collection.items.map((item) => item.title.id)
+  expect(await order()).toEqual(['movie-tt0111161', 'movie-tt1375666', 'movie-tt0816692'])
+
+  await page.goto(`/collections/${id}`)
+  await page.getByRole('button', { name: 'Изменить порядок' }).click()
+  const grid = page.getByTestId('collection-sortable')
+  await expect(grid).toBeVisible()
+  // Space picks the first card up, the right arrow moves it one place, Space drops it.
+  await grid.getByRole('button', { name: /^Побег из Шоушенка\./ }).focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByText('Карточка «Побег из Шоушенка» взята.')).toBeAttached()
+  // dnd-kit attaches its arrow-key listener one macrotask after pickup.
+  await page.waitForTimeout(100)
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByText('«Побег из Шоушенка» на месте 2 из 3.')).toBeAttached()
+  await page.keyboard.press('Space')
+  await expect(page.getByText('«Побег из Шоушенка» теперь на месте 2 из 3.')).toBeAttached()
+  await expect.poll(order).toEqual(['movie-tt1375666', 'movie-tt0111161', 'movie-tt0816692'])
+
+  await page.getByRole('button', { name: 'Готово' }).click()
+  await expect(grid).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Начало/ }).first()).toBeVisible()
+  // The page shows the new order after a reload too.
+  await page.reload()
+  await expect(
+    page.locator('main').getByRole('link', { name: /Фильм/ }).first(),
+  ).toHaveAccessibleName(/Начало/)
+})
