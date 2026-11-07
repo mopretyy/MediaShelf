@@ -289,6 +289,7 @@ export const ru = {
     rank: 'Место {rank}',
   },
   title: {
+    similar: 'Похожее',
     overview: 'Обзор',
     episodes: 'Серии',
     playthroughs: 'Прохождения',

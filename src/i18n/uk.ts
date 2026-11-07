@@ -473,6 +473,7 @@ export const uk: Messages = {
     rank: 'Місце {rank}',
   },
   title: {
+    similar: 'Схоже',
     overview: 'Огляд',
     episodes: 'Серії',
     playthroughs: 'Проходження',

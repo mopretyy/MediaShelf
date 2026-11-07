@@ -436,6 +436,7 @@ export const ro: DeepPartial<Messages> = {
     rank: 'Locul {rank}',
   },
   title: {
+    similar: 'Similare',
     overview: 'Prezentare',
     episodes: 'Episoade',
     playthroughs: 'Parcurgeri',

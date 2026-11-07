@@ -247,6 +247,7 @@ export const en: Messages = {
     rank: 'Rank {rank}',
   },
   title: {
+    similar: 'More like this',
     overview: 'Overview',
     episodes: 'Episodes',
     playthroughs: 'Playthroughs',

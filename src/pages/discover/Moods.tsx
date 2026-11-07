@@ -8,32 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Chip, EmptyState, Skeleton } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { MOOD_IDS, moodTitles, type MoodId } from '@/lib/moods'
-import { useCharts } from '@/lib/queries'
-
-/** Popular and all-time charts of every kind, interleaved: what the moods are picked from. */
-function useMoodPool() {
-  const queries = [
-    useCharts('movie', 'trending'),
-    useCharts('series', 'trending'),
-    useCharts('game', 'trending'),
-    useCharts('anime', 'trending'),
-    useCharts('movie', 'top'),
-    useCharts('series', 'top'),
-    useCharts('game', 'top'),
-    useCharts('anime', 'top'),
-  ]
-  const lists = queries.map((query) => query.data?.pages[0]?.items)
-  const loading = queries.every((query) => query.isLoading)
-  const pool = useMemo(() => {
-    const out: TitleRecord[] = []
-    const longest = Math.max(0, ...lists.map((list) => list?.length ?? 0))
-    for (let index = 0; index < longest; index++)
-      for (const list of lists) if (list?.[index]) out.push(list[index])
-    return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, lists)
-  return { pool, loading }
-}
+import { useCatalogPool } from '@/lib/catalog-pool'
 
 /** `?mood=` on Discover, keeping the other params. */
 export function useMoodParam() {
@@ -114,7 +89,7 @@ function MoodTile({ mood, titles, href }: { mood: MoodId; titles: TitleRecord[];
 /** Discover's «Под настроение» row: a tile per mood that has something in it. */
 export function MoodRow() {
   const { t } = useI18n()
-  const { pool, loading } = useMoodPool()
+  const { pool, loading } = useCatalogPool()
   const { hrefFor } = useMoodParam()
   const moods = MOOD_IDS.map((mood) => ({ mood, titles: moodTitles(pool, mood) })).filter(
     (item) => item.titles.length >= 3,
@@ -147,7 +122,7 @@ export function MoodRow() {
 export function MoodView({ mood }: { mood: MoodId }) {
   const { t } = useI18n()
   const navigate = useNavigate()
-  const { pool, loading } = useMoodPool()
+  const { pool, loading } = useCatalogPool()
   const { hrefFor } = useMoodParam()
   const titles = useMemo(() => moodTitles(pool, mood), [pool, mood])
   return (

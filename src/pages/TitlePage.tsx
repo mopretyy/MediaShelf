@@ -33,6 +33,7 @@ import { AddPanel, EntryPanel } from './title/EntryPanel'
 import { AchievementsSection } from './title/AchievementsSection'
 import { EpisodesSection } from './title/EpisodesSection'
 import { Gallery, TrailerDialog } from './title/Gallery'
+import { SimilarSection } from './title/SimilarSection'
 import { OffersSection } from './title/OffersSection'
 import { PlaythroughsSection } from './title/PlaythroughsSection'
 
@@ -394,6 +395,7 @@ function TitleContent({ id }: { id: string }) {
                 <DetailsSection title={title} />
               </aside>
             </div>
+            <SimilarSection title={title} />
           </>
         )}
       </PageBody>

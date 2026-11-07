@@ -427,6 +427,7 @@ export const es: DeepPartial<Messages> = {
     rank: 'Puesto {rank}',
   },
   title: {
+    similar: 'Similares',
     overview: 'Resumen',
     episodes: 'Episodios',
     playthroughs: 'Partidas',

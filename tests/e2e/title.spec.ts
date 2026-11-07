@@ -420,3 +420,33 @@ test('an episode row marks its episode anywhere along it; its menu is separate a
   await expect(fourth).toBeChecked()
   await expect(episodes.getByText('Просмотрено 2 из 12')).toBeVisible()
 })
+
+test('a title page ends with similar titles of the same kind', async ({ page }) => {
+  await register(page)
+  // The offline catalog has no pictures, and the shelf only shows titles with a poster.
+  const poster = `data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><rect width="2" height="3" fill="#456"/></svg>',
+  )}`
+  await page.route('**/api/catalog/charts*', async (route) => {
+    const response = await route.fetch()
+    const body = (await response.json()) as {
+      items: { poster: string | null; kind: string; genres: string[] }[]
+    }
+    // Few offline films share two genres with Interstellar: give the films one more in common,
+    // so the shelf (shown from three titles) has something to show.
+    for (const item of body.items) {
+      item.poster = poster
+      if (item.kind === 'movie' && !item.genres.includes('Sci-Fi')) item.genres.push('Sci-Fi')
+    }
+    await route.fulfill({ response, json: body })
+  })
+  await openTitle(page, 'movie-tt0816692')
+  const similar = page.getByTestId('similar')
+  await similar.scrollIntoViewIfNeeded()
+  // Inception shares Adventure and Sci-Fi with Interstellar.
+  await expect(similar.getByRole('link', { name: /Начало/ })).toBeVisible()
+  await expect(similar.getByRole('link', { name: /Побег из Шоушенка/ })).toBeVisible()
+  await expect(similar.getByRole('link', { name: /Интерстеллар/ })).toHaveCount(0)
+  // Films only.
+  await expect(similar.getByRole('link', { name: /Ведьмак|Во все тяжкие/ })).toHaveCount(0)
+})
