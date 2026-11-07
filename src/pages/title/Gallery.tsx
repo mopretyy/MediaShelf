@@ -4,15 +4,18 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { SectionHeader } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
+import { useSwipe } from '@/lib/swipe'
 
 export function Gallery({ images, title }: { images: string[]; title: string }) {
   const { t } = useI18n()
   const [index, setIndex] = useState<number | null>(null)
   const [failed, setFailed] = useState<Set<string>>(new Set())
   const shown = images.filter((src) => !failed.has(src)).slice(0, 12)
-  if (!shown.length) return null
   const move = (step: number) =>
     setIndex((value) => (value === null ? null : (value + step + shown.length) % shown.length))
+  // Phones: swipe through the frames in the full-screen view.
+  const swipe = useSwipe({ onLeft: () => move(1), onRight: () => move(-1) })
+  if (!shown.length) return null
   return (
     <section aria-labelledby="gallery-heading">
       <SectionHeader id="gallery-heading" title={t('title.screenshots')} />
@@ -41,7 +44,9 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
         <DialogContent title={title} size="xl" className="bg-black p-0 sm:p-0" hideTitle>
           {index !== null ? (
             <div
-              className="relative"
+              className="relative touch-pan-y"
+              data-testid="gallery-viewer"
+              {...(shown.length > 1 ? swipe : {})}
               onKeyDown={(event) => {
                 if (event.key === 'ArrowRight') move(1)
                 if (event.key === 'ArrowLeft') move(-1)

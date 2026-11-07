@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { useCharts } from '@/lib/queries'
+import { useSwipe } from '@/lib/swipe'
 import {
   formatRating,
   genreList,
@@ -61,13 +62,19 @@ export function Showcase({ kind }: { kind: Kind | 'all' }) {
   const count = slides.length
   const current = count ? index % count : 0
 
+  // Restarts with every slide change, so a swiped-to slide gets its full 8 seconds.
   useEffect(() => {
     if (count < 2 || paused || reduceMotion) return
     const timer = window.setInterval(() => {
       if (!document.hidden) setIndex((value) => (value + 1) % count)
     }, SHOWCASE_INTERVAL)
     return () => window.clearInterval(timer)
-  }, [count, paused, reduceMotion])
+  }, [count, paused, reduceMotion, current])
+  // Phones: swipe to the next or previous title.
+  const swipe = useSwipe({
+    onLeft: () => setIndex((current + 1) % count),
+    onRight: () => setIndex((current - 1 + count) % count),
+  })
 
   if (!count) return null
   const title = slides[current]
@@ -90,7 +97,8 @@ export function Showcase({ kind }: { kind: Kind | 'all' }) {
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPaused(false)
       }}
-      className="dark relative isolate mt-6 overflow-hidden rounded-2xl bg-black text-fg"
+      {...(count > 1 ? swipe : {})}
+      className="dark relative isolate mt-6 touch-pan-y overflow-hidden rounded-2xl bg-black text-fg"
     >
       {slides.map((slide, slideIndex) => (
         <Backdrop
