@@ -25,7 +25,10 @@ test('search, add a series and track episodes with automatic status', async ({ p
 
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Продолжить' })).toBeVisible()
-  await page.getByRole('button', { name: '+1 серия' }).click()
+  await page
+    .locator('section[aria-labelledby="continue-heading"]')
+    .getByRole('button', { name: '+1 серия' })
+    .click()
   await expect(page.getByText('S2 · E2').first()).toBeVisible()
 })
 

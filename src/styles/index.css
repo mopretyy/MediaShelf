@@ -139,6 +139,8 @@
   --animate-shimmer: shimmer 1.6s var(--ease-in-out) infinite;
   --animate-fade-in: fade-in 0.24s var(--ease-out) both;
   --animate-rise: rise 0.32s var(--ease-out) both;
+  /* Home hero: the frame settles in slowly, like a shot opening. */
+  --animate-hero-zoom: hero-zoom 1.8s var(--ease-out) both;
 }
 
 @theme inline {
@@ -180,6 +182,11 @@
 @keyframes fade-in {
   from {
     opacity: 0;
+  }
+}
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.06);
   }
 }
 @keyframes rise {
