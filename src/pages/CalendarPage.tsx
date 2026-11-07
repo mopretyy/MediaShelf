@@ -259,7 +259,8 @@ function DayCell({
         className={cn(
           'flex h-full min-h-[112px] w-full flex-col gap-1.5 rounded-lg p-1.5 text-left transition-colors',
           selected ? 'bg-active ring-1 ring-line-strong ring-inset' : 'hover:bg-hover',
-          !inMonth && 'opacity-45',
+          // Days of the months around: quieter, but still readable (fg-3 keeps 4.5:1).
+          !inMonth && 'text-fg-3 [&_img]:opacity-60',
           day < today && !selected && 'text-fg-3',
         )}
       >
