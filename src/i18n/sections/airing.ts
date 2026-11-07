@@ -10,7 +10,7 @@ export const airingRu = {
     many: 'и ещё {count} серий',
     other: 'и ещё {count} серии',
   },
-  watched: 'Посмотрел',
+  watched: 'Просмотрено',
   upcomingTitle: 'Скоро выйдет',
   premiere: 'Премьера сезона',
   showAll: 'Показать всё',

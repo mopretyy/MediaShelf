@@ -4,6 +4,12 @@ import { externalImportRu } from './sections/external-import.ts'
 import { steamConnectRu } from './sections/steam-connect.ts'
 // Source of truth for UI copy. English (en.ts) must provide exactly the same keys.
 // Plural objects use Intl.PluralRules categories; {count} and other {vars} are interpolated.
+// parity.test.ts checks every locale against these keys and {placeholders}.
+//
+// Tone: address the user formally and gender-neutrally. «Вы» and its imperative («Отметьте»,
+// «Найдите»), never «ты» («Отметь», «смотришь»). No past tense in the masculine or feminine about
+// the user («Посмотрел», «прошёл»): use the plural («Вы прошли»), an impersonal form («Просмотрено»)
+// or a noun. Status names like «Смотрю» or «Хочу пройти» speak for the user and stay first person.
 
 export const ru = {
   profileLook: profileLookRu,
@@ -632,8 +638,6 @@ export const ru = {
     steamUnlink: 'Отвязать',
     steamImport: 'Импортировать библиотеку',
     importDone: 'Добавлено игр: {imported} из {total}.',
-    importPartial:
-      'Добавили {imported} недавние игры с витрины профиля. Весь список Steam прячет — для него нужен ключ сайта.',
     connected: 'Подключено',
     soon: 'Скоро: {stores}',
     steamKeyHelp: 'Как импортировать сразу всю библиотеку?',
@@ -689,10 +693,10 @@ export const ru = {
     today: 'Сегодня',
     yesterday: 'Вчера',
     emptyOwnKicker: 'Добро пожаловать',
-    emptyOwnTitle: 'Собери свою полку',
-    emptyStep1: 'Найди игру, фильм или сериал',
-    emptyStep2: 'Отметь, что смотришь или прошёл',
-    emptyStep3: 'Лучшее отметь сердцем: это Топ-4',
+    emptyOwnTitle: 'Соберите свою полку',
+    emptyStep1: 'Найдите игру, фильм или сериал',
+    emptyStep2: 'Отметьте, что смотрите или уже прошли',
+    emptyStep3: 'Лучшее отметьте сердцем — это Топ-4',
     openDiscover: 'Открыть Обзор',
     emptyOther: 'Здесь пока пусто',
     shareTitle: 'Ссылка на профиль',
@@ -799,9 +803,12 @@ export const ru = {
     themeLight: 'Светлая тема',
     themeDark: 'Тёмная тема',
     themeSystem: 'Тема как в системе',
-    switchLanguage: 'Switch to English',
+    language: 'Язык…',
+    languagePlaceholder: 'Выберите язык…',
     hintNavigate: 'выбрать',
     hintOpen: 'открыть',
+    hintApply: 'применить',
+    hintBack: 'назад',
     hintClose: 'закрыть',
   },
   toast: {

@@ -1,16 +1,29 @@
 import { Command } from 'cmdk'
-import { CornerDownLeft, Languages, LogOut, Monitor, Moon, Plus, Search, Sun } from 'lucide-react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CornerDownLeft,
+  Languages,
+  LogOut,
+  Monitor,
+  Moon,
+  Plus,
+  Search,
+  Sun,
+} from 'lucide-react'
 import { Dialog as D } from 'radix-ui'
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import type { TitleRecord } from '@shared/types.ts'
+import { LOCALES, type TitleRecord } from '@shared/types.ts'
 import { useLibraryActions } from '@/components/library-actions'
 import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
-import { Spinner } from '@/components/ui/button'
+import { Button, Spinner } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/misc'
-import { useI18n } from '@/i18n'
+import { translate, useI18n } from '@/i18n'
+import { foldForSearch, LANGUAGE_NAMES, languageOptions, matchLanguages } from '@/i18n/languages'
 import { cn } from '@/lib/cn'
 import { useDebounced } from '@/lib/hooks'
 import { readRecent } from '@/lib/recent'
@@ -28,6 +41,20 @@ function normalise(value: string) {
   return value.toLocaleLowerCase().replaceAll('ё', 'е')
 }
 
+interface PaletteCommand {
+  id: string
+  label: string
+  icon: ReactNode
+  /** Folded words that also find the command when the query starts one of them. */
+  keywords?: string[]
+  /** Muted text at the end of the row. */
+  detail?: ReactNode
+  run(): void
+}
+
+/** The main list, or the language choice that replaces it until Escape, Backspace or «Назад». */
+type Page = 'root' | 'language'
+
 export function CommandPalette({
   open,
   mode,
@@ -44,14 +71,23 @@ export function CommandPalette({
   const navigate = useNavigate()
   const user = useUser()
   const [value, setValue] = useState('')
+  const [page, setPage] = useState<Page>('root')
+  // The row to highlight when the main list comes back from a sub-list.
+  const [returnTo, setReturnTo] = useState<string>()
   // However the palette closes (Escape, a pick, Ctrl+K again, a click outside), it reopens empty.
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
     setWasOpen(open)
     if (!open) setValue('')
+    // Back to the main list on open rather than on close, so nothing jumps while it fades out.
+    else {
+      setPage('root')
+      setReturnTo(undefined)
+    }
   }
+  const root = page === 'root'
   const debounced = useDebounced(value, 220)
-  const search = useSearch(open ? debounced : '', 'all')
+  const search = useSearch(open && root ? debounced : '', 'all')
   const { data: entries } = useLibrary()
   const library = useLibraryMap()
   const actions = useLibraryActions()
@@ -64,11 +100,11 @@ export function CommandPalette({
   const owner = user?.id ?? null
   // Opened lately: offered first when the palette is empty, so the way back is one keystroke.
   const recent = useMemo(
-    () => (open && mode === 'search' && !query ? readRecent(owner) : []),
-    [open, mode, query, owner],
+    () => (open && root && mode === 'search' && !query ? readRecent(owner) : []),
+    [open, root, mode, query, owner],
   )
   const libraryMatches = useMemo(() => {
-    if (!entries) return []
+    if (!entries || !root) return []
     if (!query)
       return mode === 'search'
         ? entries.filter((entry) => !recent.some((item) => item.id === entry.titleId)).slice(0, 5)
@@ -78,12 +114,12 @@ export function CommandPalette({
         Object.values(entry.title.names).some((name) => name && normalise(name).includes(query)),
       )
       .slice(0, 6)
-  }, [entries, query, mode, recent])
+  }, [entries, root, query, mode, recent])
 
   // Catalog rows must belong to what is typed now. During the debounce, and while the new query
   // loads with the previous results kept as placeholder data, they belong to an older query:
   // showing them would let Enter (cmdk selects the first row) add or open the wrong title.
-  const searchable = query.length >= 2
+  const searchable = root && query.length >= 2
   const fresh = normalise(debounced.trim()) === query && !search.isPlaceholderData
   const catalogItems = (searchable && fresh ? (search.data?.items ?? []) : []).filter(
     (item) => !libraryMatches.some((entry) => entry.titleId === item.id),
@@ -108,7 +144,40 @@ export function CommandPalette({
     fn()
   }
 
-  const commands = [
+  // Every language is listed in itself; its name in the current language helps with the rest.
+  const languages = useMemo(() => languageOptions(locale), [locale])
+  // «Язык…» also answers to the word for «language» and to any language's name, in every
+  // language, so a person stuck in an interface they can't read still finds the way out.
+  const languageKeywords = useMemo(
+    () => [
+      ...LOCALES.map((code) => foldForSearch(translate(code, 'nav.language'))),
+      ...languages.flatMap((item) => item.words),
+    ],
+    [languages],
+  )
+  const languageMatches = matchLanguages(languages, value)
+
+  const openLanguages = () => {
+    // A language typed by name stays as the filter: «deutsch», Enter, Enter.
+    if (!languageMatches.length) setValue('')
+    setPage('language')
+  }
+  const back = () => {
+    setPage('root')
+    setValue('')
+    setReturnTo('action-language')
+  }
+
+  const list = useRef<HTMLDivElement>(null)
+  // cmdk highlights `returnTo` on the main list, but doesn't scroll to it: «Язык…» sits low.
+  useLayoutEffect(() => {
+    if (page !== 'root' || !returnTo) return
+    list.current
+      ?.querySelector(`[cmdk-item][data-value="${returnTo}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [page, returnTo])
+
+  const commands: PaletteCommand[] = [
     ...NAV_ITEMS.map((item) => ({
       id: item.to,
       label: t(item.label),
@@ -116,7 +185,7 @@ export function CommandPalette({
       run: run(() => navigate(item.to)),
     })),
   ]
-  const actionItems = [
+  const actionItems: PaletteCommand[] = [
     {
       id: 'theme-light',
       label: t('palette.themeLight'),
@@ -137,9 +206,16 @@ export function CommandPalette({
     },
     {
       id: 'language',
-      label: t('palette.switchLanguage'),
+      label: t('palette.language'),
       icon: <Languages />,
-      run: run(() => setters.setLocale(locale === 'ru' ? 'en' : 'ru')),
+      keywords: languageKeywords,
+      detail: (
+        <>
+          {LANGUAGE_NAMES[locale]}
+          <ChevronRight />
+        </>
+      ),
+      run: openLanguages,
     },
     ...(user
       ? [
@@ -155,7 +231,12 @@ export function CommandPalette({
         ]
       : []),
   ]
-  const matches = (label: string) => !query || normalise(label).includes(query)
+  const folded = foldForSearch(value.trim())
+  const matches = (item: PaletteCommand) =>
+    !query ||
+    normalise(item.label).includes(query) ||
+    Boolean(item.keywords?.some((word) => word.startsWith(folded)))
+  const listLabel = root ? t('nav.search') : t('settings.language')
 
   const row = (title: TitleRecord) => {
     const saved = library.get(title.id)
@@ -203,19 +284,61 @@ export function CommandPalette({
             event.preventDefault()
             returnFocus()
           }}
+          onEscapeKeyDown={(event) => {
+            // In the language list Escape steps back; only the main list closes on it.
+            if (root) return
+            event.preventDefault()
+            back()
+          }}
         >
           <D.Title className="sr-only">{t('nav.search')}</D.Title>
           {/* No vim bindings: Ctrl+K closes the palette, and cmdk would first move the selection
-              with it (up, wrapping to the last row), so a quick reopen could land on «Выйти». */}
-          <Command shouldFilter={false} loop vimBindings={false} label={t('nav.search')}>
+              with it (up, wrapping to the last row), so a quick reopen could land on «Выйти».
+              Keyed by page: cmdk only takes the row to start on when it mounts, so the language
+              list opens on the current language and the way back lands on «Язык…». */}
+          <Command
+            key={page}
+            defaultValue={root ? returnTo : `language-${locale}`}
+            shouldFilter={false}
+            loop
+            vimBindings={false}
+            label={listLabel}
+            onKeyDown={(event) => {
+              // Backspace in the empty field steps back too; holding it only clears the text.
+              if (root || value || event.key !== 'Backspace' || event.repeat) return
+              event.preventDefault()
+              back()
+            }}
+          >
             <div className="flex items-center gap-3 border-b border-line px-4">
-              <Search className="size-4 shrink-0 text-fg-3" />
+              {root ? (
+                <Search className="size-4 shrink-0 text-fg-3" />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t('common.back')}
+                  onClick={back}
+                  // Enter presses the button; cmdk would cancel that and pick a language instead.
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.stopPropagation()
+                  }}
+                  // Sits where the search icon was; a finger gets an invisible 44 px target.
+                  className="-mx-1.5 pointer-coarse:before:absolute pointer-coarse:before:-inset-2 pointer-coarse:before:content-['']"
+                >
+                  <ChevronLeft />
+                </Button>
+              )}
               <Command.Input
                 autoFocus
                 value={value}
                 onValueChange={setValue}
                 placeholder={
-                  mode === 'add' ? t('palette.addPlaceholder') : t('palette.placeholder')
+                  !root
+                    ? t('palette.languagePlaceholder')
+                    : mode === 'add'
+                      ? t('palette.addPlaceholder')
+                      : t('palette.placeholder')
                 }
                 className="h-14 min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-fg-3"
               />
@@ -225,7 +348,36 @@ export function CommandPalette({
                 <Kbd>Esc</Kbd>
               )}
             </div>
-            <Command.List className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3">
+            <Command.List
+              ref={list}
+              // cmdk would name the listbox «Suggestions», in English.
+              label={listLabel}
+              className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain p-2 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-3"
+            >
+              {!root ? (
+                languageMatches.length ? (
+                  <Command.Group heading={t('settings.language')}>
+                    {languageMatches.map((item) => (
+                      <Command.Item
+                        key={item.code}
+                        value={`language-${item.code}`}
+                        // aria-selected follows the keyboard; aria-checked marks the one in use.
+                        aria-checked={item.code === locale}
+                        onSelect={run(() => setters.setLocale(item.code))}
+                        className={cn(itemClass, 'h-9')}
+                      >
+                        <span lang={item.code}>{item.name}</span>
+                        {item.hint ? (
+                          <span className="min-w-0 truncate text-sm text-fg-3">{item.hint}</span>
+                        ) : null}
+                        {item.code === locale ? <Check className="ml-auto" /> : null}
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                ) : (
+                  <p className="px-2.5 py-6 text-center text-sm text-fg-3">{t('palette.empty')}</p>
+                )
+              ) : null}
               {recent.length ? (
                 <Command.Group heading={t('palette.recent')}>{recent.map(row)}</Command.Group>
               ) : null}
@@ -250,12 +402,12 @@ export function CommandPalette({
                   {t('palette.typeToSearch')}
                 </p>
               ) : null}
-              {mode === 'search' ? (
+              {mode === 'search' && root ? (
                 <>
-                  {commands.some((item) => matches(item.label)) ? (
+                  {commands.some((item) => matches(item)) ? (
                     <Command.Group heading={t('palette.navigation')}>
                       {commands
-                        .filter((item) => matches(item.label))
+                        .filter((item) => matches(item))
                         .map((item) => (
                           <Command.Item
                             key={item.id}
@@ -269,10 +421,10 @@ export function CommandPalette({
                         ))}
                     </Command.Group>
                   ) : null}
-                  {actionItems.some((item) => matches(item.label)) ? (
+                  {actionItems.some((item) => matches(item)) ? (
                     <Command.Group heading={t('palette.actions')}>
                       {actionItems
-                        .filter((item) => matches(item.label))
+                        .filter((item) => matches(item))
                         .map((item) => (
                           <Command.Item
                             key={item.id}
@@ -282,6 +434,11 @@ export function CommandPalette({
                           >
                             <span className="text-fg-2">{item.icon}</span>
                             {item.label}
+                            {item.detail ? (
+                              <span className="ml-auto flex min-w-0 items-center gap-1 pl-2 text-sm text-fg-3 [&_svg]:-mr-1">
+                                {item.detail}
+                              </span>
+                            ) : null}
                           </Command.Item>
                         ))}
                     </Command.Group>
@@ -293,8 +450,7 @@ export function CommandPalette({
               !catalogItems.length &&
               !libraryMatches.length &&
               !(
-                mode === 'search' &&
-                [...commands, ...actionItems].some((item) => matches(item.label))
+                mode === 'search' && [...commands, ...actionItems].some((item) => matches(item))
               ) ? (
                 <p className="px-2.5 py-6 text-center text-sm text-fg-3">
                   {catalogFailed ? t('discover.unavailable') : t('palette.empty')}
@@ -311,11 +467,15 @@ export function CommandPalette({
                 <Kbd>
                   <CornerDownLeft className="size-3" />
                 </Kbd>
-                {mode === 'add' ? t('common.add') : t('palette.hintOpen')}
+                {mode === 'add'
+                  ? t('common.add')
+                  : root
+                    ? t('palette.hintOpen')
+                    : t('palette.hintApply')}
               </span>
               <span className="flex items-center gap-1.5">
                 <Kbd>Esc</Kbd>
-                {t('palette.hintClose')}
+                {root ? t('palette.hintClose') : t('palette.hintBack')}
               </span>
             </div>
           </Command>
