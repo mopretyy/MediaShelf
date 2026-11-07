@@ -133,3 +133,39 @@ test('a collection opens on a frame, and its owner picks which title gives it', 
   )
   expect(saved.collection.coverTitleId).toBe('movie-tt0816692')
 })
+
+test('Ctrl K finds collections and starts a new one; a title page lists its collections', async ({
+  page,
+}) => {
+  await register(page)
+  const { body } = await api<{ collection: { id: string } }>(page, 'POST', '/collections', {
+    name: 'Ужасы на Хеллоуин',
+  })
+  await api(page, 'POST', `/collections/${body.collection.id}/items`, {
+    titleId: 'movie-tt0816692',
+  })
+
+  await page.keyboard.press('Control+k')
+  await page.getByPlaceholder('Поиск по библиотеке и каталогу…').fill('хеллоуин')
+  const option = page.getByRole('option', { name: /Ужасы на Хеллоуин/ })
+  await expect(option).toContainText('1 тайтл')
+  await option.click()
+  await expect(page).toHaveURL(new RegExp(`/collections/${body.collection.id}$`))
+
+  await page.keyboard.press('Control+k')
+  await page.getByPlaceholder('Поиск по библиотеке и каталогу…').fill('новая подб')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Новая подборка' })).toBeVisible()
+  await expect(page).toHaveURL(/\/collections$/)
+  await page.keyboard.press('Escape')
+
+  await openTitle(page, 'movie-tt0816692')
+  const holding = page.getByTestId('in-collections')
+  await expect(holding.getByRole('link', { name: 'Ужасы на Хеллоуин' })).toHaveAttribute(
+    'href',
+    `/collections/${body.collection.id}`,
+  )
+  // A title in none of them shows nothing.
+  await openTitle(page, 'movie-tt1375666')
+  await expect(page.getByTestId('in-collections')).toHaveCount(0)
+})

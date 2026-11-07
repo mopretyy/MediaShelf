@@ -176,6 +176,7 @@ export const uk: Messages = {
     makeCover: 'Зробити обкладинкою',
     isCover: 'Обкладинка добірки',
     coverChanged: 'Обкладинку добірки оновлено',
+    inCollections: 'У добірках',
   },
   airing: {
     freshTitle: 'Нові серії',

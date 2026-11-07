@@ -174,6 +174,7 @@ export const fr: DeepPartial<Messages> = {
     makeCover: 'Choisir comme couverture',
     isCover: 'Couverture de la collection',
     coverChanged: 'Couverture mise à jour',
+    inCollections: 'Dans vos collections',
   },
   airing: {
     freshTitle: 'Nouveaux épisodes',

@@ -171,6 +171,7 @@ export const ro: DeepPartial<Messages> = {
     makeCover: 'Folosește drept copertă',
     isCover: 'Coperta colecției',
     coverChanged: 'Coperta a fost actualizată',
+    inCollections: 'În colecțiile tale',
   },
   airing: {
     freshTitle: 'Episoade noi',

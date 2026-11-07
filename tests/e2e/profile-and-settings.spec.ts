@@ -124,3 +124,16 @@ test('the profile shows the title touched last as a large card, the rest as rows
     await expectNoHorizontalOverflow(page)
   }
 })
+
+test('the profile shows the year of activity too', async ({ page }) => {
+  await register(page)
+  expect(
+    (await api(page, 'POST', '/library', { titleId: 'movie-tt0816692', status: 'completed' }))
+      .status,
+  ).toBe(201)
+  await page.goto(`/users/${await myId(page)}`)
+  await expect(page.getByTestId('year-heatmap')).toHaveAttribute(
+    'aria-label',
+    /Год активности: 1 активный день/,
+  )
+})

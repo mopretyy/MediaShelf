@@ -6,6 +6,7 @@ import {
   CornerDownLeft,
   Keyboard,
   Languages,
+  Layers,
   LogOut,
   Monitor,
   Moon,
@@ -14,11 +15,12 @@ import {
   Sun,
 } from 'lucide-react'
 import { Dialog as D } from 'radix-ui'
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { LOCALES, type TitleRecord } from '@shared/types.ts'
 import { useLibraryActions } from '@/components/library-actions'
+import { useCollections } from '@/lib/collections'
 import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { Button, Spinner } from '@/components/ui/button'
@@ -127,6 +129,23 @@ export function CommandPalette({
       .slice(0, 6)
   }, [entries, root, query, mode, recent])
 
+  // Your collections by name: a way to them from anywhere, and they rank before the catalog.
+  const collections = useCollections()
+  // Fresh on every opening: one made in another tab or on another device shows up here too.
+  const refetchCollections = collections.refetch
+  useEffect(() => {
+    if (open && user) void refetchCollections()
+  }, [open, user, refetchCollections])
+  const collectionMatches = useMemo(
+    () =>
+      root && mode === 'search' && query
+        ? (collections.data ?? [])
+            .filter((collection) => normalise(collection.name).includes(query))
+            .slice(0, 4)
+        : [],
+    [collections.data, root, mode, query],
+  )
+
   // Catalog rows must belong to what is typed now. During the debounce, and while the new query
   // loads with the previous results kept as placeholder data, they belong to an older query:
   // showing them would let Enter (cmdk selects the first row) add or open the wrong title.
@@ -234,6 +253,16 @@ export function CommandPalette({
       ),
       run: openLanguages,
     },
+    ...(user
+      ? [
+          {
+            id: 'new-collection',
+            label: t('collections.create'),
+            icon: <Layers />,
+            run: run(() => navigate('/collections?new=1')),
+          },
+        ]
+      : []),
     ...(onShowShortcuts
       ? [
           {
@@ -274,6 +303,12 @@ export function CommandPalette({
   const previewCommands: PreviewCommand[] = root
     ? [
         ...commands.map((item) => ({ ...item, value: `nav-${item.id}` })),
+        ...collectionMatches.map((collection) => ({
+          value: `collection-${collection.id}`,
+          label: collection.name,
+          icon: <Layers />,
+          detail: t('count.titles', { count: collection.count }),
+        })),
         ...actionItems.map((item) => ({ ...item, value: `action-${item.id}` })),
       ]
     : languageMatches.map((item) => ({
@@ -435,6 +470,26 @@ export function CommandPalette({
                     {libraryMatches.map((entry) => row(entry.title))}
                   </Command.Group>
                 ) : null}
+                {collectionMatches.length ? (
+                  <Command.Group heading={t('collections.title')}>
+                    {collectionMatches.map((collection) => (
+                      <Command.Item
+                        key={collection.id}
+                        value={`collection-${collection.id}`}
+                        onSelect={run(() => navigate(`/collections/${collection.id}`))}
+                        className={itemClass}
+                      >
+                        <span className="text-fg-2">
+                          <Layers />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{collection.name}</span>
+                        <span className="shrink-0 text-sm text-fg-3">
+                          {t('count.titles', { count: collection.count })}
+                        </span>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                ) : null}
                 {catalogItems.length ? (
                   <Command.Group heading={t('palette.catalog')}>
                     {shownCatalog.map(row)}
@@ -503,6 +558,7 @@ export function CommandPalette({
                 !searching &&
                 !catalogItems.length &&
                 !libraryMatches.length &&
+                !collectionMatches.length &&
                 !(
                   mode === 'search' && [...commands, ...actionItems].some((item) => matches(item))
                 ) ? (

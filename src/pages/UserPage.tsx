@@ -32,6 +32,7 @@ import { Button, focusRing } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyState, SectionHeader, Skeleton } from '@/components/ui/misc'
 import { CollectionCard } from '@/components/CollectionCard'
+import { YearHeatmap } from '@/pages/stats/YearHeatmap'
 import { useI18n } from '@/i18n'
 import { formatDayHeading, mergeActivity } from '@/lib/activity'
 import { bannerBackground, isGradientBanner } from '@/lib/banners'
@@ -681,6 +682,8 @@ function ProfileContent({ profile, own }: { profile: UserProfile; own: boolean }
       ) : (
         <>
           <StatsStrip profile={profile} />
+          {/* The year at a glance, as on Stats: the same activity, seen from the profile. */}
+          <YearHeatmap days={profile.stats.activityDays ?? []} className="mt-8" />
           <div className="lg:mt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
             <div className="min-w-0">
               <TopFour entries={profile.favorites} own={own} />

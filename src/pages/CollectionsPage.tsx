@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
 import { PageBody, PageHeader } from '@/app/PageHeader'
 import { CollectionCard, collectionHref } from '@/components/CollectionCard'
 import { CollectionFormDialog } from '@/components/CollectionDialogs'
@@ -19,7 +19,15 @@ export default function CollectionsPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const collections = useCollections()
-  const [creating, setCreating] = useState(false)
+  // «Новая подборка» from the command palette arrives as ?new=1: open the form, drop the flag.
+  const [params, setParams] = useSearchParams()
+  const [creating, setCreating] = useState(() => params.get('new') === '1')
+  useEffect(() => {
+    if (params.get('new') !== '1') return
+    const next = new URLSearchParams(params)
+    next.delete('new')
+    setParams(next, { replace: true })
+  }, [params, setParams])
   useDocumentTitle(t('collections.title'))
   const list = collections.data ?? []
   const create = (

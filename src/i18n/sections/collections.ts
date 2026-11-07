@@ -29,6 +29,7 @@ export const collectionsRu = {
   makeCover: 'Сделать обложкой',
   isCover: 'Обложка подборки',
   coverChanged: 'Обложка подборки обновлена',
+  inCollections: 'В подборках',
 }
 
 export const collectionsEn: typeof collectionsRu = {
@@ -59,4 +60,5 @@ export const collectionsEn: typeof collectionsRu = {
   makeCover: 'Make the cover',
   isCover: 'The collection’s cover',
   coverChanged: 'Collection cover updated',
+  inCollections: 'In your collections',
 }

@@ -174,6 +174,7 @@ export const de: DeepPartial<Messages> = {
     makeCover: 'Als Titelbild',
     isCover: 'Titelbild der Sammlung',
     coverChanged: 'Titelbild aktualisiert',
+    inCollections: 'In Ihren Sammlungen',
   },
   airing: {
     freshTitle: 'Neue Folgen',

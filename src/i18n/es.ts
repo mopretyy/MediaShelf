@@ -175,6 +175,7 @@ export const es: DeepPartial<Messages> = {
     makeCover: 'Usar como portada',
     isCover: 'Portada de la colección',
     coverChanged: 'Portada actualizada',
+    inCollections: 'En tus colecciones',
   },
   airing: {
     freshTitle: 'Nuevos episodios',
