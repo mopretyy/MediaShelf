@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -199,7 +199,18 @@ export function AiringSections() {
       ) : null}
       {data.upcoming.length ? (
         <section className="mt-12" aria-labelledby="upcoming-heading">
-          <SectionHeader id="upcoming-heading" title={t('airing.upcomingTitle')} />
+          <SectionHeader
+            id="upcoming-heading"
+            title={t('airing.upcomingTitle')}
+            action={
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/calendar">
+                  <CalendarDays />
+                  {t('nav.calendar')}
+                </Link>
+              </Button>
+            }
+          />
           <UpcomingList items={data.upcoming} today={data.today} />
         </section>
       ) : null}

@@ -255,8 +255,10 @@ async function refreshEntry(client: QueryClient, titleId: string) {
         entry.watchedEpisodes !== current.watchedEpisodes ||
         entry.totalEpisodes !== current.totalEpisodes ||
         JSON.stringify(entry.nextEpisode) !== JSON.stringify(current.nextEpisode)
-      )
+      ) {
         void client.invalidateQueries({ queryKey: ['airing'] })
+        void client.invalidateQueries({ queryKey: ['calendar'] })
+      }
     }
   } catch {
     // Best effort: the next library refetch brings the same numbers.
@@ -304,8 +306,9 @@ export function invalidateDerived(client: QueryClient) {
   void client.invalidateQueries({ queryKey: keys.activity })
   // Profiles show favourites, stats and recent activity too (your own one included).
   void client.invalidateQueries({ queryKey: ['profile'] })
-  // New and upcoming episodes depend on marks and statuses.
+  // New and upcoming episodes, and the month calendar, depend on marks and statuses.
   void client.invalidateQueries({ queryKey: ['airing'] })
+  void client.invalidateQueries({ queryKey: ['calendar'] })
 }
 
 /** Undo one optimistic change, then refetch: a sibling mutation may have landed meanwhile. */

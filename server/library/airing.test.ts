@@ -103,3 +103,62 @@ describe('background refreshes', () => {
     expect(pickRefreshes(stale, tried, now + REFRESH_RETRY)).toEqual(['a', 'b', 'c', 'd'])
   })
 })
+
+describe('episode calendar', () => {
+  it('lists every episode of a followed show between two days, watched ones marked', async () => {
+    // Episodes air on Oct 23, Oct 30, Nov 6, Nov 13, Nov 20; episode 1 is watched.
+    const t = await follow(weekly('2026-10-23'), [1])
+    const res = await t.request('GET', '/api/library/calendar?from=2026-10-26&to=2026-12-06')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ from: '2026-10-26', to: '2026-12-06' })
+    expect(
+      res.body.items.map((item: { episode: { number: number; airdate: string } }) => [
+        item.episode.number,
+        item.episode.airdate,
+      ]),
+    ).toEqual([
+      [2, '2026-10-30'],
+      [3, '2026-11-06'],
+      [4, '2026-11-13'],
+      [5, '2026-11-20'],
+    ])
+    expect(res.body.items[0]).toMatchObject({
+      titleId: SERIES,
+      watched: false,
+      status: 'in_progress',
+    })
+
+    const october = await t.request('GET', '/api/library/calendar?from=2026-10-01&to=2026-10-31')
+    expect(
+      october.body.items.map((item: { episode: { number: number }; watched: boolean }) => [
+        item.episode.number,
+        item.watched,
+      ]),
+    ).toEqual([
+      [1, true],
+      [2, false],
+    ])
+  })
+
+  it('leaves dropped shows out', async () => {
+    const t = await follow(weekly('2026-10-23'), [], 'dropped')
+    const res = await t.request('GET', '/api/library/calendar?from=2026-10-15&to=2026-11-25')
+    expect(res.status).toBe(200)
+    expect(res.body.items).toEqual([])
+  })
+
+  it('refuses spans that are not days or longer than six weeks', async () => {
+    const t = await follow(weekly('2026-10-23'), [])
+    for (const range of [
+      'from=2026-10-01',
+      'from=2026-10-01&to=2026-13-01',
+      'from=2026-11-01&to=2026-10-01',
+      'from=2026-10-01&to=2026-11-12',
+    ])
+      expect((await t.request('GET', `/api/library/calendar?${range}`)).status).toBe(400)
+    // Exactly six weeks is fine.
+    expect(
+      (await t.request('GET', '/api/library/calendar?from=2026-10-01&to=2026-11-11')).status,
+    ).toBe(200)
+  })
+})

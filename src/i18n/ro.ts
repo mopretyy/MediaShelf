@@ -115,6 +115,17 @@ export const ro: DeepPartial<Messages> = {
     drag: 'Mută un card',
     space: 'Spațiu',
   },
+  calendar: {
+    title: 'Calendarul episoadelor',
+    previous: 'Luna precedentă',
+    next: 'Luna următoare',
+    today: 'Astăzi',
+    empty: 'Niciun episod luna aceasta',
+    emptyHint:
+      'Aici apar episoadele serialelor și anime-urilor din biblioteca ta, în afară de cele abandonate.',
+    dayEmpty: 'În această zi nu apare nimic',
+    episodes: { one: '{count} episod', few: '{count} episoade', other: '{count} de episoade' },
+  },
   airing: {
     freshTitle: 'Episoade noi',
     aired: 'A apărut {when}',
@@ -193,6 +204,7 @@ export const ro: DeepPartial<Messages> = {
     library: 'Bibliotecă',
     shuffle: 'Noroc',
     stats: 'Statistici',
+    calendar: 'Calendar',
     settings: 'Setări',
     search: 'Caută',
     add: 'Adaugă',

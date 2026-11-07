@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AiringFeed } from '@shared/types.ts'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { AiringFeed, CalendarFeed } from '@shared/types.ts'
 import { get, query } from './api'
 import { keys, useUser } from './queries'
 import { localToday } from './titles'
@@ -45,4 +45,32 @@ export function useAiring(enabled = true) {
 export function useFreshCount() {
   const { data } = useAiring()
   return data?.fresh.reduce((sum, item) => sum + item.count, 0) ?? 0
+}
+
+/** Answers that still said `refreshing`, per range: stop asking after a few (a source may be down). */
+const calendarPolls = new Map<string, number>()
+
+/** Episodes of followed shows between two days, watched or not (the month calendar). */
+export function useCalendar(from: string, to: string) {
+  const user = useUser()
+  const client = useQueryClient()
+  const range = `${from}:${to}`
+  return useQuery({
+    queryKey: ['calendar', from, to] as const,
+    queryFn: async ({ signal }) => {
+      const before = client.getQueryData<CalendarFeed>(['calendar', from, to])
+      const feed = await get<CalendarFeed>(`/library/calendar${query({ from, to })}`, signal)
+      // A refresh stored new lists and recounted entries: the library follows, as for the feed.
+      if (before?.refreshing) void client.invalidateQueries({ queryKey: keys.library, exact: true })
+      calendarPolls.set(range, feed.refreshing ? (calendarPolls.get(range) ?? 0) + 1 : 0)
+      return feed
+    },
+    enabled: Boolean(user),
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchInterval: (state) =>
+      state.state.data?.refreshing && (calendarPolls.get(range) ?? 0) <= MAX_REFRESH_POLLS
+        ? 4_000
+        : false,
+  })
 }

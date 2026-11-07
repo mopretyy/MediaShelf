@@ -169,6 +169,20 @@ export interface AiringItem {
   count: number
 }
 
+/** One episode in the month calendar: when it airs and whether you have seen it. */
+export interface CalendarItem extends AiringItem {
+  watched: boolean
+}
+
+/** Episodes of followed shows airing between `from` and `to` (both included, YYYY-MM-DD). */
+export interface CalendarFeed {
+  from: string
+  to: string
+  items: CalendarItem[]
+  /** Some episode lists are being refreshed in the background: ask again in a few seconds. */
+  refreshing?: boolean
+}
+
 /** "What's new for me": fresh episodes of shows you had caught up on, and what airs soon. */
 export interface AiringFeed {
   /** The day the feed was computed for (the viewer's local date). */

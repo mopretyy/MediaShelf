@@ -16,12 +16,21 @@ import {
   requireUser,
   requestLocale,
   requestRegion,
+  type AppContext,
   type AppDeps,
   type AppEnv,
 } from '../context.ts'
 import { ApiError, notFound } from '../http/errors.ts'
 import { listActivity } from '../library/activity.ts'
-import { computeAiring, isDay, pickRefreshes, staleEpisodeLists } from '../library/airing.ts'
+import {
+  addDays,
+  CALENDAR_MAX_DAYS,
+  computeAiring,
+  computeCalendar,
+  isDay,
+  pickRefreshes,
+  staleEpisodeLists,
+} from '../library/airing.ts'
 import {
   addPlaythrough,
   createEntry,
@@ -86,11 +95,9 @@ export function libraryRoutes(deps: AppDeps) {
 
   // New and upcoming episodes of followed shows. Lists that are missing or due are refreshed in
   // the background; `refreshing` tells the client to ask again shortly instead of waiting here.
-  app.get('/airing', (c) => {
-    const user = requireUser(c)
-    const requested = c.req.query('today')
-    const today = isDay(requested) ? requested : new Date().toISOString().slice(0, 10)
-    const stale = staleEpisodeLists(db, user.id)
+  /** Starts background refreshes of due episode lists; true while any of them still runs. */
+  const refreshDueLists = (c: AppContext, userId: string) => {
+    const stale = staleEpisodeLists(db, userId)
     const batch = pickRefreshes(stale, refreshTried)
     const locale = requestLocale(c)
     const region = requestRegion(c)
@@ -101,8 +108,27 @@ export function libraryRoutes(deps: AppDeps) {
         .finally(() => refreshing.delete(id))
     }
     // Still true while an earlier request's refresh runs, so the client keeps polling until done.
-    const busy = batch.length > 0 || stale.some((id) => refreshing.has(id))
+    return batch.length > 0 || stale.some((id) => refreshing.has(id))
+  }
+
+  app.get('/airing', (c) => {
+    const user = requireUser(c)
+    const requested = c.req.query('today')
+    const today = isDay(requested) ? requested : new Date().toISOString().slice(0, 10)
+    const busy = refreshDueLists(c, user.id)
     return c.json({ ...computeAiring(db, user.id, today), refreshing: busy })
+  })
+
+  // Episodes of followed shows between two days (the month calendar), watched or not. At most
+  // six weeks per request: a month grid with its leading and trailing days.
+  app.get('/calendar', (c) => {
+    const user = requireUser(c)
+    const from = c.req.query('from')
+    const to = c.req.query('to')
+    if (!isDay(from) || !isDay(to) || to < from || addDays(from, CALENDAR_MAX_DAYS - 1) < to)
+      throw new ApiError(400, 'BAD_REQUEST', 'from and to must be days at most six weeks apart')
+    const busy = refreshDueLists(c, user.id)
+    return c.json({ ...computeCalendar(db, user.id, from, to), refreshing: busy })
   })
 
   app.post('/', async (c) => {

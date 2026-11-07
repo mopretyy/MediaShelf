@@ -118,6 +118,17 @@ export const fr: DeepPartial<Messages> = {
     drag: 'Déplacer une carte',
     space: 'Espace',
   },
+  calendar: {
+    title: 'Calendrier des épisodes',
+    previous: 'Mois précédent',
+    next: 'Mois suivant',
+    today: 'Aujourd’hui',
+    empty: 'Aucun épisode ce mois-ci',
+    emptyHint:
+      'Les épisodes des séries et animés de votre bibliothèque apparaissent ici, sauf ceux abandonnés.',
+    dayEmpty: 'Rien ne sort ce jour-là',
+    episodes: { one: '{count} épisode', other: '{count} épisodes' },
+  },
   airing: {
     freshTitle: 'Nouveaux épisodes',
     aired: 'Sorti {when}',
@@ -194,6 +205,7 @@ export const fr: DeepPartial<Messages> = {
     library: 'Bibliothèque',
     shuffle: 'Hasard',
     stats: 'Statistiques',
+    calendar: 'Calendrier',
     settings: 'Réglages',
     search: 'Rechercher',
     add: 'Ajouter',

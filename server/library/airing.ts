@@ -2,6 +2,8 @@ import type {
   AiringEpisode,
   AiringFeed,
   AiringItem,
+  CalendarFeed,
+  CalendarItem,
   Episode,
   LibraryEntry,
   Status,
@@ -123,6 +125,44 @@ export function computeAiring(db: DB, userId: string, today: string): AiringFeed
     fresh: fresh.map(({ latest: _latest, ...item }) => item),
     upcoming: upcoming.slice(0, MAX_UPCOMING),
   }
+}
+
+/** The longest span the calendar answers for: six weeks, a month grid with its edges. */
+export const CALENDAR_MAX_DAYS = 42
+const MAX_CALENDAR_ITEMS = 600
+
+/**
+ * Every episode of a followed show (planned, in progress, paused or completed) airing between
+ * `from` and `to`, both included, with whether you have seen it: what the month calendar draws.
+ */
+export function computeCalendar(db: DB, userId: string, from: string, to: string): CalendarFeed {
+  const watched = watchedSets(db, userId)
+  const items: CalendarItem[] = []
+  for (const entry of listEntries(db, userId)) {
+    if (!followsEpisodes(entry) || !UPCOMING_STATUSES.includes(entry.status)) continue
+    const stored = readEpisodeList(db, entry.titleId)
+    if (!stored) continue
+    const seen = watched.get(entry.titleId) ?? new Set<string>()
+    for (const episode of regular(stored.list.seasons.flatMap((season) => season.episodes)))
+      if (episode.airdate && episode.airdate >= from && episode.airdate <= to)
+        items.push({
+          titleId: entry.titleId,
+          kind: entry.kind,
+          status: entry.status,
+          title: entry.title,
+          episode: toAiring(episode),
+          count: 1,
+          watched: seen.has(`${episode.season}:${episode.number}`),
+        })
+  }
+  items.sort(
+    (a, b) =>
+      a.episode.airdate.localeCompare(b.episode.airdate) ||
+      a.titleId.localeCompare(b.titleId) ||
+      a.episode.season - b.episode.season ||
+      a.episode.number - b.episode.number,
+  )
+  return { from, to, items: items.slice(0, MAX_CALENDAR_ITEMS) }
 }
 
 /** A title whose refresh was attempted is not attempted again for this long. */

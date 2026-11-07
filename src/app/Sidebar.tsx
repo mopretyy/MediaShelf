@@ -1,4 +1,14 @@
-import { BarChart3, Compass, Dices, House, LibraryBig, PanelLeft, Plus, Search } from 'lucide-react'
+import {
+  BarChart3,
+  CalendarDays,
+  Compass,
+  Dices,
+  House,
+  LibraryBig,
+  PanelLeft,
+  Plus,
+  Search,
+} from 'lucide-react'
 import type { ComponentType } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { Poster } from '@/components/Poster'
@@ -23,10 +33,13 @@ export const NAV_ITEMS: {
   end?: boolean
   /** The second key of its «G, then …» chord (the Latin letter on the key). */
   chord: string
+  /** Left out of the phone tab bar, which has room for five. */
+  desktopOnly?: boolean
 }[] = [
   { to: '/', label: 'nav.home', icon: House, end: true, chord: 'h' },
   { to: '/discover', label: 'nav.discover', icon: Compass, chord: 'd' },
   { to: '/library', label: 'nav.library', icon: LibraryBig, chord: 'l' },
+  { to: '/calendar', label: 'nav.calendar', icon: CalendarDays, chord: 'c', desktopOnly: true },
   { to: '/shuffle', label: 'nav.shuffle', icon: Dices, chord: 'r' },
   { to: '/stats', label: 'nav.stats', icon: BarChart3, chord: 's' },
 ]
@@ -262,7 +275,7 @@ export function MobileTabBar() {
       className="glass glass-dense glass-edge fixed inset-x-0 bottom-0 z-40 border-t border-line pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="mx-auto grid h-14 max-w-lg grid-cols-5">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.desktopOnly).map((item) => {
           const Icon = item.icon
           return (
             <li key={item.to}>
