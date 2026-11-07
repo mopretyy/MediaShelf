@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/misc'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useI18n, type MessageKey } from '@/i18n'
+import { useFreshCount } from '@/lib/airing'
 import { cn } from '@/lib/cn'
 import { isMac } from '@/lib/hooks'
 import { useLibrary, useUser } from '@/lib/queries'
@@ -184,8 +185,16 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle(
                 )
               }
             >
-              <Icon className="size-[18px]" />
+              {collapsed && item.to === '/' ? (
+                <span className="relative">
+                  <Icon className="size-[18px]" />
+                  <FreshBadge variant="dot" />
+                </span>
+              ) : (
+                <Icon className="size-[18px]" />
+              )}
               {!collapsed ? t(item.label) : null}
+              {!collapsed && item.to === '/' ? <FreshBadge variant="pill" /> : null}
             </NavLink>
           )
           return collapsed ? (
@@ -214,6 +223,35 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle(
   )
 }
 
+/** Count of new episodes on "Home": a quiet pill, a dot when there is no room for digits. */
+function FreshBadge({ variant }: { variant: 'pill' | 'dot' }) {
+  const { t } = useI18n()
+  const count = useFreshCount()
+  if (!count) return null
+  const label = <span className="sr-only">{`, ${t('airing.badge', { count })}`}</span>
+  if (variant === 'dot')
+    return (
+      <>
+        <span
+          aria-hidden="true"
+          className="absolute -top-0.5 -right-1 size-2 rounded-full bg-fg ring-2 ring-[var(--bg)]"
+        />
+        {label}
+      </>
+    )
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="ml-auto min-w-5 rounded-full bg-fg px-1.5 text-center text-2xs leading-5 font-semibold text-[var(--bg)] tabular-nums"
+      >
+        {count > 9 ? '9+' : count}
+      </span>
+      {label}
+    </>
+  )
+}
+
 export function MobileTabBar() {
   const { t } = useI18n()
   return (
@@ -236,7 +274,10 @@ export function MobileTabBar() {
                   )
                 }
               >
-                <Icon className="size-[22px]" />
+                <span className="relative">
+                  <Icon className="size-[22px]" />
+                  {item.to === '/' ? <FreshBadge variant="dot" /> : null}
+                </span>
                 <span className="max-w-full truncate px-1">{t(item.label)}</span>
               </NavLink>
             </li>

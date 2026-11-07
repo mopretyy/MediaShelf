@@ -1,4 +1,6 @@
 import { profileLookRu } from './sections/profile-look.ts'
+import { airingRu } from './sections/airing.ts'
+import { externalImportRu } from './sections/external-import.ts'
 import { steamConnectRu } from './sections/steam-connect.ts'
 // Source of truth for UI copy. English (en.ts) must provide exactly the same keys.
 // Plural objects use Intl.PluralRules categories; {count} and other {vars} are interpolated.
@@ -6,6 +8,8 @@ import { steamConnectRu } from './sections/steam-connect.ts'
 export const ru = {
   profileLook: profileLookRu,
   steamConnect: steamConnectRu,
+  airing: airingRu,
+  externalImport: externalImportRu,
   app: {
     name: 'MediaShell',
     tagline: 'Игры, фильмы, сериалы и аниме — в одной библиотеке',
@@ -257,6 +261,8 @@ export const ru = {
     genre: 'Жанр',
     anyGenre: 'Любой жанр',
     hideAdded: 'Скрыть добавленные',
+    noMatches: 'Ничего не подходит под фильтры',
+    clearFilters: 'Сбросить фильтры',
     sort: 'Сортировка',
     sortPopular: 'По популярности',
     sortRating: 'По рейтингу',
@@ -799,6 +805,7 @@ export const ru = {
     FORBIDDEN: 'Недостаточно прав.',
     NOT_FOUND: 'Не найдено.',
     CONFLICT: 'Конфликт данных. Обновите страницу.',
+    ENTRY_EXISTS: 'Тайтл уже снова в библиотеке, отменять нечего.',
     RATE_LIMITED: 'Слишком много попыток. Подождите немного.',
     INVALID_CREDENTIALS: 'Неверная почта или пароль.',
     EMAIL_TAKEN: 'Эта почта уже зарегистрирована.',
@@ -828,6 +835,8 @@ export const ru = {
       taken: 'Уже используется',
       wrong_password: 'Неверный пароль',
       before_start: 'Раньше даты начала',
+      in_future: 'Позже сегодняшнего дня',
+      after_finish: 'Позже даты завершения',
     },
     notFoundTitle: 'Страница не найдена',
     notFoundText: 'Такой страницы нет. Возможно, ссылка устарела.',

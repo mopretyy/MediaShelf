@@ -74,6 +74,7 @@ export function computeStats(db: DB, userId: string, zone: StatsZone = {}): Libr
   const ratingDistribution = Array.from({ length: 10 }, () => 0)
   const genres = new Map<string, number>()
   const minutes = { movies: 0, episodes: 0, games: 0 }
+  let episodes = 0
   let ratingSum = 0
   let rated = 0
   let favorites = 0
@@ -101,8 +102,12 @@ export function computeStats(db: DB, userId: string, zone: StatsZone = {}): Libr
       for (const genre of title.genres ?? []) genres.set(genre, (genres.get(genre) ?? 0) + 1)
     const runtime = title.runtime || DEFAULT_RUNTIME[row.kind]
     if (row.kind === 'movie' && row.status === 'completed') minutes.movies += runtime
-    if (row.kind === 'series' || row.kind === 'anime')
+    if (row.kind === 'series' || row.kind === 'anime') {
+      // Count and time share one source (regular episodes, no specials), so the stats tile
+      // can never say "0 episodes, ≈ 160 h".
+      episodes += row.watched_episodes
       minutes.episodes += row.watched_episodes * runtime
+    }
     if (row.kind === 'game' && row.hours) minutes.games += row.hours * 60
     if (local(row.added_at).y === year) addedThisYear++
     if (row.status === 'completed' && row.finished_at) {
@@ -121,11 +126,6 @@ export function computeStats(db: DB, userId: string, zone: StatsZone = {}): Libr
     'SELECT COALESCE(SUM(hours), 0) AS hours FROM playthroughs WHERE user_id = ?',
   ).get(userId) as { hours: number }
   minutes.games += extraHours.hours * 60
-
-  const { episodes } = sql(
-    db,
-    'SELECT COUNT(*) AS episodes FROM episode_marks WHERE user_id = ? AND watched_at IS NOT NULL',
-  ).get(userId) as { episodes: number }
 
   // Imported libraries have no activity log, so their dated records count as active days too.
   const stamps = sql(

@@ -174,8 +174,8 @@ export function SectionHeader({
   id?: string
 }) {
   return (
-    <div className={cn('mb-3 flex items-end justify-between gap-4', className)}>
-      <h2 id={id} className="text-xl font-semibold tracking-[-0.015em]">
+    <div className={cn('mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2', className)}>
+      <h2 id={id} className="min-w-0 text-xl font-semibold tracking-[-0.015em] break-words">
         {title}
       </h2>
       {action}

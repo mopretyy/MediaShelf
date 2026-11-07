@@ -6,6 +6,7 @@ import { useI18n, type MessageKey } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { useDocumentTitle } from '@/lib/hooks'
 import { useRegisterVerify } from '@/lib/queries'
+import { useTheme } from '@/lib/theme'
 
 /** Landing for the one-click email button: verifies the code from the URL. */
 export default function VerifyEmailPage() {
@@ -13,6 +14,7 @@ export default function VerifyEmailPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const verify = useRegisterVerify()
+  const { preference } = useTheme()
   const [error, setError] = useState<string | null>(null)
   const started = useRef(false)
   useDocumentTitle(t('verify.title'))
@@ -27,9 +29,15 @@ export default function VerifyEmailPage() {
     }
     started.current = true
     verify.mutate(
-      { email, code, locale, theme: 'system' },
+      { email, code, locale, theme: preference },
       {
-        onSuccess: () => setTimeout(() => navigate('/welcome', { replace: true }), 600),
+        // Same order as the code form: navigate first, then apply the session, so the route
+        // guard sees the signed-in user instead of bouncing to the login form.
+        onSuccess: ({ user }) =>
+          setTimeout(() => {
+            navigate('/welcome', { replace: true })
+            verify.signIn(user)
+          }, 600),
         onError: (error) => {
           if (error instanceof ApiError)
             setError(

@@ -1,4 +1,6 @@
 import { profileLookEn } from './sections/profile-look.ts'
+import { airingEn } from './sections/airing.ts'
+import { externalImportEn } from './sections/external-import.ts'
 import { steamConnectEn } from './sections/steam-connect.ts'
 import type { Messages } from './ru.ts'
 
@@ -7,6 +9,8 @@ const p = (one: string, other: string) => ({ one, few: other, many: other, other
 export const en: Messages = {
   profileLook: profileLookEn,
   steamConnect: steamConnectEn,
+  airing: airingEn,
+  externalImport: externalImportEn,
   app: {
     name: 'MediaShell',
     tagline: 'Games, movies, series and anime — one library',
@@ -221,6 +225,8 @@ export const en: Messages = {
     genre: 'Genre',
     anyGenre: 'Any genre',
     hideAdded: 'Hide added',
+    noMatches: 'Nothing matches these filters',
+    clearFilters: 'Clear filters',
     sort: 'Sort',
     sortPopular: 'Most popular',
     sortRating: 'Highest rated',
@@ -733,6 +739,7 @@ export const en: Messages = {
     FORBIDDEN: 'Not allowed.',
     NOT_FOUND: 'Not found.',
     CONFLICT: 'Data conflict. Refresh the page.',
+    ENTRY_EXISTS: 'The title is already back in your library, nothing to undo.',
     RATE_LIMITED: 'Too many attempts. Please wait a moment.',
     INVALID_CREDENTIALS: 'Wrong email or password.',
     EMAIL_TAKEN: 'This email is already registered.',
@@ -762,6 +769,8 @@ export const en: Messages = {
       taken: 'Already in use',
       wrong_password: 'Wrong password',
       before_start: 'Earlier than the start date',
+      in_future: 'Later than today',
+      after_finish: 'Later than the finish date',
     },
     notFoundTitle: 'Page not found',
     notFoundText: "This page doesn't exist. The link may be outdated.",

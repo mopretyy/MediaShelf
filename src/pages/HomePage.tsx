@@ -18,6 +18,7 @@ import { useDocumentTitle } from '@/lib/hooks'
 import { useActivity, useCharts, useLibrary, useMarkNext, useSession } from '@/lib/queries'
 import { episodeCode, localToday, statusLabelKey, titleHref, titleName } from '@/lib/titles'
 import { toast } from 'sonner'
+import { AiringSections } from './home/AiringSections'
 
 function greetingKey(hour: number) {
   if (hour < 5) return 'home.night' as const
@@ -301,6 +302,8 @@ function Dashboard({ name }: { name: string }) {
         </section>
       )}
 
+      {failed ? null : <AiringSections />}
+
       {failed ? null : library.isLoading || active.length ? <Trending /> : null}
 
       {failed ? null : planned.length ? (
@@ -372,7 +375,7 @@ function Dashboard({ name }: { name: string }) {
           <h2 className="mt-4 text-xl font-semibold tracking-tight">{t('home.shuffleTitle')}</h2>
           <p className="mt-1.5 text-base text-fg-2">{t('home.shuffleText')}</p>
           <Button asChild variant="primary" className="mt-5">
-            <Link to="/shuffle">
+            <Link to="/shuffle?source=library">
               <Dices />
               {t('home.shuffleAction')}
             </Link>

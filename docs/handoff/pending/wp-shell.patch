@@ -1,0 +1,1148 @@
+diff --git a/DESIGN.md b/DESIGN.md
+index f5b6a4d..6817b18 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -19,7 +19,7 @@ Strict black and white, in the spirit of Apple and ChatGPT. The layout follows H
+ | Raised (cards, inputs)  | `#1c1c1c`              | `#f4f4f4`             |
+ | Floating (menus)        | `#1f1f1f`              | `#ffffff`             |
+ | Text primary            | `#ededed`              | `#171717`             |
+-| Text secondary/tertiary | `#a1a1a1` / `#8f8f8f`  | `#4d4d4d` / `#737373` |
++| Text secondary/tertiary | `#a1a1a1` / `#8f8f8f`  | `#4d4d4d` / `#666666` |
+ | Hairline                | white 9%               | black 9%              |
+ | Primary button          | `#ededed` on `#0a0a0a` | `#171717` on white    |
+ 
+diff --git a/src/app/App.tsx b/src/app/App.tsx
+index 90204f0..584c470 100644
+--- a/src/app/App.tsx
++++ b/src/app/App.tsx
+@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
+ import { TooltipProvider } from '@/components/ui/tooltip'
+ import { I18nProvider, useI18n } from '@/i18n'
+ import { ApiError } from '@/lib/api'
++import { isOnboarded } from '@/lib/device'
+ import { keys, resetUserData, useSession } from '@/lib/queries'
+ import { ThemeProvider, useTheme } from '@/lib/theme'
+ import { AppShell } from './AppShell'
+@@ -89,8 +90,15 @@ function GuestOnly({ children }: { children: ReactNode }) {
+   if (isLoading) return null
+   if (user) {
+     const next = new URLSearchParams(location.search).get('next')
++    // The guard is the only redirect after sign-up (the form just signs in), so nothing races it:
++    // an account created on this form goes through onboarding before Home.
++    const fallback =
++      location.pathname === '/register' && !isOnboarded(user.id) ? '/welcome' : '/'
+     return (
+-      <Navigate to={next && next.startsWith('/') && !next.startsWith('//') ? next : '/'} replace />
++      <Navigate
++        to={next && next.startsWith('/') && !next.startsWith('//') ? next : fallback}
++        replace
++      />
+     )
+   }
+   return children
+@@ -190,10 +198,13 @@ const router = createBrowserRouter([
+ ])
+ 
+ function Toasts() {
++  const { t } = useI18n()
+   const { resolved } = useTheme()
+   return (
+     <Toaster
+       theme={resolved}
++      // Sonner appends the hotkey itself: «Уведомления alt+T».
++      containerAriaLabel={t('common.notifications')}
+       position="bottom-center"
+       // Above the tab bar, home indicator included (see --tabbar-h in index.css). Sonner's
+       // "mobile" ends at 600 px but the tab bar stays up to 768 px, so both offsets need it.
+diff --git a/src/app/PageHeader.tsx b/src/app/PageHeader.tsx
+index b86a578..ae3dff2 100644
+--- a/src/app/PageHeader.tsx
++++ b/src/app/PageHeader.tsx
+@@ -48,13 +48,25 @@ export function PageHeader({
+         className,
+       )}
+     >
+-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
++      {/* On touch screens every control here is a 44 px box; negative margins at the edges keep
++          the icons where they sit with a mouse, so only the hit areas grow. */}
++      <div className="flex min-w-0 flex-1 items-center gap-1.5 pointer-coarse:gap-1">
+         {back ? (
+-          <Button variant="ghost" size="icon-sm" aria-label={t('common.back')} onClick={goBack}>
++          <Button
++            variant="ghost"
++            size="icon-sm"
++            aria-label={t('common.back')}
++            onClick={goBack}
++            className="pointer-coarse:-ml-1.5 pointer-coarse:size-11"
++          >
+             <ArrowLeft />
+           </Button>
+         ) : (
+-          <Link to="/" className="mr-1 rounded-md md:hidden" aria-label={t('nav.home')}>
++          <Link
++            to="/"
++            className="mr-1 rounded-md md:hidden pointer-coarse:mr-0 pointer-coarse:-ml-2 pointer-coarse:p-2"
++            aria-label={t('nav.home')}
++          >
+             <BrandMark className="size-7" />
+           </Link>
+         )}
+@@ -87,12 +99,13 @@ export function PageHeader({
+           )}
+         </div>
+       </div>
+-      <div className="flex shrink-0 items-center gap-1.5">
++      {/* The 44 px boxes carry their own whitespace on touch screens, so they need no gap. */}
++      <div className="flex shrink-0 items-center gap-1.5 pointer-coarse:gap-0">
+         {actions}
+         <Button
+           variant="ghost"
+           size="icon-sm"
+-          className="md:hidden"
++          className="md:hidden pointer-coarse:size-11"
+           aria-label={t('nav.search')}
+           onClick={() => openPalette('search')}
+         >
+diff --git a/src/app/Sidebar.tsx b/src/app/Sidebar.tsx
+index 968b722..0312ede 100644
+--- a/src/app/Sidebar.tsx
++++ b/src/app/Sidebar.tsx
+@@ -269,7 +269,7 @@ export function MobileTabBar() {
+                 end={item.end}
+                 className={({ isActive }) =>
+                   cn(
+-                    'flex h-full flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors',
++                    'flex h-full flex-col items-center justify-center gap-1 text-2xs font-medium transition-colors',
+                     isActive ? 'text-fg' : 'text-fg-3',
+                   )
+                 }
+@@ -278,7 +278,8 @@ export function MobileTabBar() {
+                   <Icon className="size-[22px]" />
+                   {item.to === '/' ? <FreshBadge variant="dot" /> : null}
+                 </span>
+-                <span className="max-w-full truncate px-1">{t(item.label)}</span>
++                {/* No side padding: at 320 px the 11 px «Библиотека» needs the whole 64 px column. */}
++                <span className="max-w-full truncate">{t(item.label)}</span>
+               </NavLink>
+             </li>
+           )
+diff --git a/src/app/UserMenu.tsx b/src/app/UserMenu.tsx
+index 35bf5d5..27782b4 100644
+--- a/src/app/UserMenu.tsx
++++ b/src/app/UserMenu.tsx
+@@ -199,13 +199,21 @@ export function UserMenu({ collapsed }: { collapsed?: boolean }) {
+   )
+ }
+ 
+-/** Avatar-only trigger for the mobile title bar. */
++/**
++ * Avatar-only trigger for the mobile title bar, at its right edge. On touch screens it is a 44 px
++ * target; the negative margin keeps the avatar itself where it sits with a mouse.
++ */
+ export function AccountButton({ className }: { className?: string }) {
+   const { t } = useI18n()
+   const user = useUser()
+   if (!user)
+     return (
+-      <Button asChild variant="secondary" size="sm" className={className}>
++      <Button
++        asChild
++        variant="secondary"
++        size="sm"
++        className={cn('pointer-coarse:h-10 pointer-coarse:px-3.5', className)}
++      >
+         <Link to="/login">{t('nav.signIn')}</Link>
+       </Button>
+     )
+@@ -215,7 +223,10 @@ export function AccountButton({ className }: { className?: string }) {
+         <button
+           type="button"
+           aria-label={t('nav.account')}
+-          className={cn('rounded-full p-0.5', className)}
++          className={cn(
++            'rounded-full p-0.5 pointer-coarse:-mr-1.5 pointer-coarse:p-2',
++            className,
++          )}
+         >
+           <UserAvatar user={user} />
+         </button>
+diff --git a/src/components/TitleCard.tsx b/src/components/TitleCard.tsx
+index dc79971..a704008 100644
+--- a/src/components/TitleCard.tsx
++++ b/src/components/TitleCard.tsx
+@@ -214,13 +214,15 @@ export function Shelf({
+           </div>
+         ))}
+       </div>
++      {/* Arrows are for mice: touch screens swipe the shelf, and a hover-only arrow there would
++          be an invisible target over the posters. */}
+       {!edges.start ? (
+         <Button
+           variant="secondary"
+           size="icon-sm"
+           aria-label={t('common.back')}
+           onClick={() => scroll(-1)}
+-          className="absolute top-[38%] left-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden"
++          className="absolute top-[38%] left-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden pointer-coarse:hidden"
+         >
+           <ChevronLeft />
+         </Button>
+@@ -231,7 +233,7 @@ export function Shelf({
+           size="icon-sm"
+           aria-label={t('common.more')}
+           onClick={() => scroll(1)}
+-          className="absolute top-[38%] right-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden"
++          className="absolute top-[38%] right-2 rounded-full bg-floating opacity-0 shadow-floating transition-opacity group-hover/shelf:opacity-100 max-md:hidden pointer-coarse:hidden"
+         >
+           <ChevronRight />
+         </Button>
+diff --git a/src/components/ui/button.tsx b/src/components/ui/button.tsx
+index ed3b436..73ae93e 100644
+--- a/src/components/ui/button.tsx
++++ b/src/components/ui/button.tsx
+@@ -11,17 +11,27 @@ const variants = {
+   'danger-ghost': 'text-danger hover:bg-danger/10',
+ } as const
+ 
++// The compact sizes grow on touch screens (coarse pointers), so a thumb can hit them; mouse and
++// trackpad layouts keep the compact boxes.
+ const sizes = {
+-  xs: 'h-7 gap-1.5 rounded-md px-2 text-xs',
++  xs: 'h-7 gap-1.5 rounded-md px-2 text-xs pointer-coarse:h-9 pointer-coarse:px-3 pointer-coarse:text-sm',
+   sm: 'h-8 gap-1.5 rounded-md px-3 text-sm',
+   md: 'h-9 gap-2 rounded-lg px-3.5 text-base',
+   lg: 'h-11 gap-2 rounded-lg px-5 text-md',
+-  'icon-xs': 'size-7 rounded-md',
+-  'icon-sm': 'size-8 rounded-md',
++  'icon-xs': 'size-7 rounded-md pointer-coarse:size-9',
++  'icon-sm': 'size-8 rounded-md pointer-coarse:size-10',
+   icon: 'size-9 rounded-lg',
+   'icon-lg': 'size-11 rounded-lg',
+ } as const
+ 
++/**
++ * The keyboard focus indicator every control shares: a 2 px --fg outline, over 3:1 on any
++ * surface in both themes (and kept in forced-colors mode, unlike a box-shadow). Text fields match
++ * :focus-visible on every focus, so they show it for mouse and touch too.
++ */
++export const focusRing =
++  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg'
++
+ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+   variant?: keyof typeof variants
+   size?: keyof typeof sizes
+@@ -54,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
+         'relative inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap',
+         'transition-[background-color,color,box-shadow,opacity,transform] duration-150 ease-out',
+         'active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45',
+-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg',
++        focusRing,
+         '[&_svg]:size-4 [&_svg]:shrink-0',
+         variants[variant],
+         sizes[size],
+diff --git a/src/components/ui/input.tsx b/src/components/ui/input.tsx
+index 6c21ad9..321479c 100644
+--- a/src/components/ui/input.tsx
++++ b/src/components/ui/input.tsx
+@@ -9,11 +9,14 @@ import {
+ } from 'react'
+ import { useI18n } from '@/i18n'
+ import { cn } from '@/lib/cn'
++import { focusRing } from './button'
+ 
++// The halo on focus is decoration; the focus indicator is the shared outline.
+ export const fieldBase = cn(
+   'w-full rounded-lg bg-raised text-fg ring-1 ring-inset ring-line placeholder:text-fg-3',
+-  'transition-[box-shadow,background-color] duration-150 outline-none',
++  'transition-[box-shadow,background-color] duration-150',
+   'hover:ring-line-strong focus:bg-panel focus:ring-line-strong focus:shadow-[0_0_0_4px_var(--active)]',
++  focusRing,
+   'disabled:opacity-50 aria-[invalid=true]:ring-danger/70',
+ )
+ 
+diff --git a/src/components/ui/misc.tsx b/src/components/ui/misc.tsx
+index 1318062..a8643f3 100644
+--- a/src/components/ui/misc.tsx
++++ b/src/components/ui/misc.tsx
+@@ -149,6 +149,8 @@ export function Chip({
+       aria-pressed={active}
+       className={cn(
+         'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 [&_svg]:size-3.5',
++        // A thumb-sized target on touch screens.
++        'pointer-coarse:h-10 pointer-coarse:px-3.5',
+         active
+           ? 'bg-fg text-panel'
+           : 'bg-raised text-fg-2 ring-1 ring-line ring-inset hover:bg-active hover:text-fg',
+diff --git a/src/components/ui/segmented.tsx b/src/components/ui/segmented.tsx
+index 0cb8af5..2e21edb 100644
+--- a/src/components/ui/segmented.tsx
++++ b/src/components/ui/segmented.tsx
+@@ -45,6 +45,8 @@ export function Segmented<T extends string>({
+       aria-label={rest['aria-label']}
+       className={cn(
+         'inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-raised p-1 ring-1 ring-line ring-inset no-scrollbar',
++        // Touch screens: 40 px segments in a tighter 2 px frame, 44 px overall.
++        'pointer-coarse:p-0.5',
+         className,
+       )}
+       onKeyDown={(event) => {
+@@ -70,6 +72,7 @@ export function Segmented<T extends string>({
+               'relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors duration-150',
+               '[&_svg]:size-4',
+               size === 'sm' ? 'h-7 px-2.5 text-sm' : 'h-8 px-3 text-base',
++              'pointer-coarse:h-10',
+               active ? 'text-fg' : 'text-fg-3 hover:text-fg',
+             )}
+           >
+diff --git a/src/components/ui/select.tsx b/src/components/ui/select.tsx
+index 560481b..4be429f 100644
+--- a/src/components/ui/select.tsx
++++ b/src/components/ui/select.tsx
+@@ -2,6 +2,7 @@ import { Check, ChevronDown } from 'lucide-react'
+ import { Select as S } from 'radix-ui'
+ import type { ReactNode } from 'react'
+ import { cn } from '@/lib/cn'
++import { focusRing } from './button'
+ 
+ export interface SelectOption<T extends string> {
+   value: T
+@@ -38,7 +39,8 @@ export function Select<T extends string>({
+         aria-label={rest['aria-label']}
+         className={cn(
+           'inline-flex items-center justify-between gap-2 rounded-lg bg-raised text-fg ring-1 ring-line ring-inset',
+-          'transition-colors outline-none hover:ring-line-strong focus-visible:ring-line-strong focus-visible:shadow-[0_0_0_4px_var(--active)]',
++          'transition-colors hover:ring-line-strong focus-visible:ring-line-strong focus-visible:shadow-[0_0_0_4px_var(--active)]',
++          focusRing,
+           'data-[placeholder]:text-fg-3 [&_svg]:size-4',
+           size === 'sm' ? 'h-8 px-2.5 text-sm' : 'h-9 px-3 text-base',
+           className,
+diff --git a/src/components/ui/slider.tsx b/src/components/ui/slider.tsx
+index 694a71f..49d849d 100644
+--- a/src/components/ui/slider.tsx
++++ b/src/components/ui/slider.tsx
+@@ -1,5 +1,6 @@
+ import { Slider as S } from 'radix-ui'
+ import { cn } from '@/lib/cn'
++import { focusRing } from './button'
+ 
+ export function Slider({
+   value,
+@@ -38,7 +39,11 @@ export function Slider({
+       </S.Track>
+       <S.Thumb
+         aria-label={ariaLabel}
+-        className="block size-4 rounded-full bg-panel shadow-[0_0_0_1.5px_var(--fg),0_2px_6px_rgb(0_0_0/0.25)] transition-transform outline-none hover:scale-110 focus-visible:shadow-[0_0_0_1.5px_var(--fg),0_0_0_5px_var(--active)]"
++        className={cn(
++          'block size-4 rounded-full bg-panel shadow-[0_0_0_1.5px_var(--fg),0_2px_6px_rgb(0_0_0/0.25)] transition-transform hover:scale-110',
++          'focus-visible:shadow-[0_0_0_1.5px_var(--fg),0_0_0_4px_var(--active)]',
++          focusRing,
++        )}
+       />
+     </S.Root>
+   )
+diff --git a/src/i18n/en.ts b/src/i18n/en.ts
+index 5593279..78793b3 100644
+--- a/src/i18n/en.ts
++++ b/src/i18n/en.ts
+@@ -43,6 +43,7 @@ export const en: Messages = {
+     optional: 'optional',
+     confirm: 'Confirm',
+     undo: 'Undo',
++    notifications: 'Notifications',
+     or: 'or',
+     copy: 'Copy',
+     dash: '—',
+@@ -547,6 +548,7 @@ export const en: Messages = {
+   welcome: {
+     title: 'Profile setup',
+     back: 'Back',
++    skip: 'Skip',
+     next: 'Next',
+     finish: 'Done',
+     avatarTitle: 'Pick your avatar',
+diff --git a/src/i18n/ru.ts b/src/i18n/ru.ts
+index abb9cfd..1c77d48 100644
+--- a/src/i18n/ru.ts
++++ b/src/i18n/ru.ts
+@@ -42,6 +42,7 @@ export const ru = {
+     optional: 'необязательно',
+     confirm: 'Подтвердить',
+     undo: 'Вернуть',
++    notifications: 'Уведомления',
+     or: 'или',
+     copy: 'Копировать',
+     dash: '—',
+@@ -612,6 +613,7 @@ export const ru = {
+   welcome: {
+     title: 'Настройка профиля',
+     back: 'Назад',
++    skip: 'Пропустить',
+     next: 'Далее',
+     finish: 'Готово',
+     avatarTitle: 'Выберите аватар',
+diff --git a/src/lib/queries.ts b/src/lib/queries.ts
+index b50db4a..cdd2ab3 100644
+--- a/src/lib/queries.ts
++++ b/src/lib/queries.ts
+@@ -141,8 +141,8 @@ export function useRegisterResend() {
+ 
+ /**
+  * The caller applies the session itself via the returned `signIn`, once its success animation
+- * is done. Setting it here would let the guest-only route guard redirect to "/" first and the
+- * page's own delayed navigate('/welcome') would then yank the user away from wherever they went.
++ * is done: the moment the session lands, the guest-only route guard leaves the form (for a new
++ * account, to onboarding), so setting it here would cut the animation short.
+  */
+ export function useRegisterVerify() {
+   const client = useQueryClient()
+diff --git a/src/pages/AuthPage.tsx b/src/pages/AuthPage.tsx
+index 94c9050..0fa7915 100644
+--- a/src/pages/AuthPage.tsx
++++ b/src/pages/AuthPage.tsx
+@@ -122,10 +122,8 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+           setCodeStatus('success')
+           setTimeout(() => {
+             toast(t('auth.welcome', { name: user.name }))
+-            const fresh =
+-              next && next.startsWith('/') && !next.startsWith('//') ? target : '/welcome'
+-            // Navigate first, then sign in: the route change wins over the guest-only guard.
+-            navigate(fresh, { replace: true })
++            // No navigate here: a second redirect would race the guest-only guard, which already
++            // sends the new account to `?next=` or to onboarding (see GuestOnly in App.tsx).
+             verify.signIn(user)
+           }, 550)
+         },
+diff --git a/src/pages/DiscoverPage.tsx b/src/pages/DiscoverPage.tsx
+index 594efa7..419ad28 100644
+--- a/src/pages/DiscoverPage.tsx
++++ b/src/pages/DiscoverPage.tsx
+@@ -5,7 +5,7 @@ import { CHART_LISTS, KINDS, type ChartList, type Kind, type TitleRecord } from
+ import { genreLabel } from '@shared/genres.ts'
+ import { PageBody, PageHeader } from '@/app/PageHeader'
+ import { Shelf, TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
+-import { Button, Spinner } from '@/components/ui/button'
++import { Button, focusRing, Spinner } from '@/components/ui/button'
+ import { EmptyState, Switch } from '@/components/ui/misc'
+ import { Segmented } from '@/components/ui/segmented'
+ import { Select } from '@/components/ui/select'
+@@ -364,7 +364,7 @@ export default function DiscoverPage() {
+               placeholder={t('discover.searchPlaceholder')}
+               aria-label={t('nav.search')}
+               enterKeyHint="search"
+-              className="h-11 w-full rounded-xl bg-raised pr-10 pl-10 text-lg ring-1 ring-line outline-none ring-inset transition-shadow placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
++              className={`h-11 w-full rounded-xl bg-raised pr-10 pl-10 text-lg ring-1 ring-line ring-inset transition-shadow placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${focusRing}`}
+             />
+             {search.text ? (
+               <button
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index e01ebd8..67144da 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -41,7 +41,8 @@ function HomeSearch() {
+   }
+   return (
+     <form onSubmit={submit} className="mt-7 max-w-2xl">
+-      <div className="flex items-center gap-2 rounded-xl bg-raised p-1.5 pl-4 ring-1 ring-line ring-inset transition-shadow focus-within:shadow-[0_0_0_4px_var(--active)] focus-within:ring-line-strong">
++      {/* The box shows the field's focus (the outline stays off while only the button is focused). */}
++      <div className="flex items-center gap-2 rounded-xl bg-raised p-1.5 pl-4 ring-1 ring-line ring-inset transition-shadow focus-within:shadow-[0_0_0_4px_var(--active)] focus-within:ring-line-strong has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-fg">
+         <input
+           value={query}
+           onChange={(event) => setQuery(event.target.value)}
+diff --git a/src/pages/LibraryPage.tsx b/src/pages/LibraryPage.tsx
+index d02a93a..9f9efe4 100644
+--- a/src/pages/LibraryPage.tsx
++++ b/src/pages/LibraryPage.tsx
+@@ -7,7 +7,7 @@ import { PageBody, PageHeader } from '@/app/PageHeader'
+ import { BrandIcon } from '@/components/BrandIcon'
+ import { StatusIcon } from '@/components/StatusIcon'
+ import { TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
+-import { Button } from '@/components/ui/button'
++import { Button, focusRing } from '@/components/ui/button'
+ import { Chip, EmptyState, Skeleton } from '@/components/ui/misc'
+ import { Segmented } from '@/components/ui/segmented'
+ import { Select } from '@/components/ui/select'
+@@ -200,7 +200,7 @@ export default function LibraryPage() {
+                 onChange={(event) => search.setText(event.target.value)}
+                 placeholder={t('library.searchPlaceholder')}
+                 aria-label={t('library.searchPlaceholder')}
+-                className="h-9 w-full rounded-lg bg-raised pr-8 pl-9 text-base ring-1 ring-line outline-none ring-inset placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
++                className={`h-9 w-full rounded-lg bg-raised pr-8 pl-9 text-base ring-1 ring-line ring-inset placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden ${focusRing}`}
+               />
+               {search.text ? (
+                 <button
+diff --git a/src/pages/StatsPage.tsx b/src/pages/StatsPage.tsx
+index 924bec0..7119fd7 100644
+--- a/src/pages/StatsPage.tsx
++++ b/src/pages/StatsPage.tsx
+@@ -16,6 +16,7 @@ import { MonthlyChart } from './stats/MonthlyChart'
+ import { RatingsChart } from './stats/RatingsChart'
+ import { StatCard } from './stats/StatCard'
+ import { StatsSkeleton } from './stats/StatsSkeleton'
++import { YEAR_STORY_ENTRY_ID } from './year/story'
+ 
+ function Facts({ stats }: { stats: LibraryStats }) {
+   const { t } = useI18n()
+@@ -98,6 +99,7 @@ export default function StatsPage() {
+           {data && !empty ? (
+             <Link
+               to="/stats/year"
++              id={YEAR_STORY_ENTRY_ID}
+               className="group/year mt-6 flex items-center gap-4 rounded-xl bg-raised p-4 ring-1 ring-line ring-inset transition-colors hover:bg-hover sm:p-5"
+             >
+               <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-fg text-panel">
+diff --git a/src/pages/UserPage.tsx b/src/pages/UserPage.tsx
+index 32e192b..e1cf9d4 100644
+--- a/src/pages/UserPage.tsx
++++ b/src/pages/UserPage.tsx
+@@ -27,7 +27,7 @@ import { UserAvatar } from '@/components/avatar'
+ import { Backdrop, Poster } from '@/components/Poster'
+ import { KindIcon, StatusIcon } from '@/components/StatusIcon'
+ import { Shelf, TitleCard } from '@/components/TitleCard'
+-import { Button } from '@/components/ui/button'
++import { Button, focusRing } from '@/components/ui/button'
+ import { Dialog, DialogContent } from '@/components/ui/dialog'
+ import { EmptyState, SectionHeader, Skeleton } from '@/components/ui/misc'
+ import { useI18n } from '@/i18n'
+@@ -187,7 +187,10 @@ function Header({ profile, own }: { profile: UserProfile; own: boolean }) {
+             value={manualUrl ?? ''}
+             aria-label={t('profile.shareTitle')}
+             onFocus={(event) => event.currentTarget.select()}
+-            className="h-10 w-full rounded-lg bg-raised px-3 text-base text-fg ring-1 ring-line outline-none ring-inset focus-visible:ring-2 focus-visible:ring-fg/40"
++            className={cn(
++              'h-10 w-full rounded-lg bg-raised px-3 text-base text-fg ring-1 ring-line ring-inset',
++              focusRing,
++            )}
+           />
+         </DialogContent>
+       </Dialog>
+diff --git a/src/pages/VerifyEmailPage.tsx b/src/pages/VerifyEmailPage.tsx
+index 31302b6..0bcf2e5 100644
+--- a/src/pages/VerifyEmailPage.tsx
++++ b/src/pages/VerifyEmailPage.tsx
+@@ -31,8 +31,8 @@ export default function VerifyEmailPage() {
+     verify.mutate(
+       { email, code, locale, theme: preference },
+       {
+-        // Same order as the code form: navigate first, then apply the session, so the route
+-        // guard sees the signed-in user instead of bouncing to the login form.
++        // Navigate first, then apply the session: this page has no guest-only guard to race, and
++        // the guard on /welcome then sees the signed-in user instead of bouncing to the login form.
+         onSuccess: ({ user }) =>
+           setTimeout(() => {
+             navigate('/welcome', { replace: true })
+diff --git a/src/pages/WelcomePage.tsx b/src/pages/WelcomePage.tsx
+index 21e5314..2dd0378 100644
+--- a/src/pages/WelcomePage.tsx
++++ b/src/pages/WelcomePage.tsx
+@@ -51,7 +51,7 @@ function Shell({
+   )
+ }
+ 
+-function AvatarStep({ onNext, onBack }: { onNext(): void; onBack(): void }) {
++function AvatarStep({ onNext, onSkip }: { onNext(): void; onSkip(): void }) {
+   const { t } = useI18n()
+   const user = useUser()!
+   const update = useUpdateProfile()
+@@ -62,9 +62,9 @@ function AvatarStep({ onNext, onBack }: { onNext(): void; onBack(): void }) {
+         <AvatarPicker user={user} />
+       </Row>
+       <div className="mt-8 flex justify-between">
+-        <Button variant="ghost" onClick={onBack}>
+-          <ArrowLeft />
+-          {t('welcome.back')}
++        {/* There is nothing to go back to from the first step: the account already exists. */}
++        <Button variant="ghost" onClick={onSkip}>
++          {t('welcome.skip')}
+         </Button>
+         <Button variant="primary" onClick={onNext} loading={update.isPending}>
+           {t('welcome.next')}
+@@ -115,13 +115,14 @@ export default function WelcomePage() {
+   if (!user) return null
+   if (isOnboarded(user.id)) return <Navigate to="/" replace />
+ 
++  // Skipping counts as done: the setup isn't offered again on this device.
+   const done = () => {
+     markOnboarded(user.id)
+     navigate('/', { replace: true })
+   }
+ 
+   return step === 0 ? (
+-    <AvatarStep onNext={() => setStep(1)} onBack={() => navigate('/', { replace: true })} />
++    <AvatarStep onNext={() => setStep(1)} onSkip={done} />
+   ) : (
+     <StoresStep onBack={() => setStep(0)} onDone={done} />
+   )
+diff --git a/src/pages/YearPage.tsx b/src/pages/YearPage.tsx
+index cf3be2d..4faac50 100644
+--- a/src/pages/YearPage.tsx
++++ b/src/pages/YearPage.tsx
+@@ -22,10 +22,11 @@ import { useDocumentTitle } from '@/lib/hooks'
+ import { isTypingTarget } from '@/lib/hotkeys'
+ import { useLibrary, useSession, useStats } from '@/lib/queries'
+ import { titleHref, titleName } from '@/lib/titles'
+-import { buildYearStory, type YearStory } from './year/story'
++import { buildYearStory, YEAR_STORY_ENTRY_ID, type YearStory } from './year/story'
+ 
++/** The slide's headline: small on screen, but the heading a screen reader jumps to. */
+ function Label({ children }: { children: ReactNode }) {
+-  return <p className="text-sm font-semibold tracking-wide text-white/60 uppercase">{children}</p>
++  return <h2 className="text-sm font-semibold tracking-wide text-white/60 uppercase">{children}</h2>
+ }
+ 
+ function Big({ children }: { children: ReactNode }) {
+@@ -300,18 +301,20 @@ function useSlides(story: YearStory | null, name: string, again: () => void) {
+ }
+ 
+ /**
+- * The story is a real modal: focus stays inside it, the shell underneath is inert for assistive
+- * tech, and Escape closes only the topmost layer.
++ * The story is a real modal: focus starts on «Дальше» and stays inside, the shell underneath is
++ * hidden from assistive tech and takes no pointer input, and Escape closes only the topmost layer.
+  */
+ function StoryDialog({
+   label,
+   onClose,
+   storyRef,
++  initialFocusRef,
+   children,
+ }: {
+   label: string
+   onClose(): void
+   storyRef: RefObject<HTMLDivElement | null>
++  initialFocusRef: RefObject<HTMLButtonElement | null>
+   children: ReactNode
+ }) {
+   return (
+@@ -321,15 +324,25 @@ function StoryDialog({
+           ref={storyRef}
+           aria-describedby={undefined}
+           onOpenAutoFocus={(event) => {
+-            // Focus the story itself instead of ringing the close button on arrival.
+             event.preventDefault()
+-            storyRef.current?.focus()
++            initialFocusRef.current?.focus()
++          }}
++          onCloseAutoFocus={(event) => {
++            // The story is a route of its own, so its entry point unmounted with the Stats page.
++            // Closing it (✕, Escape, «К статистике», Back) mounts that page again: return there.
++            const entry = document.getElementById(YEAR_STORY_ENTRY_ID)
++            if (!entry) return
++            event.preventDefault()
++            entry.focus()
+           }}
+           // Only toasts lie outside a full-screen story; touching one must not close it.
+           onInteractOutside={(event) => event.preventDefault()}
+           className="dark fixed inset-0 z-[60] flex flex-col bg-black text-white outline-none"
+         >
+-          <D.Title className="sr-only">{label}</D.Title>
++          {/* The page behind is hidden, so the story's name heads the outline; slides are h2. */}
++          <D.Title asChild>
++            <h1 className="sr-only">{label}</h1>
++          </D.Title>
+           {children}
+         </D.Content>
+       </D.Portal>
+@@ -357,6 +370,7 @@ export default function YearPage() {
+   const next = useCallback(() => setIndex((i) => Math.min(i + 1, Math.max(total - 1, 0))), [total])
+   const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), [])
+   const storyRef = useRef<HTMLDivElement>(null)
++  const nextRef = useRef<HTMLButtonElement>(null)
+   // The story covers the shell: Ctrl+K or '/' would open the palette invisibly underneath it.
+   useSuspendShellHotkeys()
+ 
+@@ -370,7 +384,13 @@ export default function YearPage() {
+         target === document.body ||
+         (target instanceof Node && Boolean(storyRef.current?.contains(target)))
+       if (!inStory) return
+-      if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'PageDown') {
++      // Space presses the focused button or link, so «Назад» can't turn into «Дальше».
++      const onControl = target instanceof Element && Boolean(target.closest('a, button'))
++      if (
++        event.key === 'ArrowRight' ||
++        event.key === 'PageDown' ||
++        (event.key === ' ' && !onControl)
++      ) {
+         event.preventDefault()
+         next()
+       } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+@@ -392,8 +412,20 @@ export default function YearPage() {
+   }
+ 
+   const slide = slides[Math.min(index, Math.max(total - 1, 0))]
++  const atStart = index === 0
++  const atEnd = index >= total - 1
++  // aria-disabled rather than disabled: the end of the story must not drop focus from the
++  // button the user is pressing (a disabled button can't hold it). Only the label dims, so the
++  // focus outline stays crisp.
++  const navClass =
++    'text-white hover:bg-white/10 aria-disabled:pointer-events-none aria-disabled:text-white/30'
+   return (
+-    <StoryDialog label={t('year.title', { year })} onClose={close} storyRef={storyRef}>
++    <StoryDialog
++      label={t('year.title', { year })}
++      onClose={close}
++      storyRef={storyRef}
++      initialFocusRef={nextRef}
++    >
+       <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
+         <div className="flex flex-1 gap-1" aria-hidden="true">
+           {slides.map((s, i) => (
+@@ -416,7 +448,9 @@ export default function YearPage() {
+         </Button>
+       </div>
+ 
++      {/* The live region stays mounted while slides swap inside it, so each new one is read. */}
+       <div
++        aria-live="polite"
+         className="relative mx-auto flex w-full max-w-3xl flex-1 cursor-pointer select-none"
+         onClick={onTap}
+       >
+@@ -428,7 +462,6 @@ export default function YearPage() {
+         ) : (
+           <section
+             key={slide?.key}
+-            aria-live="polite"
+             aria-label={t('year.slide', { n: index + 1, total })}
+             className="flex flex-1 animate-rise flex-col justify-center overflow-y-auto px-6 py-8 sm:px-10"
+           >
+@@ -442,8 +475,8 @@ export default function YearPage() {
+           variant="ghost"
+           size="sm"
+           onClick={prev}
+-          disabled={index === 0}
+-          className="text-white hover:bg-white/10 disabled:opacity-30"
++          aria-disabled={atStart || undefined}
++          className={navClass}
+         >
+           <ChevronLeft />
+           {t('year.prev')}
+@@ -452,11 +485,12 @@ export default function YearPage() {
+           {total ? `${index + 1} / ${total}` : ''}
+         </span>
+         <Button
++          ref={nextRef}
+           variant="ghost"
+           size="sm"
+           onClick={next}
+-          disabled={index >= total - 1}
+-          className="text-white hover:bg-white/10 disabled:opacity-30"
++          aria-disabled={atEnd || undefined}
++          className={navClass}
+         >
+           {t('year.next')}
+           <ChevronRight />
+diff --git a/src/pages/year/story.ts b/src/pages/year/story.ts
+index e700b20..7b29b9f 100644
+--- a/src/pages/year/story.ts
++++ b/src/pages/year/story.ts
+@@ -2,6 +2,9 @@
+ // which has no path aliases.
+ import { KINDS, type Kind, type LibraryEntry, type LibraryStats } from '../../../shared/types.ts'
+ 
++/** The Stats page link that opens the story: focus goes back to it when the story closes. */
++export const YEAR_STORY_ENTRY_ID = 'year-story-entry'
++
+ /**
+  * Everything the year story shows, computed only from what really belongs to the year:
+  * titles finished this calendar year (local time), the months of this year, titles added
+diff --git a/src/styles/contrast.test.ts b/src/styles/contrast.test.ts
+new file mode 100644
+index 0000000..d70b4d3
+--- /dev/null
++++ b/src/styles/contrast.test.ts
+@@ -0,0 +1,57 @@
++import { readFileSync } from 'node:fs'
++import { describe, expect, it } from 'vitest'
++
++// Recomputes the text contrast of the design tokens straight from the stylesheet, so a token
++// tweak that drops secondary or tertiary text below WCAG AA (4.5:1) fails here first.
++const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8')
++
++/** The custom properties declared directly in the first `selector { … }` block. */
++function tokens(selector: string): Record<string, string> {
++  const start = css.indexOf(`${selector} {`)
++  if (start < 0) throw new Error(`no ${selector} block in index.css`)
++  const body = css.slice(start, css.indexOf('\n}', start))
++  return Object.fromEntries(
++    [...body.matchAll(/^\s*--([\w-]+):\s*([^;]+);/gm)].map(([, name, value]) => [
++      name,
++      value.trim(),
++    ]),
++  )
++}
++
++function luminance(hex: string): number {
++  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex)
++  if (!match) throw new Error(`expected an opaque #rrggbb colour, got ${hex}`)
++  const [r, g, b] = match.slice(1).map((part) => {
++    const channel = parseInt(part, 16) / 255
++    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
++  })
++  return 0.2126 * r + 0.7152 * g + 0.0722 * b
++}
++
++function contrast(a: string, b: string): number {
++  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x)
++  return (light + 0.05) / (dark + 0.05)
++}
++
++const themes = { light: tokens(':root'), dark: tokens('.dark') }
++const surfaces = ['bg', 'panel', 'raised', 'floating'] as const
++
++describe('text tokens', () => {
++  it('the helpers agree with known WCAG ratios', () => {
++    expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5)
++    expect(contrast('#767676', '#ffffff')).toBeCloseTo(4.54, 2)
++  })
++
++  for (const [theme, values] of Object.entries(themes))
++    for (const text of ['fg', 'fg-2', 'fg-3'] as const)
++      for (const surface of surfaces)
++        it(`${theme}: --${text} reaches 4.5:1 on --${surface}`, () => {
++          expect(contrast(values[text], values[surface])).toBeGreaterThanOrEqual(4.5)
++        })
++
++  it('tertiary text stays a step quieter than secondary', () => {
++    const { light, dark } = themes
++    expect(luminance(light['fg-3'])).toBeGreaterThan(luminance(light['fg-2']))
++    expect(luminance(dark['fg-3'])).toBeLessThan(luminance(dark['fg-2']))
++  })
++})
+diff --git a/src/styles/index.css b/src/styles/index.css
+index 819bc0b..1fa04e1 100644
+--- a/src/styles/index.css
++++ b/src/styles/index.css
+@@ -33,7 +33,8 @@
+   --floating: #ffffff;
+   --fg: #171717;
+   --fg-2: #4d4d4d;
+-  --fg-3: #737373;
++  /* 4.5:1 or better on every light surface (#737373 fell to 4.3 on bg and raised). */
++  --fg-3: #666666;
+   --line: rgb(0 0 0 / 0.09);
+   --line-subtle: rgb(0 0 0 / 0.06);
+   --line-strong: rgb(0 0 0 / 0.2);
+diff --git a/tests/e2e/a11y.spec.ts b/tests/e2e/a11y.spec.ts
+new file mode 100644
+index 0000000..fa57197
+--- /dev/null
++++ b/tests/e2e/a11y.spec.ts
+@@ -0,0 +1,147 @@
++import { expect, test, type Locator, type Page } from '@playwright/test'
++import { api, openTitle, register } from './helpers.ts'
++
++const focusOutline = (locator: Locator) =>
++  locator.evaluate((element) => {
++    const style = getComputedStyle(element)
++    return { style: style.outlineStyle, width: style.outlineWidth, color: style.outlineColor }
++  })
++
++/** Focus that counts as keyboard focus (:focus-visible): land on the control with Tab. */
++async function tabTo(page: Page, control: Locator) {
++  await control.focus()
++  await page.keyboard.press('Shift+Tab')
++  await page.keyboard.press('Tab')
++  await expect(control).toBeFocused()
++}
++
++test('fields, selects, the slider and both search boxes show the buttons’ focus outline', async ({
++  page,
++}) => {
++  await register(page)
++  expect(
++    (await api(page, 'POST', '/library', { titleId: 'steam-292030', status: 'in_progress' }))
++      .status,
++  ).toBe(201)
++  // The text colour (--fg) is what the outline must be drawn in: well over 3:1 on every surface.
++  const fg = await page.evaluate(() => getComputedStyle(document.body).color)
++  const ring = { style: 'solid', width: '2px', color: fg }
++
++  await openTitle(page, 'steam-292030')
++  for (const control of [
++    page.getByRole('combobox', { name: 'Платформа' }),
++    page.getByRole('slider', { name: 'Прогресс' }),
++    page.getByRole('textbox', { name: 'Часов в игре' }),
++  ]) {
++    await tabTo(page, control)
++    expect(await focusOutline(control)).toEqual(ring)
++  }
++  // A button for comparison: the same treatment.
++  const favourite = page.getByRole('button', { name: 'В избранное' }).first()
++  await tabTo(page, favourite)
++  expect(await focusOutline(favourite)).toEqual(ring)
++
++  await page.goto('/library')
++  const sort = page.getByRole('combobox', { name: 'Сортировка' })
++  await tabTo(page, sort)
++  expect(await focusOutline(sort)).toEqual(ring)
++  // Text fields show it for a click too, the way browsers treat them.
++  const librarySearch = page.getByRole('searchbox', { name: 'Искать в библиотеке' })
++  await librarySearch.click()
++  expect(await focusOutline(librarySearch)).toEqual(ring)
++
++  await page.goto('/discover')
++  const discoverSearch = page.getByRole('searchbox', { name: 'Поиск' })
++  await discoverSearch.focus()
++  expect(await focusOutline(discoverSearch)).toEqual(ring)
++})
++
++test('the year story is a modal: focus starts on «Дальше», stays inside, returns to the entry', async ({
++  page,
++}) => {
++  await register(page)
++  for (const titleId of ['movie-tt1375666', 'movie-tt0816692'])
++    expect(
++      (await api(page, 'POST', '/library', { titleId, status: 'completed', rating: 9 })).status,
++    ).toBe(201)
++  await page.goto('/stats')
++  const entry = page.getByRole('link', { name: /Ваш \d{4} в MediaShell/ })
++  await entry.focus()
++  await page.keyboard.press('Enter')
++
++  const story = page.getByRole('dialog', { name: /Итоги \d{4}/ })
++  const next = story.getByRole('button', { name: 'Дальше' })
++  await expect(next).toBeFocused()
++  await expect(story.getByRole('heading', { level: 1 })).toHaveText(/Итоги \d{4}/)
++  // The shell underneath leaves the accessibility tree (only the toast live region stays), and
++  // Tab never reaches it.
++  await expect(page.getByRole('main')).toHaveCount(0)
++  await expect(page.getByRole('complementary', { name: 'Меню' })).toHaveCount(0)
++  await expect(page.getByRole('region', { name: /^Уведомления/ })).toBeAttached()
++  for (let step = 0; step < 6; step++) {
++    await page.keyboard.press('Tab')
++    expect(await story.evaluate((element) => element.contains(document.activeElement))).toBe(true)
++  }
++  await page.keyboard.press('Shift+Tab')
++  expect(await story.evaluate((element) => element.contains(document.activeElement))).toBe(true)
++
++  // Every slide has one h2 headline; «Дальше» keeps focus up to and on the last slide.
++  const counter = story.getByText(/^\d+ \/ \d+$/)
++  const total = Number((await counter.textContent())!.split('/')[1])
++  expect(total).toBeGreaterThan(3)
++  const headlines: string[] = []
++  await next.focus()
++  for (let slide = 1; slide <= total; slide++) {
++    await expect(counter).toHaveText(`${slide} / ${total}`)
++    const heading = story.getByRole('heading', { level: 2 })
++    await expect(heading).toHaveCount(1)
++    headlines.push((await heading.textContent())!)
++    await page.keyboard.press('Enter')
++  }
++  expect(headlines[0]).toBe('Итоги года')
++  expect(headlines).toContain('Завершено за год')
++  expect(headlines.at(-1)).toMatch(/^Это был ваш \d{4}$/)
++  await expect(next).toBeFocused()
++  await expect(next).toHaveAttribute('aria-disabled', 'true')
++  await expect(counter).toHaveText(`${total} / ${total}`)
++  // Space on a focused button presses that button: «Назад» goes back.
++  await story.getByRole('button', { name: 'Назад' }).focus()
++  await page.keyboard.press('Space')
++  await expect(counter).toHaveText(`${total - 1} / ${total}`)
++
++  await page.keyboard.press('Escape')
++  await expect(story).toHaveCount(0)
++  await expect(page).toHaveURL(/\/stats$/)
++  await expect(entry).toBeFocused()
++  await expect(page.getByRole('main')).toHaveCount(1)
++
++  // Back (the phone gesture) closes it the same way.
++  await page.keyboard.press('Enter')
++  await expect(next).toBeFocused()
++  await page.goBack()
++  await expect(story).toHaveCount(0)
++  await expect(entry).toBeFocused()
++
++  // And so does the close button.
++  await entry.click()
++  await story.getByRole('button', { name: 'Закрыть' }).click()
++  await expect(story).toHaveCount(0)
++  await expect(entry).toBeFocused()
++})
++
++test('the toast region is named in the interface language', async ({ page }) => {
++  await register(page)
++  await expect(page.getByRole('region', { name: /^Уведомления/ })).toBeAttached()
++  expect((await api(page, 'PATCH', '/me', { preferences: { locale: 'en' } })).status).toBe(200)
++  await page.reload()
++  await expect(page.getByRole('link', { name: 'Library' })).toBeVisible()
++  await expect(page.getByRole('region', { name: /^Notifications/ })).toBeAttached()
++})
++
++test('desktop keeps the compact control sizes', async ({ page }) => {
++  await register(page)
++  const kinds = page.getByRole('button', { name: 'Игры', exact: true })
++  expect((await kinds.boundingBox())?.height).toBe(32)
++  const trending = page.getByRole('radiogroup', { name: 'Популярное сейчас' })
++  expect((await trending.getByRole('radio').first().boundingBox())?.height).toBe(28)
++})
+diff --git a/tests/e2e/helpers.ts b/tests/e2e/helpers.ts
+index 1ba438d..7ec2452 100644
+--- a/tests/e2e/helpers.ts
++++ b/tests/e2e/helpers.ts
+@@ -2,9 +2,10 @@ import { expect, type Page } from '@playwright/test'
+ 
+ let counter = 0
+ 
+-export async function register(page: Page, name = 'Дмитрий') {
++/** Creates an account through the form and leaves the page on the onboarding it lands on. */
++export async function signUp(page: Page, name = 'Дмитрий', path = '/register') {
+   const email = `user${Date.now()}${counter++}@example.com`
+-  await page.goto('/register')
++  await page.goto(path)
+   await page.getByLabel('Имя').fill(name)
+   await page.getByLabel('Эл. почта').fill(email)
+   await page.getByLabel('Пароль', { exact: true }).fill('correct-horse-42')
+@@ -19,10 +20,20 @@ export async function register(page: Page, name = 'Дмитрий') {
+   if (!devCode) throw new Error('register: the server did not return a dev code (SMTP configured?)')
+   await expect(page.getByRole('heading', { level: 1, name: 'Проверьте почту' })).toBeVisible()
+   await page.locator('input[autocomplete="one-time-code"]').fill(devCode)
+-  await expect(page.getByRole('heading', { level: 1, name: new RegExp(name) })).toBeVisible()
+   return { email, password: 'correct-horse-42' }
+ }
+ 
++/** A new account on Home, past the onboarding: skipped the way a hurried user would. */
++export async function register(page: Page, name = 'Дмитрий') {
++  const account = await signUp(page, name)
++  await expect(page).toHaveURL(/\/welcome$/)
++  await expect(page.getByRole('heading', { level: 1, name: 'Выберите аватар' })).toBeVisible()
++  await page.getByRole('button', { name: 'Пропустить' }).click()
++  await expect(page).toHaveURL(/\/$/)
++  await expect(page.getByRole('heading', { level: 1, name: new RegExp(name) })).toBeVisible()
++  return account
++}
++
+ export async function openTitle(page: Page, id: string) {
+   await page.goto(`/title/${id}`)
+   await expect(page.locator('main h1').last()).toBeVisible()
+diff --git a/tests/e2e/onboarding.spec.ts b/tests/e2e/onboarding.spec.ts
+new file mode 100644
+index 0000000..9feae87
+--- /dev/null
++++ b/tests/e2e/onboarding.spec.ts
+@@ -0,0 +1,67 @@
++import { expect, test, type Page } from '@playwright/test'
++import { register, signUp } from './helpers.ts'
++
++/** Every main-frame URL, client-side navigations included. */
++function trackPaths(page: Page) {
++  const paths: string[] = []
++  page.on('framenavigated', (frame) => {
++    if (frame === page.mainFrame()) paths.push(new URL(frame.url()).pathname)
++  })
++  return paths
++}
++
++test('a new account lands on onboarding and finishes it on Home', async ({ page }) => {
++  const paths = trackPaths(page)
++  await signUp(page, 'Вера')
++  await expect(page).toHaveURL(/\/welcome$/)
++  const avatarStep = page.getByRole('heading', { level: 1, name: 'Выберите аватар' })
++  await expect(avatarStep).toBeVisible()
++  // It stays there: the old race bounced to Home in the same tick.
++  await page.waitForTimeout(500)
++  await expect(page).toHaveURL(/\/welcome$/)
++  expect(paths).not.toContain('/')
++
++  await page.getByRole('button', { name: 'Далее' }).click()
++  await expect(page.getByRole('heading', { level: 1, name: 'Подключите магазины' })).toBeVisible()
++  await page.getByRole('button', { name: 'Назад' }).click()
++  await expect(avatarStep).toBeVisible()
++  await page.getByRole('button', { name: 'Далее' }).click()
++  await page.getByRole('button', { name: 'Готово' }).click()
++  await expect(page).toHaveURL(/\/$/)
++  await expect(page.getByRole('heading', { level: 1, name: /Вера/ })).toBeVisible()
++
++  // Done once is done on this device.
++  await page.goto('/welcome')
++  await expect(page).toHaveURL(/\/$/)
++  await page.goto('/register')
++  await expect(page).toHaveURL(/\/$/)
++})
++
++test('skipping onboarding is remembered, and a sign-up with a destination goes there', async ({
++  page,
++}) => {
++  await register(page)
++  await page.goto('/welcome')
++  await expect(page).toHaveURL(/\/$/)
++  await expect(page.getByRole('heading', { level: 1, name: /Дмитрий/ })).toBeVisible()
++
++  await page.getByRole('button', { name: 'Аккаунт' }).click()
++  await page.getByRole('menuitem', { name: 'Выйти' }).click()
++  await expect(page.getByRole('link', { name: 'Войти' }).first()).toBeVisible()
++  // A guest sent to sign up from a protected page gets that page, not the setup.
++  await signUp(page, 'Глеб', '/register?next=%2Flibrary')
++  await expect(page).toHaveURL(/\/library$/)
++  await expect(page.getByText('Библиотека пуста')).toBeVisible()
++})
++
++test('the one-click email link also starts the onboarding', async ({ page }) => {
++  const email = `link${Date.now()}@example.com`
++  const started = await page.request.post('/api/auth/register/start', {
++    data: { name: 'Лидия', email, password: 'correct-horse-42', locale: 'ru' },
++  })
++  const { devCode } = (await started.json()) as { devCode?: string }
++  expect(devCode).toBeTruthy()
++  await page.goto(`/verify-email?email=${encodeURIComponent(email)}&code=${devCode}`)
++  await expect(page).toHaveURL(/\/welcome$/)
++  await expect(page.getByRole('heading', { level: 1, name: 'Выберите аватар' })).toBeVisible()
++})
+diff --git a/tests/e2e/touch.mobile.spec.ts b/tests/e2e/touch.mobile.spec.ts
+new file mode 100644
+index 0000000..da17ed9
+--- /dev/null
++++ b/tests/e2e/touch.mobile.spec.ts
+@@ -0,0 +1,53 @@
++import { expect, test, type Locator } from '@playwright/test'
++import { api, register } from './helpers.ts'
++
++async function size(locator: Locator) {
++  const box = await locator.boundingBox()
++  if (!box) throw new Error('not rendered')
++  return { width: Math.round(box.width), height: Math.round(box.height) }
++}
++
++// Pixel 7 emulation: a coarse pointer, so the touch sizes apply.
++test('touch screens get thumb-sized targets in the title bar, chips, segments and small buttons', async ({
++  page,
++}) => {
++  await register(page)
++  expect(
++    (await api(page, 'POST', '/library', { titleId: 'series-tt0944947', status: 'in_progress' }))
++      .status,
++  ).toBe(201)
++  // One episode marked, so Home offers the next one.
++  await api(page, 'POST', '/library/series-tt0944947/episodes', {
++    episodes: [{ season: 1, number: 1 }],
++    watched: true,
++  })
++  await page.reload()
++
++  const header = page.locator('main header')
++  for (const target of [
++    header.getByRole('link', { name: 'Главная' }),
++    header.getByRole('button', { name: 'Поиск' }),
++    header.getByRole('button', { name: 'Аккаунт' }),
++  ])
++    expect(await size(target)).toEqual({ width: 44, height: 44 })
++  // The bigger boxes don't move the icons: the avatar still ends 14 px from the edge.
++  const avatar = header.getByRole('button', { name: 'Аккаунт' }).locator('span').first()
++  const avatarBox = (await avatar.boundingBox())!
++  expect(Math.round(page.viewportSize()!.width - (avatarBox.x + avatarBox.width))).toBe(14)
++
++  expect((await size(page.getByRole('button', { name: 'Игры', exact: true }))).height).toBe(40)
++  const trending = page.getByRole('radiogroup', { name: 'Популярное сейчас' })
++  expect((await size(trending.getByRole('radio').first())).height).toBe(40)
++  // An xs button on a card («+1 серия»): from 28 px up to 36.
++  expect((await size(page.getByRole('button', { name: '+1 серия' }))).height).toBe(36)
++
++  await page.goto('/library')
++  for (const view of ['Сетка', 'Список', 'Доска'])
++    expect((await size(header.getByRole('radio', { name: view }))).height).toBe(40)
++
++  await page.goto('/title/series-tt0944947')
++  expect(await size(header.getByRole('button', { name: 'Назад' }))).toEqual({
++    width: 44,
++    height: 44,
++  })
++})

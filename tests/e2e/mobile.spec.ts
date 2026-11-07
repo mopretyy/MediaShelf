@@ -66,3 +66,24 @@ test('mobile layout: profile page fits every phone width in both themes', async 
     await check()
   }
 })
+
+test('mobile layout: toasts sit above the tab bar on phones and small tablets', async ({
+  page,
+}) => {
+  await register(page)
+  const tabs = page.getByRole('navigation', { name: 'Меню' })
+  // 700 px: Sonner's own mobile layout stops at 600 px, the tab bar only at 768 px.
+  for (const [width, titleId] of [
+    [412, 'movie-tt1375666'],
+    [700, 'movie-tt0816692'],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/title/${titleId}`)
+    await page.getByTestId('add-to-library').click()
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Добавлено в библиотеку' })
+    await expect(toast).toBeVisible()
+    const toastBox = (await toast.boundingBox())!
+    const barBox = (await tabs.boundingBox())!
+    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(barBox.y)
+  }
+})

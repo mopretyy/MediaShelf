@@ -1,5 +1,6 @@
 import {
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -22,6 +23,7 @@ import type {
   Kind,
   LibraryEntry,
   LibraryStats,
+  Locale,
   SearchResult,
   SessionInfo,
   Status,
@@ -31,7 +33,8 @@ import type {
   UserProfile,
 } from '@shared/types.ts'
 import { useI18n } from '@/i18n'
-import { api, get, query } from './api'
+import { api, ApiError, get, query } from './api'
+import { forgetRecent } from './recent'
 
 export const keys = {
   session: ['session'] as const,
@@ -84,6 +87,7 @@ export function resetUserData(client: QueryClient) {
     keys.sessions,
     ['marks'],
     ['my-achievements'],
+    ['airing'],
   ])
     client.removeQueries({ queryKey: key })
   try {
@@ -91,6 +95,8 @@ export function resetUserData(client: QueryClient) {
   } catch {
     /* ignore */
   }
+  // Accounts keep their own recent titles; what was opened signed out belonged to whoever sat here.
+  forgetRecent(null)
 }
 
 export function useLogin() {
@@ -209,23 +215,74 @@ export function useEntry(titleId: string | undefined) {
   return titleId ? (map.get(titleId) ?? null) : null
 }
 
+/**
+ * Puts a fresh copy of an entry into the library cache. The server lists entries by
+ * updated_at, newest first, and "Continue" lists rely on that order, so an entry that changed
+ * moves to the front instead of keeping its old place until the next refetch.
+ */
 export function setEntry(client: QueryClient, entry: LibraryEntry) {
   client.setQueryData<LibraryEntry[]>(keys.library, (old) => {
     if (!old) return old
     const index = old.findIndex((item) => item.titleId === entry.titleId)
     if (index < 0) return [entry, ...old]
+    if (entry.updatedAt > old[index]!.updatedAt)
+      return [entry, ...old.slice(0, index), ...old.slice(index + 1)]
     const next = old.slice()
     next[index] = entry
     return next
   })
 }
 
+/**
+ * Reads a saved entry again once its episode list has arrived. Storing a list makes the server
+ * recount the entry (episode counters, "next episode") on its own, and no mutation response
+ * carries that.
+ */
+async function refreshEntry(client: QueryClient, titleId: string) {
+  const cached = () =>
+    client.getQueryData<LibraryEntry[]>(keys.library)?.find((entry) => entry.titleId === titleId)
+  if (!cached()) return
+  try {
+    const { entry } = await get<{ entry: LibraryEntry }>(`/library/${titleId}`)
+    const current = cached()
+    // An edit or mark that landed meanwhile has a later updatedAt and wins (a removal leaves
+    // nothing to update). The recount leaves updatedAt alone and this answer was read after
+    // it, so on a tie this one is the fresher.
+    if (current && Date.parse(entry.updatedAt) >= Date.parse(current.updatedAt)) {
+      setEntry(client, entry)
+      // The recount may have found new episodes: «Новые серии» on Home is built from them too.
+      if (
+        entry.watchedEpisodes !== current.watchedEpisodes ||
+        entry.totalEpisodes !== current.totalEpisodes ||
+        JSON.stringify(entry.nextEpisode) !== JSON.stringify(current.nextEpisode)
+      )
+        void client.invalidateQueries({ queryKey: ['airing'] })
+    }
+  } catch {
+    // Best effort: the next library refetch brings the same numbers.
+  }
+}
+
 function patchEntry(client: QueryClient, titleId: string, patch: Partial<LibraryEntry>) {
-  client.setQueryData<LibraryEntry[]>(keys.library, (old) =>
-    old?.map((item) =>
-      item.titleId === titleId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item,
-    ),
-  )
+  const current = client
+    .getQueryData<LibraryEntry[]>(keys.library)
+    ?.find((item) => item.titleId === titleId)
+  if (current) setEntry(client, { ...current, ...patch, updatedAt: new Date().toISOString() })
+}
+
+/**
+ * Optimistic updates cancel the library query so a refetch can't overwrite them. Before the
+ * first load there is nothing to protect: cancelling would only throw the request away and leave
+ * the page without a library, so the in-flight fetch is kept and refreshed once settled.
+ */
+async function holdLibrary(client: QueryClient) {
+  const hadData = client.getQueryData<LibraryEntry[]>(keys.library) !== undefined
+  if (hadData) await client.cancelQueries({ queryKey: keys.library })
+  return hadData
+}
+
+function refreshIfMissing(client: QueryClient, hadData: boolean | undefined) {
+  if (!hadData) void client.invalidateQueries({ queryKey: keys.library })
 }
 
 /** Rolls back one entry: its previous version, or nothing if it was provisional. */
@@ -237,9 +294,18 @@ function restoreEntry(client: QueryClient, titleId: string, previous: LibraryEnt
     )
 }
 
-function invalidateDerived(client: QueryClient) {
+export function invalidateDerived(client: QueryClient) {
+  // Called after every write. A library request still in flight may have been read on the
+  // server before the write (one sent after the mutation began, e.g. by the next page when a
+  // note is saved on the way out) and would put the old entry back when it lands. Restart it.
+  if (client.isFetching({ queryKey: keys.library, exact: true }))
+    void client.refetchQueries({ queryKey: keys.library, exact: true })
   void client.invalidateQueries({ queryKey: keys.stats })
   void client.invalidateQueries({ queryKey: keys.activity })
+  // Profiles show favourites, stats and recent activity too (your own one included).
+  void client.invalidateQueries({ queryKey: ['profile'] })
+  // New and upcoming episodes depend on marks and statuses.
+  void client.invalidateQueries({ queryKey: ['airing'] })
 }
 
 /** Undo one optimistic change, then refetch: a sibling mutation may have landed meanwhile. */
@@ -281,6 +347,7 @@ function provisionalEntry(title: TitleRecord, status: Status): LibraryEntry {
 
 export function useAddEntry() {
   const client = useQueryClient()
+  const { locale } = useI18n()
   return useMutation({
     mutationFn: ({
       title,
@@ -297,18 +364,28 @@ export function useAddEntry() {
         favorite,
       }),
     onMutate: async ({ title, status = 'planned' }) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === title.id)
       setEntry(client, existing ? { ...existing, status } : provisionalEntry(title, status))
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, { title }, context) => rollback(client, title.id, context?.existing),
     onSuccess: ({ entry }) => {
       setEntry(client, entry)
       invalidateDerived(client)
+      // Adding as watched marks every aired episode on the server (and re-adding may clear the
+      // automatic marks): the marks the page loaded meanwhile are out of date.
+      if (entry.kind === 'series' || entry.kind === 'anime')
+        void client.invalidateQueries({ queryKey: keys.marks(entry.titleId) })
+      // A series added before anyone loaded its episode list comes back without "next episode":
+      // the server only starts loading the list after answering. Load it here too (the request
+      // joins the server's own), which re-reads the entry once the list is in.
+      if ((entry.kind === 'series' || entry.kind === 'anime') && !entry.nextEpisode)
+        void client.prefetchQuery(episodeListQuery(client, entry.titleId, locale))
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
 }
 
@@ -318,7 +395,7 @@ export function useUpdateEntry() {
     mutationFn: ({ titleId, patch }: { titleId: string; patch: EntryPatch }) =>
       api<EntryChange>('PATCH', `/library/${titleId}`, patch),
     onMutate: async ({ titleId, patch }) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === titleId)
@@ -333,10 +410,13 @@ export function useUpdateEntry() {
         'store',
         'hours',
         'position',
+        // Dates too: a refused date then rolls back, so the date field shows the saved one again.
+        'startedAt',
+        'finishedAt',
       ] as const)
         if (patch[key] !== undefined) Object.assign(optimistic, { [key]: patch[key] })
       patchEntry(client, titleId, optimistic)
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, { titleId }, context) => rollback(client, titleId, context?.existing),
     onSuccess: ({ entry }, { titleId }) => {
@@ -345,29 +425,66 @@ export function useUpdateEntry() {
       if (entry.kind === 'series' || entry.kind === 'anime')
         void client.invalidateQueries({ queryKey: keys.marks(titleId) })
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
 }
+
+/** Opaque copy of a removed entry (export format) that `restoreRemovedEntry` puts back. */
+export type EntrySnapshot = { readonly titleId: string } & Record<string, unknown>
 
 export function useRemoveEntry() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (titleId: string) => api<{ ok: true }>('DELETE', `/library/${titleId}`),
+    mutationFn: (titleId: string) =>
+      api<{ ok: true; snapshot: EntrySnapshot }>('DELETE', `/library/${titleId}`),
     onMutate: async (titleId) => {
-      await client.cancelQueries({ queryKey: keys.library })
+      const hadData = await holdLibrary(client)
       const existing = client
         .getQueryData<LibraryEntry[]>(keys.library)
         ?.find((entry) => entry.titleId === titleId)
       client.setQueryData<LibraryEntry[]>(keys.library, (old) =>
         old?.filter((entry) => entry.titleId !== titleId),
       )
-      return { existing }
+      return { existing, hadData }
     },
     onError: (_error, titleId, context) => rollback(client, titleId, context?.existing),
     onSuccess: (_data, titleId) => {
       client.removeQueries({ queryKey: keys.marks(titleId) })
       invalidateDerived(client)
     },
+    onSettled: (_data, _error, _input, context) => refreshIfMissing(client, context?.hadData),
   })
+}
+
+/**
+ * Undo of a removal: puts the entry back exactly as it was (episode marks, playthroughs, notes
+ * and dates included) from the snapshot the DELETE returned. A plain function on the query
+ * client, not a hook callback, so it still works after the page that removed it has unmounted.
+ */
+export async function restoreRemovedEntry(
+  client: QueryClient,
+  removed: LibraryEntry,
+  snapshot: EntrySnapshot,
+) {
+  setEntry(client, removed)
+  try {
+    const data = await api<{ entry: LibraryEntry; marks: EpisodeMark[] }>(
+      'POST',
+      '/library/restore',
+      { entry: snapshot },
+    )
+    setEntry(client, data.entry)
+    if (data.entry.kind === 'series' || data.entry.kind === 'anime')
+      client.setQueryData(keys.marks(data.entry.titleId), data.marks)
+    invalidateDerived(client)
+    return data.entry
+  } catch (error) {
+    // Already back in the library: keep showing it, the refetch brings the newer copy.
+    if (!(error instanceof ApiError && error.code === 'ENTRY_EXISTS'))
+      restoreEntry(client, removed.titleId, undefined)
+    void client.invalidateQueries({ queryKey: keys.library })
+    throw error
+  }
 }
 
 export function useEpisodeMarks(titleId: string, enabled: boolean) {
@@ -596,18 +713,29 @@ export function useTitle(id: string, enabled = true) {
   })
 }
 
-export function useEpisodeList(id: string, enabled: boolean) {
-  const { locale } = useI18n()
-  return useQuery({
+function episodeListQuery(client: QueryClient, id: string, locale: Locale) {
+  return queryOptions({
     queryKey: keys.episodes(id, locale),
-    queryFn: ({ signal }) =>
-      get<{ list: EpisodeList | null }>(
+    // No abort signal: leaving the page must not cancel the request, whose arrival is what
+    // brings a freshly added series its "next episode" (see below).
+    queryFn: async () => {
+      const { list } = await get<{ list: EpisodeList | null }>(
         `/titles/${id}/episodes${query({ lang: locale })}`,
-        signal,
-      ).then((d) => d.list),
-    enabled,
+      )
+      // Loading a list can make the server recount the title's episodes (the first load, or a
+      // refresh that brought new ones). Re-read the saved entry, if there is one, so the
+      // sidebar, Home and the entry panel agree with the episode list.
+      if (list) void refreshEntry(client, id)
+      return list
+    },
     staleTime: 30 * 60_000,
   })
+}
+
+export function useEpisodeList(id: string, enabled: boolean) {
+  const { locale } = useI18n()
+  const client = useQueryClient()
+  return useQuery({ ...episodeListQuery(client, id, locale), enabled })
 }
 
 export function useOffers(id: string, enabled: boolean) {

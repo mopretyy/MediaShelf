@@ -32,6 +32,14 @@ export function PageHeader({
   const navigate = useNavigate()
   const { openPalette } = useShell()
   const showTitle = !revealTitle || scrolled
+  const goBack = () => {
+    // history.length also counts the pages of other sites opened before in this tab (a shared
+    // link from a chat), so it can't tell whether Back stays in MediaShell. The router numbers
+    // its own entries: idx 0 is the first page of the app in this tab.
+    const index = (window.history.state as { idx?: number } | null)?.idx ?? 0
+    if (index > 0) navigate(-1)
+    else navigate(parent?.to ?? '/', { replace: true })
+  }
   return (
     <header
       className={cn(
@@ -42,12 +50,7 @@ export function PageHeader({
     >
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {back ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t('common.back')}
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(parent?.to ?? '/'))}
-          >
+          <Button variant="ghost" size="icon-sm" aria-label={t('common.back')} onClick={goBack}>
             <ArrowLeft />
           </Button>
         ) : (
@@ -114,7 +117,7 @@ export function PageBody({
   return (
     <div
       className={cn(
-        'mx-auto w-full px-4 pb-24 sm:px-6 md:pb-12 lg:px-8',
+        'mx-auto w-full px-4 pb-[calc(var(--tabbar-h)+2.5rem)] sm:px-6 md:pb-12 lg:px-8',
         width === 'narrow' && 'max-w-3xl',
         width === 'wide' && 'max-w-[1400px]',
         className,

@@ -159,3 +159,20 @@ test('shuffle picks from the catalog and can add to plans', async ({ page }) => 
   await expect(page.getByText('Добавлено в библиотеку')).toBeVisible()
   await expect(page.getByTestId('shuffle-roll')).toContainText('Ещё раз')
 })
+
+test('shuffle starts from your plans when you have some', async ({ page }) => {
+  await register(page)
+  for (const titleId of ['movie-tt1375666', 'movie-tt0816692'])
+    expect((await api(page, 'POST', '/library', { titleId, status: 'planned' })).status).toBe(201)
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Бросить жребий' }).click()
+  await expect(page).toHaveURL(/\/shuffle\?source=library$/)
+  const source = page.getByRole('radiogroup', { name: 'Откуда выбирать' })
+  await expect(source.getByRole('radio', { name: 'Моя библиотека' })).toBeChecked()
+  await expect(page.getByText('В жребии 2 тайтла')).toBeVisible()
+
+  // A remembered choice wins over the default on the next visit.
+  await source.getByRole('radio', { name: 'Популярное' }).click()
+  await page.goto('/shuffle')
+  await expect(source.getByRole('radio', { name: 'Популярное' })).toBeChecked()
+})

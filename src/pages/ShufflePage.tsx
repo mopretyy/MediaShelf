@@ -1,7 +1,7 @@
 import { Dices, ExternalLink, Play, Plus, RotateCw } from 'lucide-react'
 import { useAnimate, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { KINDS, type Kind, type Status, type TitleRecord } from '@shared/types.ts'
 import { PageBody, PageHeader } from '@/app/PageHeader'
 import { Poster } from '@/components/Poster'
@@ -95,12 +95,22 @@ export default function ShufflePage() {
   useDocumentTitle(t('shuffle.title'))
 
   const hasLibrary = Boolean(user && library.data?.length)
+  const [params] = useSearchParams()
   const [prefs] = useState(readPrefs)
-  const [sourceChoice, setSource] = useState<Source | null>(prefs.source)
-  // Popular by default: it works for everyone, even with an empty library.
-  const source: Source = sourceChoice ?? 'catalog'
+  // A link may ask for a source (Home's «from your plans» card); otherwise the last choice.
+  const [sourceChoice, setSource] = useState<Source | null>(() => {
+    const requested = params.get('source')
+    return requested === 'library' || requested === 'catalog' ? requested : prefs.source
+  })
   const [kinds, setKinds] = useState<Kind[]>(prefs.kinds)
   const [statuses, setStatuses] = useState<Status[]>(prefs.statuses)
+  // With no choice made yet: your own plans when there are any to pick from (that is what the
+  // feature is for), popular titles otherwise, so it works with an empty library too.
+  const hasCandidates = Boolean(
+    user &&
+    library.data?.some((entry) => kinds.includes(entry.kind) && statuses.includes(entry.status)),
+  )
+  const source: Source = sourceChoice ?? (hasCandidates ? 'library' : 'catalog')
   const [reel, setReel] = useState<TitleRecord[]>([])
   const [rolling, setRolling] = useState(false)
   const [result, setResult] = useState<TitleRecord | null>(null)
@@ -251,10 +261,17 @@ export default function ShufflePage() {
                 setReel([])
                 setResult(null)
               }}
-              options={[
-                { value: 'catalog', label: t('shuffle.fromCatalog') },
-                { value: 'library', label: t('shuffle.fromLibrary') },
-              ]}
+              options={
+                hasLibrary
+                  ? [
+                      { value: 'library', label: t('shuffle.fromLibrary') },
+                      { value: 'catalog', label: t('shuffle.fromCatalog') },
+                    ]
+                  : [
+                      { value: 'catalog', label: t('shuffle.fromCatalog') },
+                      { value: 'library', label: t('shuffle.fromLibrary') },
+                    ]
+              }
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">

@@ -4,7 +4,13 @@ import { isStatusAllowed } from '../../shared/status.ts'
 import type { LibraryEntry, TitleRecord, User } from '../../shared/types.ts'
 import { KINDS, PLATFORMS, STATUSES, STORES } from '../../shared/types.ts'
 import { sql, transaction, type DB } from '../db/index.ts'
-import { listEntries, listEpisodeMarks, MAX_ENTRIES, MAX_PLAYTHROUGHS } from './entries.ts'
+import {
+  listEntries,
+  listEpisodeMarks,
+  MAX_ENTRIES,
+  MAX_PLAYTHROUGHS,
+  refreshEpisodeCounters,
+} from './entries.ts'
 import type { TitleStore } from './titles.ts'
 
 // Imported artwork may only point at the image CDNs the catalogs themselves use.
@@ -108,6 +114,8 @@ const entrySchema = z.object({
         watchedAt: iso,
         rating: z.number().int().min(1).max(10).nullable().catch(null),
         note: text(2000).catch(''),
+        // Marked by "completed" rather than by hand: leaving "completed" clears it again.
+        auto: z.boolean().optional().catch(undefined),
       }),
     )
     .max(20000)
@@ -121,44 +129,64 @@ export const importSchema = z.object({
   entries: z.array(z.unknown()).max(MAX_ENTRIES),
 })
 
+/** One entry in export format: everything needed to recreate it, marks and playthroughs included. */
+export function exportEntry(db: DB, userId: string, entry: LibraryEntry) {
+  const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(entry.titleId) as {
+    data: string
+  }
+  const title = JSON.parse(stored.data) as TitleRecord
+  return {
+    titleId: entry.titleId,
+    status: entry.status,
+    rating: entry.rating,
+    favorite: entry.favorite,
+    notes: entry.notes,
+    progress: entry.progress,
+    platform: entry.platform,
+    store: entry.store,
+    hours: entry.hours,
+    addedAt: entry.addedAt,
+    startedAt: entry.startedAt,
+    finishedAt: entry.finishedAt,
+    position: entry.position,
+    title: {
+      id: title.id,
+      kind: title.kind,
+      names: title.names,
+      year: title.year,
+      poster: title.poster,
+      backdrop: title.backdrop,
+      genres: title.genres,
+      ratings: title.ratings,
+      runtime: title.runtime ?? null,
+      seasons: title.seasons ?? null,
+      episodes: title.episodes ?? null,
+      externalIds: title.externalIds,
+    },
+    playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
+    episodes: snapshotMarks(db, userId, entry.titleId),
+  }
+}
+
+/** Episode marks as `listEpisodeMarks` returns them, plus whether "completed" set them. */
+function snapshotMarks(db: DB, userId: string, titleId: string) {
+  const auto = new Set(
+    (
+      sql(
+        db,
+        'SELECT season, number FROM episode_marks WHERE user_id = ? AND title_id = ? AND auto = 1',
+      ).all(userId, titleId) as { season: number; number: number }[]
+    ).map((row) => `${row.season}:${row.number}`),
+  )
+  return listEpisodeMarks(db, userId, titleId).map((mark) =>
+    auto.has(`${mark.season}:${mark.number}`) ? { ...mark, auto: true } : mark,
+  )
+}
+
+export type EntrySnapshot = ReturnType<typeof exportEntry>
+
 export function exportLibrary(db: DB, user: User) {
-  const entries = listEntries(db, user.id).map((entry: LibraryEntry) => {
-    const stored = sql(db, 'SELECT data FROM titles WHERE id = ?').get(entry.titleId) as {
-      data: string
-    }
-    const title = JSON.parse(stored.data) as TitleRecord
-    return {
-      titleId: entry.titleId,
-      status: entry.status,
-      rating: entry.rating,
-      favorite: entry.favorite,
-      notes: entry.notes,
-      progress: entry.progress,
-      platform: entry.platform,
-      store: entry.store,
-      hours: entry.hours,
-      addedAt: entry.addedAt,
-      startedAt: entry.startedAt,
-      finishedAt: entry.finishedAt,
-      position: entry.position,
-      title: {
-        id: title.id,
-        kind: title.kind,
-        names: title.names,
-        year: title.year,
-        poster: title.poster,
-        backdrop: title.backdrop,
-        genres: title.genres,
-        ratings: title.ratings,
-        runtime: title.runtime ?? null,
-        seasons: title.seasons ?? null,
-        episodes: title.episodes ?? null,
-        externalIds: title.externalIds,
-      },
-      playthroughs: entry.playthroughs.map(({ id: _id, updatedAt: _updated, ...rest }) => rest),
-      episodes: listEpisodeMarks(db, user.id, entry.titleId),
-    }
-  })
+  const entries = listEntries(db, user.id).map((entry) => exportEntry(db, user.id, entry))
   return {
     format: 'mediashelf' as const,
     version: 4 as const,
@@ -173,6 +201,14 @@ const ms = (value: string | null | undefined) => (value ? Date.parse(value) : nu
 /** Merges an export into the user's library; existing entries are overwritten. */
 export function importLibrary(db: DB, titles: TitleStore, userId: string, payload: unknown) {
   const { entries } = importSchema.parse(payload)
+  return importEntries(db, titles, userId, entries)
+}
+
+/**
+ * Writes export-format entries (see `exportEntry`) in one transaction, skipping invalid ones.
+ * Also used by Undo after a removal, which restores the snapshot the DELETE returned.
+ */
+export function importEntries(db: DB, titles: TitleStore, userId: string, entries: unknown[]) {
   let imported = 0
   let skipped = 0
   transaction(db, () => {
@@ -263,12 +299,22 @@ export function importLibrary(db: DB, titles: TitleStore, userId: string, payloa
       } else if (entry.title.kind !== 'movie') {
         const insert = sql(
           db,
-          `INSERT INTO episode_marks (user_id, title_id, season, number, watched_at, rating, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT DO UPDATE SET watched_at = excluded.watched_at, rating = excluded.rating, note = excluded.note`,
+          `INSERT INTO episode_marks (user_id, title_id, season, number, watched_at, rating, note, auto)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT DO UPDATE SET watched_at = excluded.watched_at, rating = excluded.rating,
+             note = excluded.note, auto = excluded.auto`,
         )
         for (const e of entry.episodes)
-          insert.run(userId, entry.titleId, e.season, e.number, ms(e.watchedAt), e.rating, e.note)
+          insert.run(
+            userId,
+            entry.titleId,
+            e.season,
+            e.number,
+            ms(e.watchedAt),
+            e.rating,
+            e.note,
+            e.auto && e.watchedAt ? 1 : 0,
+          )
         const { count } = sql(
           db,
           'SELECT COUNT(*) AS count FROM episode_marks WHERE user_id = ? AND title_id = ? AND season > 0 AND watched_at IS NOT NULL',
@@ -278,6 +324,8 @@ export function importLibrary(db: DB, titles: TitleStore, userId: string, payloa
           userId,
           entry.titleId,
         )
+        // With a stored episode list this also restores "next episode" and the progress bar.
+        refreshEpisodeCounters(db, userId, entry.titleId)
       }
       imported++
     }

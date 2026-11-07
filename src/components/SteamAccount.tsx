@@ -12,7 +12,7 @@ import { Chip } from '@/components/ui/misc'
 import { useI18n } from '@/i18n'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
-import { keys } from '@/lib/queries'
+import { invalidateDerived, keys } from '@/lib/queries'
 
 const CONNECTABLE: StoreId[] = ['steam']
 const KEY_PATTERN = /^[A-Fa-f0-9]{32}$/
@@ -264,6 +264,7 @@ function ImportPanel({ status }: { status: SteamStatus }) {
       setResult(done)
       setKeyOpen(done.partial && !status.ownKeyHint && !status.siteKey)
       await client.invalidateQueries({ queryKey: keys.library })
+      invalidateDerived(client)
     } catch (error) {
       toast.error(message(error))
     } finally {

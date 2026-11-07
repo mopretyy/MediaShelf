@@ -115,14 +115,17 @@ export function CoverPicker({ user }: { user: User }) {
   const [picking, setPicking] = useState(false)
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
-  const [stamp, setStamp] = useState(() => Date.now())
-  const [hasCover, setHasCover] = useState<boolean | null>(null)
+  // Whether a picture was uploaded comes from the profile (no probing the image URL, which
+  // 404s for everyone without one); local changes win until the profile refetches.
+  const [uploaded, setUploaded] = useState<{ version: number | null } | null>(null)
+  const version = uploaded ? uploaded.version : (profile.data?.coverVersion ?? null)
+  const hasCover = uploaded || profile.data ? version !== null : null
 
   const current = user.preferences.banner ?? 'none'
   const posters = profile.data?.heroPosters ?? []
   const favourite = profile.data?.favorites[0]?.title
   const picked = library.data?.find((entry) => entry.titleId === user.preferences.bannerTitleId)
-  const coverUrl = `/api/users/${user.id}/cover?v=${stamp}`
+  const coverUrl = `/api/users/${user.id}/cover?v=${version ?? 0}`
 
   const refresh = () => client.invalidateQueries({ queryKey: keys.profile(user.id) })
 
@@ -176,8 +179,7 @@ export function CoverPicker({ user }: { user: User }) {
     setBusy(true)
     try {
       await api('PUT', '/me/cover', { dataUrl: await fileToCover(chosen) })
-      setStamp(Date.now())
-      setHasCover(true)
+      setUploaded({ version: Date.now() })
       choose({ banner: 'image' })
       toast(t('profileLook.toastCoverSaved'))
     } catch (error) {
@@ -195,7 +197,7 @@ export function CoverPicker({ user }: { user: User }) {
     setBusy(true)
     try {
       await api('DELETE', '/me/cover')
-      setHasCover(false)
+      setUploaded({ version: null })
       if (current === 'image') choose({ banner: 'none' })
       toast(t('profileLook.toastCoverRemoved'))
     } catch (error) {
@@ -287,14 +289,8 @@ export function CoverPicker({ user }: { user: User }) {
             disabled={busy}
             onClick={() => (hasCover ? choose({ banner: 'image' }) : file.current?.click())}
           >
-            {hasCover !== false ? (
-              <img
-                src={coverUrl}
-                alt=""
-                className="absolute inset-0 size-full object-cover"
-                onLoad={() => setHasCover(true)}
-                onError={() => setHasCover(false)}
-              />
+            {hasCover ? (
+              <img src={coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
             ) : null}
             {!hasCover ? (
               <Placeholder icon={<ImagePlus />} text={t('profileLook.coverImageEmpty')} />

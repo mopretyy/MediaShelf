@@ -3,7 +3,7 @@ import { loadConfig } from '../config.ts'
 import { openDatabase } from '../db/index.ts'
 import { TitleStore } from '../library/titles.ts'
 import { hashPassword } from '../auth/password.ts'
-import type { Kind, TitleNames } from '../../shared/types.ts'
+import type { Kind, NextEpisode, TitleNames } from '../../shared/types.ts'
 
 interface SeedTitle {
   id: string
@@ -430,23 +430,61 @@ const pool: SeedTitle[] = [
   },
 ]
 
+// Stored like an import: the first visit fetches the real catalog record (description, backdrop,
+// ratings, trailer) and replaces this stub, instead of the stub passing for fresh details.
 for (const item of pool) {
-  titles.put(
-    {
-      id: item.id,
-      kind: item.kind,
-      names: item.names,
-      year: item.year,
-      poster: item.poster,
-      backdrop: null,
-      genres: item.genres,
-      ratings: [{ source: 'imdb', value: 9.0, max: 10 }],
-      runtime: item.runtime ?? null,
-      episodes: item.totalEpisodes ?? null,
-      externalIds: {},
-    },
-    true,
+  titles.putImported({
+    id: item.id,
+    kind: item.kind,
+    names: item.names,
+    year: item.year,
+    poster: item.poster,
+    backdrop: null,
+    genres: item.genres,
+    ratings: [],
+    runtime: item.runtime ?? null,
+    episodes: item.totalEpisodes ?? null,
+    externalIds: {},
+  })
+}
+
+// Real season sizes (TVmaze), so the demo's episode marks line up with the episode lists the app
+// loads later. Anime lists from Shikimori are one season numbered 1..N.
+const SEASONS: Record<string, number[]> = {
+  'series-tt0903747': [7, 13, 13, 13, 16], // Breaking Bad
+  'series-tt0944947': [10, 10, 10, 10, 10, 10, 7, 6], // Game of Thrones
+  'series-tt7366338': [5], // Chernobyl
+}
+
+/** The first `watched` episodes in airing order, spread between `from` and `to`, plus the next one. */
+function planEpisodes(
+  id: string,
+  kind: Kind,
+  total: number,
+  watched: number,
+  from: number,
+  to: number,
+) {
+  const seasons = SEASONS[id] ?? (kind === 'anime' && total ? [total] : null)
+  if (!seasons) return { marks: [], next: null }
+  const order = seasons.flatMap((size, s) =>
+    Array.from({ length: size }, (_, e) => ({ season: s + 1, number: e + 1 })),
   )
+  const done = order.slice(0, watched)
+  const marks = done.map((episode, i) => ({
+    ...episode,
+    at: Math.round(from + ((to - from) * (i + 1)) / done.length),
+  }))
+  const upcoming = order[watched]
+  const next: NextEpisode | null = upcoming ? { ...upcoming, name: null, airdate: null } : null
+  return { marks, next }
+}
+
+const insertMark = db.prepare(
+  'INSERT INTO episode_marks (user_id, title_id, season, number, watched_at) VALUES (?, ?, ?, ?, ?)',
+)
+const insertMarks = (id: string, marks: { season: number; number: number; at: number }[]) => {
+  for (const mark of marks) insertMark.run(userId, id, mark.season, mark.number, mark.at)
 }
 
 const insertEntry = db.prepare(`
@@ -623,6 +661,13 @@ for (const item of finishedItems) {
     started,
     item.finished,
   )
+  if (meta.kind === 'series' || meta.kind === 'anime') {
+    const total = meta.totalEpisodes ?? 0
+    insertMarks(
+      item.id,
+      planEpisodes(item.id, meta.kind, total, total, started, item.finished).marks,
+    )
+  }
   insertActivity.run(
     userId,
     item.id,
@@ -665,6 +710,19 @@ const inProgressItems: InProgressItem[] = [
 for (const item of inProgressItems) {
   const meta = pool.find((p) => p.id === item.id)!
   const started = now - 20 * 86400000
+  const episodes = planEpisodes(
+    item.id,
+    meta.kind,
+    item.total ?? 0,
+    item.watched ?? 0,
+    started,
+    now - 3600000,
+  )
+  // Episode progress is derived exactly like the app does it, so nothing jumps on first view.
+  const progress =
+    item.watched !== undefined && item.total
+      ? Math.round((item.watched / item.total) * 100)
+      : item.progress
   insertEntry.run(
     userId,
     item.id,
@@ -673,19 +731,20 @@ for (const item of inProgressItems) {
     null,
     1,
     item.notes,
-    item.progress,
+    progress,
     item.platform ?? null,
     item.store ?? null,
     item.hours ?? null,
     item.watched ?? 0,
     item.total ?? null,
-    null,
+    episodes.next ? JSON.stringify(episodes.next) : null,
     count,
     started,
     now - 3600000,
     started,
     null,
   )
+  insertMarks(item.id, episodes.marks)
   insertActivity.run(
     userId,
     item.id,

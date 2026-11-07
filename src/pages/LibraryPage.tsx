@@ -12,7 +12,7 @@ import { Chip, EmptyState, Skeleton } from '@/components/ui/misc'
 import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
-import { useDocumentTitle } from '@/lib/hooks'
+import { useDocumentTitle, useSearchParamText } from '@/lib/hooks'
 import { useLibrary } from '@/lib/queries'
 import { compareNames, entryProgressText, statusLabelKey } from '@/lib/titles'
 import { ListView } from './library/ListView'
@@ -50,7 +50,9 @@ export default function LibraryPage() {
   const sort: Sort = SORTS.includes(params.get('sort') as Sort)
     ? (params.get('sort') as Sort)
     : 'updated'
-  const q = params.get('q') ?? ''
+  // The box keeps its own text (every keystroke and the caret survive); filtering and the URL
+  // follow once typing pauses.
+  const search = useSearchParamText('q', 150)
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params)
@@ -62,7 +64,7 @@ export default function LibraryPage() {
   }
 
   const entries = useMemo(() => library.data ?? [], [library.data])
-  const query = normalise(q.trim())
+  const query = normalise(search.query)
   const searched = useMemo(
     () =>
       query
@@ -194,16 +196,16 @@ export default function LibraryPage() {
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-3" />
               <input
                 type="search"
-                value={q}
-                onChange={(event) => update({ q: event.target.value || null })}
+                value={search.text}
+                onChange={(event) => search.setText(event.target.value)}
                 placeholder={t('library.searchPlaceholder')}
                 aria-label={t('library.searchPlaceholder')}
                 className="h-9 w-full rounded-lg bg-raised pr-8 pl-9 text-base ring-1 ring-line outline-none ring-inset placeholder:text-fg-3 focus:shadow-[0_0_0_4px_var(--active)] focus:ring-line-strong [&::-webkit-search-cancel-button]:hidden"
               />
-              {q ? (
+              {search.text ? (
                 <button
                   type="button"
-                  onClick={() => update({ q: null })}
+                  onClick={search.clear}
                   aria-label={t('common.clear')}
                   className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-md text-fg-3 hover:bg-hover hover:text-fg"
                 >
