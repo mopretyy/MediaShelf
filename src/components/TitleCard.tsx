@@ -92,13 +92,19 @@ export function TitleCard({
         aria-label={[name, year, t(`kind.${title.kind}`)].filter(Boolean).join(', ')}
         aria-describedby={meta ? metaId : undefined}
       >
-        <div className="relative transition-transform duration-300 ease-out group-hover/card:-translate-y-0.5">
+        {/* Alive under the pointer: the card lifts 2 px, the picture eases in 3 % and a soft light
+            falls from the top edge; a press gives a little. Reduced motion makes it instant. */}
+        <div className="relative transition-transform duration-300 ease-out group-hover/card:-translate-y-0.5 group-active/card:scale-[0.98]">
           <Poster
             src={title.poster}
             alt={name}
             kind={title.kind}
             eager={eager}
-            className="shadow-poster transition-[box-shadow] duration-300 group-hover/card:ring-line-strong"
+            className={cn(
+              'shadow-poster transition-[box-shadow] duration-300 group-hover/card:ring-line-strong',
+              '[&_img]:transition-[opacity,transform] [&_img]:duration-500 group-hover/card:[&_img]:scale-[1.03]',
+              'after:pointer-events-none after:absolute after:inset-0 after:bg-gradient-to-b after:from-white/12 after:to-transparent after:to-40% after:opacity-0 after:transition-opacity after:duration-300 group-hover/card:after:opacity-100',
+            )}
           />
           {saved ? (
             <Tooltip content={t(statusLabelKey(saved.kind, saved.status))}>

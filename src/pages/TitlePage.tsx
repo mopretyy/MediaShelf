@@ -111,7 +111,13 @@ function Hero({ title, onRemove }: { title: TitleRecord; onRemove(): void }) {
       className="dark @container relative isolate overflow-hidden rounded-2xl bg-black text-fg"
     >
       {title.backdrop ? (
-        <Backdrop src={title.backdrop} className="absolute inset-0 -z-10 size-full opacity-60" />
+        // The wrapper dims the frame, so the picture keeps its own fade-in as it loads.
+        <div className="absolute inset-0 -z-10 opacity-75">
+          <Backdrop
+            src={title.backdrop}
+            className="size-full animate-hero-zoom object-[center_25%]"
+          />
+        </div>
       ) : title.poster ? (
         <img
           src={title.poster}
