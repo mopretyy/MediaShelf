@@ -208,10 +208,11 @@ export const de: DeepPartial<Messages> = {
     loginForLibrary: 'Melden Sie sich an, um aus Ihrer Bibliothek zu wählen.',
   },
   auth: {
-    loginTitle: 'Anmelden bei MediaShell',
-    loginSubtitle: 'Willkommen zurück! Ihre Bibliothek wartet.',
+    loginTitle: 'Willkommen zurück',
+    loginSubtitle: 'Melden Sie sich an und machen Sie dort weiter, wo Sie aufgehört haben.',
     registerTitle: 'Konto erstellen',
-    registerSubtitle: 'Die Bibliothek wird auf diesem MediaShell-Server gespeichert.',
+    registerSubtitle:
+      'Ein paar Felder, und Ihre Bibliothek für Spiele, Filme, Serien und Anime ist bereit.',
     name: 'Name',
     namePlaceholder: 'Wie sollen wir Sie nennen',
     email: 'E-Mail',
@@ -225,6 +226,18 @@ export const de: DeepPartial<Messages> = {
     haveAccount: 'Schon ein Konto?',
     closed: 'Die Registrierung auf diesem Server ist geschlossen.',
     welcome: 'Willkommen, {name}!',
+    tabsLabel: 'Anmelden oder registrieren',
+    tabLogin: 'Anmelden',
+    tabRegister: 'Registrieren',
+    localNote: 'Ihre Daten bleiben auf diesem Server',
+    showcase: {
+      badge: 'Gerade beliebt',
+      title: 'Alles, was Sie spielen und schauen, an einem Ort',
+      text: 'Die Kataloge von Steam, IMDb, Shikimori und AniList sind eingebaut. Nichts einzurichten.',
+      kinds: 'Spiele, Filme, Serien und Anime',
+      progress: 'Status, Folgen, Durchgänge und Bewertungen',
+      stats: 'Jahresrückblick und persönliche Statistik',
+    },
     signedOut: 'Sie wurden abgemeldet',
   },
   settings: {
