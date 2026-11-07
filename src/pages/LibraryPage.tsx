@@ -8,7 +8,8 @@ import { BrandIcon } from '@/components/BrandIcon'
 import { StatusIcon } from '@/components/StatusIcon'
 import { TitleCard, TitleCardSkeleton, TitleGrid } from '@/components/TitleCard'
 import { Button, focusRing } from '@/components/ui/button'
-import { Chip, EmptyState, Skeleton } from '@/components/ui/misc'
+import { Chip, EmptyIcon, EmptyState, Skeleton } from '@/components/ui/misc'
+import { PosterFan } from '@/components/PosterFan'
 import { Segmented } from '@/components/ui/segmented'
 import { Select } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
@@ -175,7 +176,15 @@ export default function LibraryPage() {
         {header}
         <EmptyState
           className="py-28"
-          icon={<LibraryBig />}
+          art={
+            <PosterFan
+              fallback={
+                <EmptyIcon>
+                  <LibraryBig />
+                </EmptyIcon>
+              }
+            />
+          }
           title={t('library.empty')}
           text={t('library.emptyText')}
           action={

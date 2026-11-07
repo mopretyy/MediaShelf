@@ -67,3 +67,24 @@ test('Stats opens on the year banner, which leads into the year story', async ({
   await banner.click()
   await expect(page.getByRole('dialog', { name: /Итоги \d{4}/ })).toBeVisible()
 })
+
+test('an empty library shows a fan of popular posters above its invitation', async ({ page }) => {
+  await register(page)
+  const poster = `data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><rect width="2" height="3" fill="#567"/></svg>',
+  )}`
+  await page.route('**/api/catalog/charts*', async (route) => {
+    const response = await route.fetch()
+    const body = (await response.json()) as { items: { poster: string | null }[] }
+    for (const item of body.items) item.poster = poster
+    await route.fulfill({ response, json: body })
+  })
+  await page.goto('/library')
+  await expect(page.getByText('Библиотека пуста')).toBeVisible()
+  const fan = page
+    .getByRole('main')
+    .locator('div[aria-hidden="true"]')
+    .filter({ has: page.locator('img') })
+    .first()
+  await expect(fan.locator('img')).toHaveCount(5)
+})

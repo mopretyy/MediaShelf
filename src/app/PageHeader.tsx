@@ -130,7 +130,9 @@ export function PageBody({
   return (
     <div
       className={cn(
-        'mx-auto w-full px-4 pb-[calc(var(--tabbar-h)+2.5rem)] sm:px-6 md:pb-12 lg:px-8',
+        // Each page fades in as it opens: opacity only, since a transform here would become the
+        // containing block of anything fixed inside the page.
+        'mx-auto w-full animate-fade-in px-4 pb-[calc(var(--tabbar-h)+2.5rem)] sm:px-6 md:pb-12 lg:px-8',
         width === 'narrow' && 'max-w-3xl',
         width === 'wide' && 'max-w-[1400px]',
         className,

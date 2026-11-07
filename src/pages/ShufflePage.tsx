@@ -18,7 +18,8 @@ import { Poster } from '@/components/Poster'
 import { StatusIcon } from '@/components/StatusIcon'
 import { useLibraryActions } from '@/components/library-actions'
 import { Button } from '@/components/ui/button'
-import { Chip, EmptyState, Kbd, Skeleton } from '@/components/ui/misc'
+import { Chip, EmptyIcon, EmptyState, Kbd, Skeleton } from '@/components/ui/misc'
+import { PosterFan } from '@/components/PosterFan'
 import { Segmented } from '@/components/ui/segmented'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/cn'
@@ -349,7 +350,15 @@ export default function ShufflePage() {
     ) : (
       <EmptyState
         className="py-6"
-        icon={<LibraryBig />}
+        art={
+          <PosterFan
+            fallback={
+              <EmptyIcon>
+                <LibraryBig />
+              </EmptyIcon>
+            }
+          />
+        }
         title={t('shuffle.emptyLibrary')}
         text={t('shuffle.emptyLibraryText')}
         action={rollPopular}
