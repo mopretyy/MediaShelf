@@ -380,6 +380,37 @@ describe('details', () => {
     expect(record?.trailer).toMatchObject({ type: 'video' })
   })
 
+  it('describes a Steam game that is not sold in the region from the US store', async () => {
+    // What Steam answers for The Witcher 3 in Russia: no data, only the restriction flag.
+    const restricted = {
+      response: {
+        store_items: [
+          {
+            item_type: 0,
+            id: 292030,
+            success: 15,
+            visible: false,
+            unvailable_for_country_restriction: true,
+            name: 'The Witcher 3: Wild Hunt — Remastered',
+            appid: 292030,
+          },
+        ],
+      },
+    }
+    const { catalog, fake } = setup([
+      [/GetItems.*"country_code":"RU"/, restricted],
+      [/appdetails\?appids=292030&cc=ru/, { '292030': { success: false } }],
+    ])
+    const record = await catalog.details('steam-292030', { locale: 'ru', region: 'RU' })
+    expect(record).toMatchObject({
+      id: 'steam-292030',
+      detailed: true,
+      names: { original: 'The Witcher 3: Wild Hunt - Complete Edition' },
+    })
+    expect(record?.poster).toBeTruthy()
+    expect(fake.count(/GetItems.*"country_code":"US"/)).toBeGreaterThan(0)
+  })
+
   it('returns null for unknown ids and non-game Steam apps', async () => {
     const { catalog } = setup()
     expect(await catalog.details('steam-431960', en)).toBeNull()

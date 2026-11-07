@@ -741,6 +741,10 @@ export function createCatalogService(options: CatalogServiceOptions): CatalogSer
     const app = appR?.value ?? null
     if (!summary && !app) {
       if (!itemR && !appR) throw new CatalogUnavailableError()
+      // Steam hides a game from the stores of countries where it is not sold (The Witcher 3 in
+      // Russia answers `unvailable_for_country_restriction`). Its name, pictures and description
+      // are the same everywhere, so ask the US store; prices stay per region (`offers`).
+      if (country !== 'US') return steamDetails(appid, { ...ctx, region: 'US' })
       return { value: null, partial: !itemR || !appR }
     }
     if (
