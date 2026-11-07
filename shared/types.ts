@@ -443,6 +443,8 @@ export interface LibraryStats {
   completedThisYear: number
   addedThisYear: number
   longestStreakDays: number
+  /** Days with something done in the last 53 weeks (the user's calendar), oldest first. */
+  activityDays: { day: string; count: number }[]
 }
 
 // ---------------------------------------------------------------------------

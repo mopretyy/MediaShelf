@@ -624,6 +624,16 @@ export const ro: DeepPartial<Messages> = {
     loginForLibrary: 'Autentifică-te ca să alegi din biblioteca ta.',
   },
   stats: {
+    heatmapTitle: 'Un an de activitate',
+    heatmapMeta: {
+      one: '{count} zi activă',
+      few: '{count} zile active',
+      other: '{count} de zile active',
+    },
+    heatmapDay: { one: '{count} acțiune', few: '{count} acțiuni', other: '{count} de acțiuni' },
+    heatmapNone: 'nimic',
+    heatmapLess: 'Mai puțin',
+    heatmapMore: 'Mai mult',
     title: 'Statistici',
     empty: 'Aici vor apărea statisticile',
     emptyText: 'Adaugă ceva în bibliotecă și urmărește-ți progresul.',

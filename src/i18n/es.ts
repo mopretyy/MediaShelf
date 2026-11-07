@@ -612,6 +612,12 @@ export const es: DeepPartial<Messages> = {
     loginForLibrary: 'Inicia sesión para elegir de tu biblioteca.',
   },
   stats: {
+    heatmapTitle: 'Un año de actividad',
+    heatmapMeta: { one: '{count} día activo', other: '{count} días activos' },
+    heatmapDay: { one: '{count} acción', other: '{count} acciones' },
+    heatmapNone: 'nada',
+    heatmapLess: 'Menos',
+    heatmapMore: 'Más',
     title: 'Estadísticas',
     empty: 'Aquí aparecerán tus estadísticas',
     emptyText: 'Añade algo a la biblioteca y sigue tu progreso.',

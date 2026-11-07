@@ -478,6 +478,22 @@ export const ru = {
     loginForLibrary: 'Войдите, чтобы выбирать из своей библиотеки.',
   },
   stats: {
+    heatmapTitle: 'Год активности',
+    heatmapMeta: {
+      one: '{count} активный день',
+      few: '{count} активных дня',
+      many: '{count} активных дней',
+      other: '{count} активного дня',
+    },
+    heatmapDay: {
+      one: '{count} действие',
+      few: '{count} действия',
+      many: '{count} действий',
+      other: '{count} действия',
+    },
+    heatmapNone: 'ничего',
+    heatmapLess: 'Меньше',
+    heatmapMore: 'Больше',
     title: 'Статистика',
     empty: 'Здесь появится статистика',
     emptyText: 'Добавьте что-нибудь в библиотеку и отмечайте прогресс.',

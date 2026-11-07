@@ -431,6 +431,12 @@ export const en: Messages = {
     loginForLibrary: 'Sign in to pick from your own library.',
   },
   stats: {
+    heatmapTitle: 'Year of activity',
+    heatmapMeta: p('{count} active day', '{count} active days'),
+    heatmapDay: p('{count} action', '{count} actions'),
+    heatmapNone: 'nothing',
+    heatmapLess: 'Less',
+    heatmapMore: 'More',
     title: 'Stats',
     empty: 'Stats will appear here',
     emptyText: 'Add something to your library and track your progress.',

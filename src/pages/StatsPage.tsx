@@ -17,6 +17,7 @@ import { RatingsChart } from './stats/RatingsChart'
 import { StatCard } from './stats/StatCard'
 import { StatsSkeleton } from './stats/StatsSkeleton'
 import { YearBanner } from './stats/YearBanner'
+import { YearHeatmap } from './stats/YearHeatmap'
 
 function Facts({ stats }: { stats: LibraryStats }) {
   const { t } = useI18n()
@@ -41,6 +42,10 @@ function StatsContent({ stats }: { stats: LibraryStats }) {
       <KpiGrid stats={stats} />
       <div className="@container mt-4">
         <div className="grid gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3">
+          <YearHeatmap
+            days={stats.activityDays ?? []}
+            className="@2xl:col-span-2 @4xl:col-span-3"
+          />
           <MonthlyChart months={stats.completedByMonth} className="@2xl:col-span-2" />
           <TimeBreakdown minutes={stats.minutes} />
           <StatCard title={t('stats.byKind')} meta={t('count.titles', { count: stats.total })}>

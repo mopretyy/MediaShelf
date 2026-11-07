@@ -42,6 +42,9 @@ function calendar({ timeZone, offsetMinutes = 0 }: StatsZone) {
   }
 }
 
+/** 53 weeks: enough for a full year of columns whatever weekday it starts on. */
+export const HEATMAP_DAYS = 371
+
 const monthKey = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
 
 export function computeStats(db: DB, userId: string, zone: StatsZone = {}): LibraryStats {
@@ -136,14 +139,19 @@ export function computeStats(db: DB, userId: string, zone: StatsZone = {}): Libr
      UNION SELECT watched_at FROM episode_marks WHERE user_id = ? AND watched_at IS NOT NULL
      UNION SELECT finished_at FROM playthroughs WHERE user_id = ? AND finished_at IS NOT NULL`,
   ).all(userId, userId, userId, userId, userId) as { at: number }[]
-  const days = [
-    ...new Set(
-      stamps.map((row) => {
-        const day = local(row.at)
-        return Date.UTC(day.y, day.m - 1, day.d) / 86_400_000
-      }),
-    ),
-  ].sort((a, b) => a - b)
+  const dayNumbers = stamps.map((row) => {
+    const day = local(row.at)
+    return Date.UTC(day.y, day.m - 1, day.d) / 86_400_000
+  })
+  const days = [...new Set(dayNumbers)].sort((a, b) => a - b)
+  // The year heatmap: how much happened on each day of the last 53 weeks.
+  const today = Date.UTC(now.y, now.m - 1, now.d) / 86_400_000
+  const perDay = new Map<number, number>()
+  for (const day of dayNumbers)
+    if (day > today - HEATMAP_DAYS && day <= today) perDay.set(day, (perDay.get(day) ?? 0) + 1)
+  const activityDays = [...perDay]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, count]) => ({ day: new Date(day * 86_400_000).toISOString().slice(0, 10), count }))
   let longest = 0
   let run = 0
   let previous: number | null = null
@@ -176,5 +184,6 @@ export function computeStats(db: DB, userId: string, zone: StatsZone = {}): Libr
     completedThisYear,
     addedThisYear,
     longestStreakDays: longest,
+    activityDays,
   }
 }

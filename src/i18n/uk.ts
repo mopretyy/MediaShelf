@@ -662,6 +662,22 @@ export const uk: Messages = {
     loginForLibrary: 'Увійдіть, щоб обирати зі своєї бібліотеки.',
   },
   stats: {
+    heatmapTitle: 'Рік активності',
+    heatmapMeta: {
+      one: '{count} активний день',
+      few: '{count} активні дні',
+      many: '{count} активних днів',
+      other: '{count} активного дня',
+    },
+    heatmapDay: {
+      one: '{count} дія',
+      few: '{count} дії',
+      many: '{count} дій',
+      other: '{count} дії',
+    },
+    heatmapNone: 'нічого',
+    heatmapLess: 'Менше',
+    heatmapMore: 'Більше',
     title: 'Статистика',
     empty: 'Тут з’явиться статистика',
     emptyText: 'Додайте щось до бібліотеки й відзначайте прогрес.',
